@@ -81,7 +81,7 @@ class TestLeaveApprovalLevels(HRMSTestSuite):
 		vp = make_employee(VP, COMPANY, department=self.holding)
 		self.assertRaises(LeaveApprovalError, get_leave_approvers, vp)
 
-	def test_all_required_approvers_must_approve(self):
+	def test_required_and_regular_approval_needed(self):
 		application = apply_for_leave(
 			make_employee("la.designer@example.com", COMPANY, department=self.design)
 		)
@@ -94,20 +94,20 @@ class TestLeaveApprovalLevels(HRMSTestSuite):
 				)
 			)
 
-		# a Regular rejection is only advice
-		self.assertEqual(decide(application, RUDI, "Rejected"), "Open")
 		self.assertEqual(decide(application, VP, "Approved"), "Open")
-		self.assertEqual(decide(application, HR, "Approved"), "Approved")
+		# all Required approvers approved, but no Regular approver yet
+		self.assertEqual(decide(application, HR, "Approved"), "Open")
+		self.assertEqual(decide(application, RUDI, "Approved"), "Approved")
 
 		application.reload()
 		self.assertEqual(application.docstatus, 1)
 		self.assertEqual(application.status, "Approved")
 		self.assertEqual(
 			[(row.approver, row.decision) for row in application.approvers],
-			[(RUDI, "Rejected"), (VP, "Approved"), (HR, "Approved")],
+			[(RUDI, "Approved"), (VP, "Approved"), (HR, "Approved")],
 		)
 
-	def test_required_rejection_overrides_regular_approval(self):
+	def test_required_rejection_rejects(self):
 		application = apply_for_leave(make_employee("la.staff@example.com", COMPANY, department=self.finance))
 
 		self.assertEqual(decide(application, SARI, "Approved"), "Open")
@@ -116,6 +116,21 @@ class TestLeaveApprovalLevels(HRMSTestSuite):
 		application.reload()
 		self.assertEqual(application.docstatus, 1)
 		self.assertEqual(application.status, "Rejected")
+
+	def test_regular_rejection_rejects(self):
+		application = apply_for_leave(
+			make_employee("la.designer@example.com", COMPANY, department=self.design)
+		)
+
+		self.assertEqual(decide(application, VP, "Approved"), "Open")
+		self.assertEqual(decide(application, RUDI, "Rejected"), "Rejected")
+		self.assertEqual(frappe.db.get_value("Leave Application", application.name, "docstatus"), 1)
+
+	def test_no_regular_approver_needed_when_there_is_none(self):
+		# a Regular approver's own leave only has Required approvers
+		application = apply_for_leave(make_employee(SARI, COMPANY, department=self.finance))
+
+		self.assertEqual(decide(application, HEAD, "Approved"), "Approved")
 
 	def test_regular_approvers_decide_as_a_group(self):
 		application = apply_for_leave(make_employee("la.staff@example.com", COMPANY, department=self.finance))
@@ -171,6 +186,7 @@ class TestLeaveApprovalLevels(HRMSTestSuite):
 		self.assertNotIn(HEAD, [row.approver for row in application.approvers])
 		self.assertIn(application.name, get_leave_applications_waiting_for(new_head))
 
+		decide(application, SARI, "Approved")
 		self.assertEqual(decide(application, new_head, "Approved"), "Approved")
 
 	def test_removing_the_last_pending_approver_completes_the_request(self):
@@ -178,6 +194,7 @@ class TestLeaveApprovalLevels(HRMSTestSuite):
 			make_employee("la.designer@example.com", COMPANY, department=self.design)
 		)
 		decide(application, VP, "Approved")
+		decide(application, RUDI, "Approved")
 
 		holding = frappe.get_doc("Department", self.holding)
 		holding.leave_approvers = [row for row in holding.leave_approvers if row.approver != HR]

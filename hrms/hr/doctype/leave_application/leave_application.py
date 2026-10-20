@@ -968,11 +968,18 @@ class LeaveApplication(Document, PWANotificationsMixin):
 			self.append("approvers", row)
 
 	def get_approval_outcome(self) -> str | None:
-		"""Approved once every Required approver approves, Rejected as soon as one rejects."""
-		decisions = [row.decision for row in self.approvers if row.approval_level == "Required"]
-		if "Rejected" in decisions:
+		"""Rejected as soon as any approver rejects. Approved once every Required approver and, if the
+		request has Regular approvers, one of them approves."""
+		if any(row.decision == "Rejected" for row in self.approvers):
 			return "Rejected"
-		if decisions and all(decision == "Approved" for decision in decisions):
+
+		required = [row.decision for row in self.approvers if row.approval_level == "Required"]
+		regular = [row.decision for row in self.approvers if row.approval_level == "Regular"]
+		if (
+			required
+			and all(decision == "Approved" for decision in required)
+			and (not regular or "Approved" in regular)
+		):
 			return "Approved"
 		return None
 
@@ -986,7 +993,7 @@ class LeaveApplication(Document, PWANotificationsMixin):
 
 		if outcome:
 			frappe.throw(
-				_("This leave request was {0} by its Required approvers.").format(_(outcome)),
+				_("This leave request was {0} by its approvers.").format(_(outcome)),
 				exc=LeaveApprovalError,
 			)
 
@@ -995,6 +1002,11 @@ class LeaveApplication(Document, PWANotificationsMixin):
 			for row in self.approvers
 			if row.approval_level == "Required" and row.decision == "Pending"
 		]
+		regular = [row for row in self.approvers if row.approval_level == "Regular"]
+		if regular and not any(row.decision == "Approved" for row in regular):
+			waiting_for.append(
+				_("one of {0}").format(", ".join(row.approver_name or row.approver for row in regular))
+			)
 		frappe.throw(
 			_("This leave request is still waiting for approval from {0}.").format(", ".join(waiting_for)),
 			title=_("Approval Pending"),
@@ -1035,7 +1047,7 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		self.apply_approval_outcome()
 
 	def apply_approval_outcome(self):
-		"""Submits the leave request once its Required approvers have decided."""
+		"""Submits the leave request once its approvers have decided."""
 		if not (outcome := self.get_approval_outcome()):
 			return
 
@@ -1753,7 +1765,7 @@ def is_leave_approval_by_levels() -> bool:
 def get_leave_approvers(employee: str) -> list[frappe._dict]:
 	"""Returns who decides on the employee's leave, with HR Settings' "Approve Leave by Levels".
 
-	- Staff: their department's Required approvers, plus its Regular approvers (advisory).
+	- Staff: their department's Required approvers, plus its Regular approvers.
 	- A Regular approver: their department's Required approvers.
 	- A Required approver, or anyone in a department without Required approvers: the Required
 	  approvers of the nearest parent department that has any.
@@ -1843,8 +1855,9 @@ def get_department_leave_approvers(department: str) -> list[frappe._dict]:
 def record_leave_decision(leave_application: str, decision: str) -> str:
 	"""Records the logged-in approver's decision on a leave request and returns its status.
 
-	The request is approved once all its Required approvers approve and rejected as soon as one of them
-	rejects. Regular approvers decide as one group, and their decision is kept on record as advice.
+	The request is rejected as soon as any approver rejects, and approved once all its Required approvers
+	and one of its Regular approvers approve. Regular approvers decide as one group: the first decision
+	counts for all of them.
 	"""
 	if not is_leave_approval_by_levels():
 		frappe.throw(_("Approve Leave by Levels is not enabled in HR Settings."))

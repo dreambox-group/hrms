@@ -24,7 +24,7 @@
   {
    "default": "Regular",
    "depends_on": "eval:doc.parentfield == \"leave_approvers\"",
-   "description": "Required: must approve every leave request. Regular: one of them gives an advisory decision for the group.",
+   "description": "Required: each one must approve. Regular: one of them approves for the group. Any rejection rejects the leave.",
    "fieldname": "approval_level",
    "fieldtype": "Select",
    "in_list_view": 1,
