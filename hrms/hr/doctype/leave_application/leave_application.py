@@ -26,6 +26,10 @@ from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employe
 
 import hrms
 from hrms.api import get_current_employee_info
+from hrms.hr.doctype.leave_application.leave_calendar import (
+	add_to_leave_calendar,
+	remove_from_leave_calendar,
+)
 from hrms.hr.doctype.leave_block_list.leave_block_list import get_applicable_block_dates
 from hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry import create_leave_ledger_entry
 from hrms.hr.utils import (
@@ -114,6 +118,9 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		if frappe.db.get_single_value("HR Settings", "send_leave_notification"):
 			self.notify_employee()
 
+		if self.status == "Approved":
+			add_to_leave_calendar(self)
+
 		self.create_leave_ledger_entry()
 		# create a reverse ledger entry for backdated leave applications for whom expiry entry already exists
 		leave_allocation = self.get_leave_allocation()
@@ -142,6 +149,7 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		if frappe.db.get_single_value("HR Settings", "send_leave_notification"):
 			self.notify_employee()
 		self.cancel_attendance()
+		remove_from_leave_calendar(self)
 
 		self.publish_update()
 
