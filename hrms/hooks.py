@@ -215,6 +215,9 @@ doc_events = {
 		],
 	},
 	"Loan": {"validate": "hrms.hr.utils.validate_loan_repay_from_salary"},
+	"Department": {
+		"on_update": "hrms.hr.doctype.leave_application.leave_application.update_open_leave_approvers"
+	},
 	"Employee": {
 		"validate": "hrms.overrides.employee_master.validate_onboarding_process",
 		"on_update": [
