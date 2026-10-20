@@ -46,6 +46,8 @@
   "attendance_settings_section",
   "allow_employee_checkin_from_mobile_app",
   "allow_geolocation_tracking",
+  "require_selfie_for_checkin",
+  "selfie_retention_days",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -297,6 +299,23 @@
    "label": "Allow Geolocation Tracking"
   },
   {
+   "default": "0",
+   "depends_on": "allow_employee_checkin_from_mobile_app",
+   "description": "Employees check in by taking a photo with their camera in the app. They can no longer edit or delete their own check-ins; HR still can.",
+   "fieldname": "require_selfie_for_checkin",
+   "fieldtype": "Check",
+   "label": "Require Live Selfie for Check-in"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.require_selfie_for_checkin || doc.selfie_retention_days",
+   "description": "Check-in selfies older than this are deleted every night. 0 keeps them forever.",
+   "fieldname": "selfie_retention_days",
+   "fieldtype": "Int",
+   "label": "Delete Selfies After (Days)",
+   "non_negative": 1
+  },
+  {
    "fieldname": "attendance_settings_section",
    "fieldtype": "Section Break",
    "label": "Attendance Settings"
@@ -390,7 +409,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-06 14:00:00.000000",
+ "modified": "2026-10-20 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",
