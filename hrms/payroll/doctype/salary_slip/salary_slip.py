@@ -479,6 +479,8 @@ class SalarySlip(TransactionBase):
 			self.payment_days = working_days
 			return
 
+		self.set_late_entry_days()
+
 		holidays = self.get_holidays_for_employee(self.start_date, self.end_date)
 		working_days_list = [add_days(getdate(self.start_date), days=day) for day in range(0, working_days)]
 
@@ -558,6 +560,19 @@ class SalarySlip(TransactionBase):
 			unmarked_days -= self._get_number_of_holidays(holidays)
 
 		return unmarked_days
+
+	def set_late_entry_days(self):
+		"""Days in the period with a late check-in, for formulas such as a late penalty."""
+		self.late_entry_days = frappe.db.count(
+			"Attendance",
+			{
+				"employee": self.employee,
+				"docstatus": 1,
+				"late_entry": 1,
+				"status": ("in", ["Present", "Half Day", "Work From Home"]),
+				"attendance_date": ("between", [self.start_date, self.end_date]),
+			},
+		)
 
 	def get_half_absent_days(self, consider_marked_attendance_on_holidays, holidays):
 		"""Calculates the number of half absent days for an employee within a date range"""
