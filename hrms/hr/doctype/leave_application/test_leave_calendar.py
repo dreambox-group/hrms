@@ -90,7 +90,7 @@ class TestLeaveCalendar(HRMSTestSuite):
 		# the nightly retry adds it once Google works again
 		self.google.fail = False
 		push_missing_leave_to_google_calendar()
-		self.assertEqual(get_event(application).google_calendar_event_id, "google-1")
+		self.assertIn(get_event(application).google_calendar_event_id, self.google.ids_for(application))
 
 	def test_no_calendar_set(self):
 		frappe.db.set_single_value("HR Settings", "leave_google_calendar", None)
@@ -112,10 +112,12 @@ class TestLeaveCalendar(HRMSTestSuite):
 		frappe.db.set_single_value("HR Settings", "leave_google_calendar", CALENDAR)
 		push_missing_leave_to_google_calendar()
 
-		self.assertEqual(get_event(application).google_calendar_event_id, "google-1")
-		# nothing is sent twice
+		self.assertIn(get_event(application).google_calendar_event_id, self.google.ids_for(application))
+		# nothing is sent twice (other tests' approved leave may be pushed by the same run)
+		sent = len(self.google.inserted)
 		push_missing_leave_to_google_calendar()
-		self.assertEqual(len(self.google.inserted), 1)
+		self.assertEqual(len(self.google.inserted), sent)
+		self.assertEqual(len(self.google.ids_for(application)), 1)
 
 
 class FakeGoogleCalendar:
@@ -132,6 +134,15 @@ class FakeGoogleCalendar:
 			raise ConnectionError("Google is unreachable")
 		self.inserted.append((calendarId, body))
 		return FakeRequest({"id": f"google-{len(self.inserted)}"})
+
+	def ids_for(self, application):
+		"""Google ids of the events sent for this leave application."""
+		title = f" - {application.employee_name}"
+		return [
+			f"google-{i}"
+			for i, (_calendar, body) in enumerate(self.inserted, start=1)
+			if body["summary"].endswith(title) and body["start"]["date"] == str(application.from_date)
+		]
 
 	def delete(self, calendarId, eventId):
 		self.deleted.append((calendarId, eventId))

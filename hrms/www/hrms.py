@@ -38,4 +38,5 @@ def get_boot():
 
 
 def get_default_route():
-	return "/hrms"
+	path = frappe.request.path if frappe.request else ""
+	return "/hr" if path == "/hr" or path.startswith("/hr/") else "/hrms"

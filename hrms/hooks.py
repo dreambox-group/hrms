@@ -85,7 +85,11 @@ website_generators = ["Job Opening"]
 
 website_route_rules = [
 	{"from_route": "/hrms/<path:app_path>", "to_route": "hrms"},
-	{"from_route": "/hr/<path:app_path>", "to_route": "roster"},
+	{"from_route": "/hr/roster", "to_route": "roster"},
+	{"from_route": "/hr/roster/<path:app_path>", "to_route": "roster"},
+	# the employee app again at /hr (the address employees use day to day), except the roster above
+	{"from_route": "/hr", "to_route": "hrms"},
+	{"from_route": "/hr/<path:app_path>", "to_route": "hrms"},
 ]
 # Jinja
 # ----------

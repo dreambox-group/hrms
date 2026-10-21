@@ -26,6 +26,11 @@ const routes = [
 				component: () => import("@/views/Home.vue"),
 			},
 			{
+				path: "/approvals",
+				name: "Approvals",
+				component: () => import("@/views/Approvals.vue"),
+			},
+			{
 				path: "/dashboard/attendance",
 				name: "AttendanceDashboard",
 				component: () => import("@/views/attendance/Dashboard.vue"),
@@ -89,8 +94,14 @@ const routes = [
 	...salarySlipRoutes,
 ]
 
+// the app is served at /hrms and, for everyday use, at /hr
+function getBasePath() {
+	const path = window.location.pathname
+	return path === "/hr" || path.startsWith("/hr/") ? "/hr" : "/hrms"
+}
+
 const router = createRouter({
-	history: createWebHistory("/hrms"),
+	history: createWebHistory(getBasePath()),
 	routes,
 })
 

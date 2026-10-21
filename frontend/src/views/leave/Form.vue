@@ -167,6 +167,8 @@ function getFilteredFields(fields) {
 		"sb_other_details",
 		"salary_slip",
 		"letter_head",
+		// filled in by the server with approval by levels; shown on the request itself
+		"approvers",
 	]
 
 	const employeeFields = [
@@ -270,6 +272,14 @@ function setLeaveApprovers(data) {
 	const leave_approver = formFields.data?.find(
 		(field) => field.fieldname === "leave_approver"
 	)
+	if (data?.approval_by_levels) {
+		// the department's approvers decide; nobody is picked here
+		for (const field of formFields.data.filter((f) => ["leave_approver", "leave_approver_name"].includes(f.fieldname))) {
+			field.hidden = 1
+			field.reqd = 0
+		}
+		return
+	}
 	leave_approver.reqd = data?.is_mandatory
 	leave_approver.documentList = data?.department_approvers.map((approver) => ({
 		label: approver.full_name
