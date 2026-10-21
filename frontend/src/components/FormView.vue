@@ -125,7 +125,7 @@
 							</div>
 
 							<FileUploaderView
-								v-else-if="showAttachmentView && index === 0"
+								v-else-if="showAttachmentView && !readOnly && index === 0"
 								v-model="fileAttachments"
 								@handleFileSelect="handleFileSelect"
 								@handleFileDelete="handleFileDelete"
@@ -164,7 +164,7 @@
 					</div>
 
 					<FileUploaderView
-						v-else-if="showAttachmentView"
+						v-else-if="showAttachmentView && !readOnly"
 						v-model="fileAttachments"
 						@handleFileSelect="handleFileSelect"
 						@handleFileDelete="handleFileDelete"
@@ -373,6 +373,11 @@ const props = defineProps({
 	showAttachmentView: {
 		type: Boolean,
 		required: false,
+		default: false,
+	},
+	// everything read-only, e.g. a leave request after it was sent
+	readOnly: {
+		type: Boolean,
 		default: false,
 	},
 	showFormButton: {
@@ -754,6 +759,7 @@ async function setFormattedCurrency() {
 
 const isFormReadOnly = computed(() => {
 	if (!isFormReady.value) return true
+	if (props.readOnly) return true
 	if (!props.id) return false
 
 	// submitted & cancelled docs are read only

@@ -9,8 +9,16 @@
 				:fields="formFields.data"
 				:id="props.id"
 				:showAttachmentView="true"
+				:readOnly="isLocked"
+				:showFormButton="!isLocked"
 				@validateForm="validateForm"
-			/>
+			>
+				<template #formButton>
+					<div class="max-h-[50vh] overflow-y-auto">
+						<LeaveRequestActions :doc="leaveApplication" @decided="router.back()" />
+					</div>
+				</template>
+			</FormView>
 		</ion-content>
 	</ion-page>
 </template>
@@ -18,9 +26,11 @@
 <script setup>
 import { IonPage, IonContent } from "@ionic/vue"
 import { createResource } from "frappe-ui"
-import { ref, watch, inject, nextTick } from "vue"
+import { computed, ref, watch, inject, nextTick } from "vue"
+import { useRouter } from "vue-router"
 
 import FormView from "@/components/FormView.vue"
+import LeaveRequestActions from "@/components/LeaveRequestActions.vue"
 
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
@@ -34,6 +44,16 @@ const props = defineProps({
 })
 
 const sessionEmployee = inject("$employee")
+const sessionUser = inject("$user")
+const router = useRouter()
+
+// a sent leave request is not edited by the employee or the approvers (the server refuses it too);
+// approvers decide with the buttons, HR can still correct it
+const isLocked = computed(
+	() =>
+		Boolean(props.id) &&
+		!(sessionUser?.data?.roles || []).some((role) => ["HR Manager", "HR User", "System Manager"].includes(role))
+)
 const currEmployee = ref(sessionEmployee.data.name)
 
 // reactive object to store form data
@@ -72,7 +92,8 @@ const formFields = createResource({
 		})
 	},
 	onSuccess(_data) {
-		leaveApprovalDetails.reload()
+		// the approver picker only matters while making a request
+		if (!props.id) leaveApprovalDetails.reload()
 		leaveTypes.reload()
 	},
 })
@@ -107,7 +128,7 @@ watch(
 		}
 		currEmployee.value = employee_id
 		leaveTypes.fetch({ employee: currEmployee.value, date: today })
-		leaveApprovalDetails.fetch({ employee: currEmployee.value })		
+		if (!props.id) leaveApprovalDetails.fetch({ employee: currEmployee.value })
 	}
 )
 watch(

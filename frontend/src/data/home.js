@@ -6,6 +6,11 @@ export const homeData = createResource({
 	cache: "hrms:home_data",
 })
 
+// one tap: a vote with approval by levels, otherwise the chosen approver's decision
 export const leaveDecision = createResource({
-	url: "hrms.hr.doctype.leave_application.leave_application.record_leave_decision",
+	url: "hrms.hr.doctype.leave_application.leave_application.decide_leave_application",
+})
+
+export const leaveDocumentUpload = createResource({
+	url: "hrms.hr.doctype.leave_application.leave_documents.upload_leave_document",
 })

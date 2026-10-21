@@ -24,6 +24,7 @@
   "total_leave_days",
   "column_break1",
   "description",
+  "document_due_date",
   "leave_balance",
   "section_break_7",
   "leave_approver",
@@ -151,6 +152,15 @@
    "label": "Reason"
   },
   {
+   "depends_on": "document_due_date",
+   "description": "The supporting document for this leave must be attached by this date.",
+   "fieldname": "document_due_date",
+   "fieldtype": "Date",
+   "label": "Document Due",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "section_break_7",
    "fieldtype": "Section Break",
    "label": "Approval"
@@ -268,7 +278,7 @@
  "is_submittable": 1,
  "links": [],
  "max_attachments": 3,
- "modified": "2026-10-20 16:00:00.000000",
+ "modified": "2026-10-21 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "Leave Application",
