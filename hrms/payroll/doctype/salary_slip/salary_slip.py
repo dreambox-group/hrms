@@ -2668,3 +2668,31 @@ def email_salary_slips(names) -> None:
 	for name in names:
 		salary_slip = frappe.get_doc("Salary Slip", name)
 		salary_slip.email_salary_slip()
+
+
+# Who may see which salary slips: payroll staff see all; everyone else, department heads and
+# leave approvers included, only the slips of the employee linked to their own login.
+SALARY_SLIP_VIEW_ALL_ROLES = ("HR Manager", "HR User", "System Manager")
+
+
+def can_view_all_salary_slips(user: str | None = None) -> bool:
+	user = user or frappe.session.user
+	return user == "Administrator" or bool(set(SALARY_SLIP_VIEW_ALL_ROLES) & set(frappe.get_roles(user)))
+
+
+def get_permission_query_conditions(user: str | None = None) -> str:
+	user = user or frappe.session.user
+	if can_view_all_salary_slips(user):
+		return ""
+
+	employees = frappe.get_all("Employee", filters={"user_id": user}, pluck="name")
+	if not employees:
+		return "1=0"
+	return "`tabSalary Slip`.`employee` in ({})".format(", ".join(frappe.db.escape(e) for e in employees))
+
+
+def has_permission(doc, ptype=None, user=None, debug=False) -> bool:
+	user = user or frappe.session.user
+	if can_view_all_salary_slips(user):
+		return True
+	return frappe.db.get_value("Employee", doc.employee, "user_id") == user

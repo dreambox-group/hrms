@@ -159,6 +159,12 @@ before_app_uninstall = "hrms.setup.before_app_uninstall"
 
 has_permission = {
 	"Employee Checkin": "hrms.hr.doctype.employee_checkin.employee_checkin.has_permission",
+	"Salary Slip": "hrms.payroll.doctype.salary_slip.salary_slip.has_permission",
+}
+
+# everyone outside payroll sees only their own salary slips
+permission_query_conditions = {
+	"Salary Slip": "hrms.payroll.doctype.salary_slip.salary_slip.get_permission_query_conditions",
 }
 
 has_upload_permission = {"Employee": "erpnext.setup.doctype.employee.employee.has_upload_permission"}
