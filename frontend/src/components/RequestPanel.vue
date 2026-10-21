@@ -29,6 +29,7 @@ import LeaveRequestItem from "@/components/LeaveRequestItem.vue"
 import ShiftRequestItem from "@/components/ShiftRequestItem.vue"
 
 import { useListUpdate } from "@/composables/realtime"
+import { showExpenses } from "@/utils/navigation"
 
 const activeTab = ref("My Requests")
 const socket = inject("$socket")
@@ -44,7 +45,11 @@ const teamRequests = computed(() =>
 )
 
 function updateRequestDetails(leaves, claims, shiftRequests, attendanceRequests) {
-	const requests = [leaves, claims, shiftRequests, attendanceRequests].reduce(
+	// expense claims only when HR Settings show Expenses in the employee app
+	const sources = showExpenses.value
+		? [leaves, claims, shiftRequests, attendanceRequests]
+		: [leaves, shiftRequests, attendanceRequests]
+	const requests = sources.reduce(
 		(acc, resource) => acc.concat(resource?.data || []),
 		[]
 	)

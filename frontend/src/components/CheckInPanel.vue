@@ -52,11 +52,23 @@
 			</div>
 
 			<template v-if="settings.data?.allow_geolocation_tracking">
-				<span v-if="locationStatus" class="font-medium text-gray-500 text-sm">
+				<div
+					v-if="locationProblem"
+					class="w-full rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+					role="alert"
+				>
+					<div class="font-semibold">{{ locationProblem.title }}</div>
+					<div class="mt-1">{{ locationProblem.help }}</div>
+					<Button class="mt-3 w-full" variant="subtle" @click="fetchLocation">
+						<template #prefix><FeatherIcon name="map-pin" class="w-4" /></template>
+						{{ __("Try again") }}
+					</Button>
+				</div>
+				<span v-else-if="locationStatus" class="font-medium text-gray-500 text-sm">
 					{{ locationStatus }}
 				</span>
 
-				<div class="rounded border-4 translate-z-0 block overflow-hidden w-full h-170">
+				<div v-if="locationFound" class="rounded border-4 translate-z-0 block overflow-hidden w-full h-170">
 					<iframe
 						width="100%"
 						height="170"
@@ -75,7 +87,7 @@
 
 			<Button
 				:loading="checkins.insert.loading || selfieCheckin.loading"
-				:disabled="selfieRequired && !selfie"
+				:disabled="(selfieRequired && !selfie) || (locationRequired && !locationFound)"
 				variant="solid"
 				class="w-full py-5 text-sm disabled:bg-gray-700"
 				@click="submitLog(nextAction.action)"
@@ -94,6 +106,7 @@ import { IonModal, modalController } from "@ionic/vue"
 import { formatTimestamp } from "@/utils/formatters"
 import { settings } from "@/data/settings"
 import SelfieCamera from "@/components/SelfieCamera.vue"
+import { getBlockedHelp, getLocationOffHelp, watchPermission } from "@/utils/permissionHelp"
 
 defineProps({ showGreeting: { type: Boolean, default: true } })
 
@@ -140,9 +153,16 @@ const nextAction = computed(() => {
 		: { action: "IN", label: __("Check In") }
 })
 
+// with geolocation tracking on, the server refuses a check-in without a location
+const locationRequired = computed(() => Boolean(settings.data?.allow_geolocation_tracking))
+const locationFound = ref(false)
+const locationProblem = ref(null)
+
 function handleLocationSuccess(position) {
 	latitude.value = position.coords.latitude
 	longitude.value = position.coords.longitude
+	locationFound.value = true
+	locationProblem.value = null
 
 	locationStatus.value = [
 		__("Latitude: {0}°", [Number(latitude.value).toFixed(5)]),
@@ -151,18 +171,48 @@ function handleLocationSuccess(position) {
 }
 
 function handleLocationError(error) {
-	locationStatus.value = __("Unable to retrieve your location")
-	if (error) locationStatus.value += `: ERROR(${error.code}): ${error.message}`
-}
-
-const fetchLocation = () => {
-	if (!navigator.geolocation) {
-		locationStatus.value = __("Geolocation is not supported by your current browser")
+	locationStatus.value = ""
+	if (error?.code === error?.PERMISSION_DENIED) {
+		locationProblem.value = {
+			title: __("Location is blocked for this site"),
+			help: getBlockedHelp(__, "location"),
+		}
+	} else if (error?.code === error?.POSITION_UNAVAILABLE) {
+		locationProblem.value = {
+			title: __("Your location could not be found"),
+			help: getLocationOffHelp(__),
+		}
 	} else {
-		locationStatus.value = __("Locating...")
-		navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError)
+		locationProblem.value = {
+			title: __("Finding your location took too long"),
+			help: __("Move closer to a window or turn on Wi-Fi, then tap Try again."),
+		}
 	}
 }
+
+// asks the browser for the location; if it hasn't been decided yet, the browser shows its own "Allow?" pop-up
+const fetchLocation = () => {
+	locationFound.value = false
+	locationProblem.value = null
+	if (!navigator.geolocation) {
+		locationProblem.value = {
+			title: __("This browser can't share its location"),
+			help: __("Open this page in Chrome, Edge or Safari to check in."),
+		}
+		return
+	}
+	locationStatus.value = __("Finding your location…")
+	navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError, {
+		enableHighAccuracy: true,
+		timeout: 20000,
+		maximumAge: 0,
+	})
+}
+
+// allowed in the browser's site settings while the sheet is open: pick the location up without a reload
+watchPermission("geolocation", (state) => {
+	if (state === "granted" && locationRequired.value && !locationFound.value) fetchLocation()
+})
 
 const handleEmployeeCheckin = () => {
 	checkinTimestamp.value = dayjs().format("YYYY-MM-DD HH:mm:ss")

@@ -67,14 +67,14 @@ import { FeatherIcon, Avatar } from "frappe-ui"
 import { useRoute } from "vue-router"
 
 import { unreadNotificationsCount } from "@/data/notifications"
-import { getMainSections } from "@/utils/navigation"
+import { useMainSections } from "@/utils/navigation"
 
 import { computed, inject } from "vue"
 
 const user = inject("$user")
 const __ = inject("$translate")
 const route = useRoute()
-const sections = getMainSections(__)
+const sections = useMainSections(__)
 
 const props = defineProps({
 	pageTitle: {

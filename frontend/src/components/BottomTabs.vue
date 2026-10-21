@@ -28,12 +28,12 @@ import { IonTabBar, IonTabButton, IonLabel } from "@ionic/vue"
 
 import { inject } from "vue"
 
-import { getMainSections } from "@/utils/navigation"
+import { useMainSections } from "@/utils/navigation"
 
 const __ = inject("$translate")
 
 const route = useRoute()
 
 // on wide screens these sections are in the top bar instead (BaseLayout)
-const tabItems = getMainSections(__)
+const tabItems = useMainSections(__)
 </script>
