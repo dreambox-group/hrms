@@ -21,6 +21,15 @@ class HRSettings(Document):
 			self.validate_frequency_change()
 		PROCEED_WITH_FREQUENCY_CHANGE = False
 
+	def on_update(self):
+		if self.leave_google_calendar and self.has_value_changed("leave_google_calendar"):
+			# upcoming approved leave goes onto the new calendar
+			frappe.enqueue(
+				"hrms.hr.doctype.leave_application.leave_calendar.push_missing_leave_to_google_calendar",
+				queue="long",
+				enqueue_after_commit=True,
+			)
+
 	def set_naming_series(self):
 		from erpnext.utilities.naming import set_by_naming_series
 

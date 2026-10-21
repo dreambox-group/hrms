@@ -29,6 +29,7 @@
   "leave_approver_mandatory_in_leave_application",
   "prevent_self_leave_approval",
   "show_leaves_of_all_department_members_in_calendar",
+  "leave_google_calendar",
   "column_break_29",
   "send_leave_notification",
   "leave_approval_notification_template",
@@ -101,6 +102,13 @@
    "fieldname": "show_leaves_of_all_department_members_in_calendar",
    "fieldtype": "Check",
    "label": "Show Leaves Of All Department Members In Calendar"
+  },
+  {
+   "description": "Approved leave is added to this Google Calendar (set it up under Google Calendar first) and removed when the leave is cancelled. The reason is never shown.",
+   "fieldname": "leave_google_calendar",
+   "fieldtype": "Link",
+   "label": "Leave Google Calendar",
+   "options": "Google Calendar"
   },
   {
    "default": "0",
@@ -418,7 +426,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 09:00:00.000000",
+ "modified": "2026-10-21 09:05:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",
