@@ -1,11 +1,16 @@
 # Copyright (c) 2019, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
+import base64
+import io
 from datetime import datetime, timedelta
+
+from PIL import Image
 
 import frappe
 from frappe.utils import (
 	add_days,
+	get_datetime,
 	get_time,
 	get_year_ending,
 	get_year_start,
@@ -18,10 +23,14 @@ from erpnext.setup.doctype.employee.test_employee import make_employee
 
 from hrms.hr.doctype.attendance.attendance import mark_attendance
 from hrms.hr.doctype.employee_checkin.employee_checkin import (
+	SELFIE_MAX_SIDE,
 	CheckinRadiusExceededError,
+	SelfieRequiredError,
 	add_log_based_on_employee_field,
+	add_log_with_selfie,
 	bulk_fetch_shift,
 	calculate_working_hours,
+	delete_expired_selfies,
 	mark_attendance_and_link_log,
 )
 from hrms.hr.doctype.leave_type.test_leave_type import create_leave_type
@@ -36,6 +45,9 @@ class TestEmployeeCheckin(HRMSTestSuite):
 		frappe.db.delete("Shift Assignment")
 		frappe.db.delete("Employee Checkin")
 		frappe.db.set_single_value("HR Settings", "allow_geolocation_tracking", 0)
+		frappe.db.set_single_value("HR Settings", "allow_employee_checkin_from_mobile_app", 1)
+		frappe.db.set_single_value("HR Settings", "require_selfie_for_checkin", 0)
+		frappe.db.set_single_value("HR Settings", "selfie_retention_days", 0)
 
 	def test_geolocation_tracking(self):
 		employee = make_employee("test_add_log_based_on_employee_field@example.com", company="_Test Company")
@@ -546,6 +558,115 @@ class TestEmployeeCheckin(HRMSTestSuite):
 		# not allowed as distance (15004m) is not within checkin radius
 		self.assertRaises(CheckinRadiusExceededError, log.insert)
 
+	def test_add_log_with_selfie(self):
+		user = "test_add_log_with_selfie@example.com"
+		employee = make_employee(user, company="_Test Company")
+
+		frappe.set_user(user)
+		try:
+			log = add_log_with_selfie("IN", make_selfie(2000, 1500), latitude=24.0, longitude=72.0)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertEqual(log.employee, employee)
+		# the server's time, not the phone's
+		self.assertLess(abs((now_datetime() - get_datetime(log.time)).total_seconds()), 60)
+
+		file = frappe.get_doc(
+			"File",
+			{
+				"attached_to_doctype": "Employee Checkin",
+				"attached_to_name": log.name,
+				"attached_to_field": "selfie",
+			},
+		)
+		self.assertTrue(file.is_private)
+		self.assertEqual(frappe.db.get_value("Employee Checkin", log.name, "selfie"), file.file_url)
+
+		# re-encoded as a smaller JPEG
+		with open(file.get_full_path(), "rb") as f, Image.open(f) as image:
+			self.assertEqual(image.format, "JPEG")
+			self.assertEqual(image.size, (SELFIE_MAX_SIDE, 720))
+
+	def test_selfie_must_be_an_image(self):
+		user = "test_selfie_must_be_an_image@example.com"
+		employee = make_employee(user, company="_Test Company")
+		not_an_image = "data:image/jpeg;base64," + base64.b64encode(b"not an image").decode()
+
+		frappe.set_user(user)
+		try:
+			self.assertRaises(SelfieRequiredError, add_log_with_selfie, "IN", "")
+			self.assertRaises(frappe.ValidationError, add_log_with_selfie, "IN", "not base64!")
+			self.assertRaises(frappe.ValidationError, add_log_with_selfie, "IN", not_an_image)
+		finally:
+			frappe.set_user("Administrator")
+
+		self.assertFalse(frappe.db.exists("Employee Checkin", {"employee": employee}))
+
+	def test_selfie_required_for_own_checkins(self):
+		frappe.db.set_single_value("HR Settings", "require_selfie_for_checkin", 1)
+		user = "test_selfie_required@example.com"
+		employee = make_employee(user, company="_Test Company")
+
+		# HR and attendance devices can still log checkins for the employee without a selfie
+		make_checkin(employee, now_datetime() - timedelta(hours=2))
+		add_log_based_on_employee_field(
+			employee, now_datetime() - timedelta(hours=1), employee_fieldname="name"
+		)
+
+		frappe.set_user(user)
+		try:
+			self.assertRaises(SelfieRequiredError, make_checkin, employee)
+
+			log = add_log_with_selfie("IN", make_selfie())
+			log = frappe.get_doc("Employee Checkin", log.name)
+
+			# can't edit, re-attach or delete their own checkins afterwards
+			log.device_id = "edited"
+			self.assertRaises(frappe.PermissionError, log.save)
+			self.assertRaises(frappe.PermissionError, frappe.delete_doc, "Employee Checkin", log.name)
+			attachment = frappe.get_doc(
+				{
+					"doctype": "File",
+					"file_name": "gallery.jpg",
+					"content": base64.b64decode(make_selfie().split(",", 1)[1]),
+					"is_private": 1,
+					"attached_to_doctype": "Employee Checkin",
+					"attached_to_name": log.name,
+					"attached_to_field": "selfie",
+				}
+			)
+			self.assertRaises(frappe.PermissionError, attachment.insert)
+		finally:
+			frappe.set_user("Administrator")
+
+		# HR still can
+		log.reload()
+		log.device_id = "edited by HR"
+		log.save()
+
+	def test_delete_expired_selfies(self):
+		user = "test_delete_expired_selfies@example.com"
+		make_employee(user, company="_Test Company")
+
+		frappe.set_user(user)
+		try:
+			log = add_log_with_selfie("IN", make_selfie())
+		finally:
+			frappe.set_user("Administrator")
+
+		file = frappe.db.get_value("File", {"attached_to_name": log.name, "attached_to_field": "selfie"})
+
+		# kept forever by default
+		frappe.db.set_value("File", file, "creation", add_days(now_datetime(), -31))
+		delete_expired_selfies()
+		self.assertTrue(frappe.db.exists("File", file))
+
+		frappe.db.set_single_value("HR Settings", "selfie_retention_days", 30)
+		delete_expired_selfies()
+		self.assertFalse(frappe.db.exists("File", file))
+		self.assertIsNone(frappe.db.get_value("Employee Checkin", log.name, "selfie"))
+
 	def test_bulk_fetch_shift(self):
 		emp1 = make_employee("emp1@example.com", company="_Test Company")
 		emp2 = make_employee("emp2@example.com", company="_Test Company")
@@ -968,6 +1089,13 @@ def make_checkin(employee, time=None, latitude=None, longitude=None, log_type="I
 		}
 	).insert()
 	return log
+
+
+def make_selfie(width=640, height=480):
+	image = Image.new("RGB", (width, height), "orange")
+	content = io.BytesIO()
+	image.save(content, format="PNG")
+	return "data:image/png;base64," + base64.b64encode(content.getvalue()).decode()
 
 
 def make_shift_location(location_name, latitude, longitude, checkin_radius=500):

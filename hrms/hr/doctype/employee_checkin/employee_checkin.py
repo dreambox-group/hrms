@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, get_datetime
+from frappe.utils import add_days, cint, get_datetime, now_datetime
 
 from hrms.hr.doctype.shift_assignment.shift_assignment import get_actual_start_end_datetime_of_shift
 from hrms.hr.utils import (
@@ -16,8 +16,15 @@ from hrms.hr.utils import (
 	validate_active_employee,
 )
 
+SELFIE_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+SELFIE_MAX_SIDE = 960
+
 
 class CheckinRadiusExceededError(frappe.ValidationError):
+	pass
+
+
+class SelfieRequiredError(frappe.ValidationError):
 	pass
 
 
@@ -27,11 +34,24 @@ class EmployeeCheckin(Document):
 
 	def validate(self):
 		validate_active_employee(self.employee)
+		self.validate_selfie()
 		self.validate_duplicate_log()
 		self.validate_time_change()
 		self.fetch_shift()
 		self.set_geolocation()
 		self.validate_distance_from_shift_location()
+
+	def validate_selfie(self):
+		# employees checking themselves in must go through add_log_with_selfie
+		if not self.is_new() or self.flags.selfie_checkin:
+			return
+
+		if is_selfie_required_for(self.employee):
+			frappe.throw(
+				_("Please check in with a live selfie from the app."),
+				title=_("Selfie Required"),
+				exc=SelfieRequiredError,
+			)
 
 	def validate_duplicate_log(self):
 		doc = frappe.db.exists(
@@ -190,6 +210,139 @@ def add_log_based_on_employee_field(
 	doc.insert()
 
 	return doc
+
+
+@frappe.whitelist(methods=["POST"])
+def add_log_with_selfie(
+	log_type: str,
+	selfie: str,
+	latitude: str | float | None = None,
+	longitude: str | float | None = None,
+	device_id: str | None = None,
+) -> Document:
+	"""Creates an Employee Checkin for the logged-in employee with a camera selfie attached.
+
+	The time is the server's. The photo is re-encoded (resized, orientation applied, metadata removed)
+	and stored as a private file on the checkin.
+
+	:param log_type: Direction of the punch (IN/OUT).
+	:param selfie: The photo as a base64 data URL (`data:image/jpeg;base64,...`) or plain base64.
+	:param latitude: (optional) Latitude of the employee.
+	:param longitude: (optional) Longitude of the employee.
+	:param device_id: (optional) Location / Device ID.
+	"""
+	if not frappe.db.get_single_value("HR Settings", "allow_employee_checkin_from_mobile_app"):
+		frappe.throw(_("Checking in from the mobile app is disabled in HR Settings."))
+
+	if log_type not in ("IN", "OUT"):
+		frappe.throw(_("Log Type must be IN or OUT."))
+
+	employee = frappe.db.get_value(
+		"Employee",
+		{"user_id": frappe.session.user, "status": "Active"},
+		["name", "employee_name"],
+		as_dict=True,
+	)
+	if not employee:
+		frappe.throw(_("Your login is not linked to an active employee."), frappe.PermissionError)
+
+	content = compress_selfie(selfie)
+
+	doc = frappe.new_doc("Employee Checkin")
+	doc.employee = employee.name
+	doc.employee_name = employee.employee_name
+	doc.log_type = log_type
+	doc.time = now_datetime()
+	doc.device_id = device_id
+	doc.latitude = latitude
+	doc.longitude = longitude
+	doc.flags.selfie_checkin = True
+	# the employee is the session user's own; time and selfie are above the Employee role's permlevel
+	doc.insert(ignore_permissions=True)
+
+	file = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": f"{doc.name}-selfie.jpg",
+			"content": content,
+			"is_private": 1,
+			"attached_to_doctype": "Employee Checkin",
+			"attached_to_name": doc.name,
+			"attached_to_field": "selfie",
+		}
+	).insert(ignore_permissions=True)
+	doc.db_set("selfie", file.file_url)
+
+	return doc
+
+
+def compress_selfie(selfie: str) -> bytes:
+	"""Decodes the photo, checks it is an image and returns it as a small JPEG without metadata."""
+	import base64
+	import binascii
+	import io
+
+	from PIL import Image, ImageOps, UnidentifiedImageError
+
+	if not selfie:
+		frappe.throw(_("A selfie is required to check in."), exc=SelfieRequiredError)
+
+	if selfie.startswith("data:"):
+		selfie = selfie.split(",", 1)[-1]
+
+	try:
+		content = base64.b64decode(selfie, validate=True)
+	except (binascii.Error, ValueError):
+		frappe.throw(_("The selfie could not be read. Please take it again."))
+
+	if len(content) > SELFIE_MAX_UPLOAD_BYTES:
+		frappe.throw(_("The selfie is too large. Please take it again."))
+
+	try:
+		with Image.open(io.BytesIO(content)) as image:
+			image = ImageOps.exif_transpose(image).convert("RGB")
+			image.thumbnail((SELFIE_MAX_SIDE, SELFIE_MAX_SIDE))
+			output = io.BytesIO()
+			image.save(output, format="JPEG", quality=80, optimize=True)
+	except (UnidentifiedImageError, Image.DecompressionBombError, OSError):
+		frappe.throw(_("The selfie is not a valid image. Please take it again."))
+
+	return output.getvalue()
+
+
+def is_selfie_required_for(employee: str, user: str | None = None) -> bool:
+	"""Whether the user is the employee themselves and HR Settings require a live selfie."""
+	if not frappe.db.get_single_value("HR Settings", "require_selfie_for_checkin"):
+		return False
+
+	return frappe.db.get_value("Employee", employee, "user_id") == (user or frappe.session.user)
+
+
+def has_permission(doc, ptype=None, user=None, debug=False) -> bool:
+	# with live selfies required, employees can't edit, re-attach or delete their own checkins; HR can
+	if ptype not in ("write", "delete"):
+		return True
+
+	return not is_selfie_required_for(doc.employee, user)
+
+
+def delete_expired_selfies() -> None:
+	retention_days = cint(frappe.db.get_single_value("HR Settings", "selfie_retention_days"))
+	if retention_days <= 0:
+		return
+
+	files = frappe.get_all(
+		"File",
+		filters={
+			"attached_to_doctype": "Employee Checkin",
+			"attached_to_field": "selfie",
+			"creation": ("<", add_days(now_datetime(), -retention_days)),
+		},
+		fields=["name", "attached_to_name"],
+	)
+	for file in files:
+		frappe.db.set_value("Employee Checkin", file.attached_to_name, "selfie", None, update_modified=False)
+		frappe.delete_doc("File", file.name, ignore_permissions=True)
 
 
 @frappe.whitelist(methods=["POST"])
