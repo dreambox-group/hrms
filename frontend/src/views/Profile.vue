@@ -91,6 +91,35 @@
 										class="h-5 w-5 text-gray-500"
 									/>
 								</router-link>
+
+								<!-- install the app on this device (offered here instead of a pop-up) -->
+								<button
+									v-if="canPrompt"
+									type="button"
+									class="flex flex-row cursor-pointer flex-start p-4 items-center justify-between border-b text-left"
+									@click="install"
+								>
+									<div class="flex flex-row items-center gap-3 grow">
+										<FeatherIcon name="download" class="h-5 w-5 text-gray-500" />
+										<div class="text-base font-normal text-gray-800">
+											{{ __("Install app") }}
+										</div>
+									</div>
+									<FeatherIcon name="chevron-right" class="h-5 w-5 text-gray-500" />
+								</button>
+								<div v-else-if="needsIosSteps" class="flex flex-col gap-1 p-4 border-b">
+									<div class="flex flex-row items-center gap-3">
+										<FeatherIcon name="download" class="h-5 w-5 text-gray-500" />
+										<div class="text-base font-normal text-gray-800">
+											{{ __("Install app") }}
+										</div>
+									</div>
+									<div class="text-sm text-gray-600 pl-8 inline-flex flex-wrap items-center gap-1">
+										<span>{{ __("Tap") }}</span>
+										<FeatherIcon name="share" class="h-4 w-4 text-blue-600" />
+										<span>{{ __('and then "Add to Home Screen"') }}</span>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -149,6 +178,7 @@ import { formatCurrency } from "@/utils/formatters"
 import ProfileInfoModal from "@/components/ProfileInfoModal.vue"
 
 import { arePushNotificationsEnabled } from "@/data/notifications"
+import { useInstallApp } from "@/composables/installApp"
 
 const DOCTYPE = "Employee"
 
@@ -159,6 +189,7 @@ const employee = inject("$employee")
 const __ = inject("$translate")
 
 const router = useRouter()
+const { canPrompt, needsIosSteps, install } = useInstallApp()
 
 const profileLinks = [
 	{

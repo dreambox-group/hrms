@@ -12,6 +12,8 @@ import {
 	FormControl,
 } from "frappe-ui"
 import { translationsPlugin } from "./plugins/translationsPlugin.js"
+// catches the browser's install offer early; installing is offered on the Profile page
+import "@/composables/installApp"
 import EmptyState from "@/components/EmptyState.vue"
 
 import { IonicVue } from "@ionic/vue"

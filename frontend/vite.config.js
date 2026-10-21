@@ -26,9 +26,10 @@ export default defineConfig({
 				display: "standalone",
 				name: "Frappe HR",
 				short_name: "Frappe HR",
-				start_url: "/hrms",
-				scope: "/hrms",
-				id: "/hrms",
+				// /hr is the everyday address; the scope is a prefix, so /hrms stays inside the app too
+				start_url: "/hr",
+				scope: "/hr",
+				id: "/hr",
 				description: "Everyday HR & Payroll operations at your fingertips",
 				theme_color: "#ffffff",
 				icons: [
