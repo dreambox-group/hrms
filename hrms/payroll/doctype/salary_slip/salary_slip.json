@@ -43,6 +43,7 @@
   "leave_without_pay",
   "column_break_geio",
   "absent_days",
+  "late_entry_days",
   "payment_days",
   "help_section",
   "payment_days_calculation_help",
@@ -388,6 +389,14 @@
    "fieldname": "absent_days",
    "fieldtype": "Float",
    "label": "Absent Days",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Days in this period with a late check-in (attendance marked as Late Entry). Formulas can use it as late_entry_days, e.g. late_entry_days * 50000.",
+   "fieldname": "late_entry_days",
+   "fieldtype": "Int",
+   "label": "Late Days",
    "read_only": 1
   },
   {
@@ -779,7 +788,7 @@
  "idx": 9,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-10-05 15:00:00.000000",
+ "modified": "2026-10-21 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "Payroll",
  "name": "Salary Slip",
