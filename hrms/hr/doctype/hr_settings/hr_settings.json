@@ -50,6 +50,9 @@
   "allow_geolocation_tracking",
   "require_selfie_for_checkin",
   "selfie_retention_days",
+  "employee_app_section",
+  "show_expenses_in_employee_app",
+  "show_salary_in_employee_app",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -326,6 +329,25 @@
    "non_negative": 1
   },
   {
+   "fieldname": "employee_app_section",
+   "fieldtype": "Section Break",
+   "label": "Employee App (/hr)"
+  },
+  {
+   "default": "0",
+   "description": "Show Expenses (claims and advances) in the employee app's menu, home page and request lists.",
+   "fieldname": "show_expenses_in_employee_app",
+   "fieldtype": "Check",
+   "label": "Show Expenses in the Employee App"
+  },
+  {
+   "default": "0",
+   "description": "Show Salary Slips in the employee app's menu and home page.",
+   "fieldname": "show_salary_in_employee_app",
+   "fieldtype": "Check",
+   "label": "Show Salary Slips in the Employee App"
+  },
+  {
    "fieldname": "attendance_settings_section",
    "fieldtype": "Section Break",
    "label": "Attendance Settings"
@@ -426,7 +448,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 09:05:00.000000",
+ "modified": "2026-10-21 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

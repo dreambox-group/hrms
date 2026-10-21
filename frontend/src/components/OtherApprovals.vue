@@ -16,6 +16,7 @@
 import { computed, inject } from "vue"
 
 import { homeData } from "@/data/home"
+import { showExpenses } from "@/utils/navigation"
 
 const __ = inject("$translate")
 
@@ -27,7 +28,7 @@ const ROUTES = {
 
 const rows = computed(() =>
 	(homeData.data?.other_approvals || [])
-		.filter((row) => row.count)
+		.filter((row) => row.count && (showExpenses.value || row.doctype !== "Expense Claim"))
 		.map((row) => ({ ...row, route: ROUTES[row.doctype] }))
 )
 </script>

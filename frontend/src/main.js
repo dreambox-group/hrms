@@ -21,6 +21,7 @@ import { IonicVue } from "@ionic/vue"
 import { session } from "@/data/session"
 import { userResource } from "@/data/user"
 import { employeeResource } from "@/data/employee"
+import { settings } from "@/data/settings"
 
 import dayjs from "@/utils/dayjs"
 import getIonicConfig from "@/utils/ionicConfig"
@@ -39,6 +40,7 @@ const app = createApp(App)
 const socket = initSocket()
 
 setConfig("resourceFetcher", frappeRequest)
+settings.reload()
 app.use(resourcesPlugin)
 app.use(translationsPlugin)
 

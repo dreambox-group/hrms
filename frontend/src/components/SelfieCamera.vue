@@ -42,7 +42,7 @@
 		</Button>
 		<Button v-else-if="!starting" variant="subtle" class="w-full py-5" @click="start">
 			<template #prefix><FeatherIcon name="camera" class="w-4" /></template>
-			{{ __("Open camera") }}
+			{{ problem ? __("Try again") : __("Open camera") }}
 		</Button>
 	</div>
 </template>
@@ -50,6 +50,8 @@
 <script setup>
 import { inject, onBeforeUnmount, onMounted, ref } from "vue"
 import { FeatherIcon } from "frappe-ui"
+
+import { getBlockedHelp, watchPermission } from "@/utils/permissionHelp"
 
 const __ = inject("$translate")
 const emit = defineEmits(["update:modelValue"])
@@ -65,26 +67,6 @@ const starting = ref(false)
 const problem = ref(null)
 let stream = null
 
-const userAgent = navigator.userAgent
-const device =
-	/iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && navigator.maxTouchPoints > 1)
-		? "ios"
-		: /Android/.test(userAgent)
-		? "android"
-		: "computer"
-
-const BLOCKED_HELP = {
-	ios: __(
-		"Open the Settings app → Apps → Safari → Camera → Allow (or in Safari tap “aA” → Website Settings → Camera → Allow), then reload this page."
-	),
-	android: __(
-		"Tap the icon on the left of the address bar → Permissions → Camera → Allow, then reload this page."
-	),
-	computer: __(
-		"Click the icon on the left of the address bar → Site settings → Camera → Allow, then reload this page. On Windows also check Settings → Privacy & security → Camera."
-	),
-}
-
 function fail(error) {
 	if (!window.isSecureContext) {
 		problem.value = {
@@ -92,7 +74,7 @@ function fail(error) {
 			help: __("Open this page on its https:// address."),
 		}
 	} else if (error && ["NotAllowedError", "SecurityError"].includes(error.name)) {
-		problem.value = { title: __("The camera is blocked for this site"), help: BLOCKED_HELP[device] }
+		problem.value = { title: __("The camera is blocked for this site"), help: getBlockedHelp(__, "camera") }
 	} else if (!error || ["NotFoundError", "OverconstrainedError"].includes(error.name)) {
 		problem.value = {
 			title: __("No camera was found"),
@@ -148,6 +130,12 @@ function snap() {
 	emit("update:modelValue", photo.value)
 }
 
-onMounted(start)
+onMounted(() => {
+	// allowed in the browser's site settings while this is open: open the camera without a reload
+	watchPermission("camera", (state) => {
+		if (state === "granted" && !streaming.value && !photo.value) start()
+	})
+	start()
+})
 onBeforeUnmount(stop)
 </script>

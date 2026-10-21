@@ -53,7 +53,7 @@
 							</div>
 						</div>
 
-						<QuickLinks :items="quickLinks" :title="__('Quick Links')" />
+						<QuickLinks :items="visibleQuickLinks" :title="__('Quick Links')" />
 					</aside>
 
 					<main class="w-full flex-1 min-w-0 flex flex-col gap-4">
@@ -105,6 +105,7 @@ import SalaryIcon from "@/components/icons/SalaryIcon.vue"
 
 import { homeData } from "@/data/home"
 import { leaveBalance } from "@/data/leaves"
+import { showExpenses, showSalary } from "@/utils/navigation"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -162,4 +163,14 @@ const quickLinks = [
 		route: "SalarySlipsDashboard",
 	},
 ]
+
+// Expenses (claims, advances) and Salary Slips only when HR Settings show them in the app
+const EXPENSE_ROUTES = ["ExpenseClaimFormView", "EmployeeAdvanceFormView"]
+const visibleQuickLinks = computed(() =>
+	quickLinks.filter(
+		(link) =>
+			(showExpenses.value || !EXPENSE_ROUTES.includes(link.route)) &&
+			(showSalary.value || link.route !== "SalarySlipsDashboard")
+	)
+)
 </script>
