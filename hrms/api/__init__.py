@@ -104,6 +104,7 @@ def get_hr_settings() -> dict:
 		allow_employee_checkin_from_mobile_app=settings.allow_employee_checkin_from_mobile_app,
 		allow_geolocation_tracking=settings.allow_geolocation_tracking,
 		require_selfie_for_checkin=settings.require_selfie_for_checkin,
+		leave_approval_by_levels=settings.leave_approval_by_levels,
 		prevent_self_leave_approval=settings.prevent_self_leave_approval,
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
 	)
@@ -478,6 +479,8 @@ def get_leave_approval_details(employee: str) -> dict:
 		is_mandatory=frappe.db.get_single_value(
 			"HR Settings", "leave_approver_mandatory_in_leave_application"
 		),
+		# with approval by levels the department's approvers decide; nobody is picked on the form
+		approval_by_levels=frappe.db.get_single_value("HR Settings", "leave_approval_by_levels"),
 	)
 
 

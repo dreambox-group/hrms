@@ -24,13 +24,18 @@ def get_leave_google_calendar() -> str | None:
 
 
 def get_leave_calendar_title(leave_application) -> str:
-	employment_type = frappe.db.get_value("Employee", leave_application.employee, "employment_type")
-	label = (
-		(employment_type and frappe.db.get_value("Employment Type", employment_type, "leave_calendar_label"))
-		or frappe.db.get_value("Leave Type", leave_application.leave_type, "calendar_label")
-		or leave_application.leave_type
-	)
+	label = get_leave_label(leave_application.employee, leave_application.leave_type)
 	return f"{label} - {leave_application.employee_name}"
+
+
+def get_leave_label(employee: str, leave_type: str) -> str:
+	"""What others see for someone's leave, e.g. "Cuti", "Izin Sakit" or "Izin" for interns."""
+	employment_type = frappe.db.get_value("Employee", employee, "employment_type")
+	return (
+		(employment_type and frappe.db.get_value("Employment Type", employment_type, "leave_calendar_label"))
+		or frappe.db.get_value("Leave Type", leave_type, "calendar_label")
+		or leave_type
+	)
 
 
 def add_to_leave_calendar(leave_application) -> bool:
