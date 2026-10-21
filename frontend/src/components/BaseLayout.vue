@@ -5,7 +5,7 @@
 				<div :class="['flex flex-row justify-between items-center p-4 w-full mx-auto', containerClass]">
 					<div class="flex flex-row items-center gap-6">
 						<h2 class="text-xl font-bold text-gray-900">
-							{{ props.pageTitle || __("Frappe HR") }}
+							{{ props.pageTitle || __("Drea HRIS") }}
 						</h2>
 						<nav class="hidden lg:flex flex-row items-center gap-1" :aria-label="__('Main')">
 							<router-link

@@ -3,14 +3,14 @@
 		<template #body>
 			<div class="flex flex-col mt-7 mb-7 p-4 gap-7">
 				<AttendanceCalendar />
-				<div class="w-full">
+				<div v-if="showAttendanceRequests" class="w-full">
 					<router-link :to="{ name: 'AttendanceRequestFormView' }" v-slot="{ navigate }">
 						<Button @click="navigate" variant="solid" class="w-full py-5 text-base">
 							{{ __("Request Attendance") }}
 						</Button>
 					</router-link>
 				</div>
-				<div>
+				<div v-if="showAttendanceRequests">
 					<div class="text-lg text-gray-800 font-bold">{{ __("Recent Attendance Requests") }}</div>
 					<RequestList
 						:component="markRaw(AttendanceRequestItem)"
@@ -29,14 +29,14 @@
 						:emptyStateMessage="__('You have no upcoming shifts')"
 					/>
 				</div>
-				<div class="w-full">
+				<div v-if="showAttendanceRequests" class="w-full">
 					<router-link :to="{ name: 'ShiftRequestFormView' }" v-slot="{ navigate }">
 						<Button @click="navigate" variant="solid" class="w-full py-5 text-base">
 							{{ __("Request a Shift") }}
 						</Button>
 					</router-link>
 				</div>
-				<div>
+				<div v-if="showAttendanceRequests">
 					<div class="text-lg text-gray-800 font-bold">{{ __("Recent Shift Requests") }}</div>
 					<RequestList
 						:component="markRaw(ShiftRequestItem)"
@@ -55,6 +55,7 @@ import { computed, inject, markRaw } from "vue"
 import { createResource } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
+import { showAttendanceRequests } from "@/utils/navigation"
 import AttendanceRequestItem from "@/components/AttendanceRequestItem.vue"
 import ShiftRequestItem from "@/components/ShiftRequestItem.vue"
 import ShiftAssignmentItem from "@/components/ShiftAssignmentItem.vue"

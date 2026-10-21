@@ -11,6 +11,10 @@ import { settings } from "@/data/settings"
 // Expenses and Salary Slips only show when HR Settings turn them on for the employee app
 export const showExpenses = computed(() => Boolean(settings.data?.show_expenses_in_employee_app))
 export const showSalary = computed(() => Boolean(settings.data?.show_salary_in_employee_app))
+// Request Attendance and Request a Shift, likewise
+export const showAttendanceRequests = computed(() =>
+	Boolean(settings.data?.show_attendance_requests_in_employee_app)
+)
 
 // the app's main sections: bottom tabs on phones, a top bar on wide screens
 export const useMainSections = (__) =>
