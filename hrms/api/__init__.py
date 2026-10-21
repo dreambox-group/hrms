@@ -273,7 +273,18 @@ def get_filters(
 				"Expense Claim": "expense_approver",
 			}
 			filters.status = "Open" if doctype == "Leave Application" else "Draft"
-			if approver_id:
+			if (
+				approver_id
+				and doctype == "Leave Application"
+				and frappe.db.get_single_value("HR Settings", "leave_approval_by_levels")
+			):
+				from hrms.hr.doctype.leave_application.leave_application import (
+					get_leave_applications_waiting_for,
+				)
+
+				# all of the department's approvers see the request, not one chosen approver
+				filters.name = ("in", get_leave_applications_waiting_for(approver_id) or [""])
+			elif approver_id:
 				filters[approver_field_map[doctype]] = approver_id
 	else:
 		filters.docstatus = ("!=", 2)

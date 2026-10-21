@@ -30,10 +30,10 @@ class PWANotificationsMixin:
 			notification.reference_document_name = self.name
 			notification.insert(ignore_permissions=True)
 
-	def notify_approver(self):
+	def notify_approver(self, to_user: str | None = None):
 		"""Send new Leave Application, Expense Claim & Shift Request request notification - to approvers"""
 		from_user = self._get_employee_user()
-		to_user = self._get_doc_approver()
+		to_user = to_user or self._get_doc_approver()
 
 		if not to_user or from_user == to_user:
 			return

@@ -18,8 +18,10 @@ from frappe.utils import (
 	get_fullname,
 	get_link_to_form,
 	getdate,
+	now_datetime,
 	nowdate,
 )
+from frappe.utils.messages import clear_last_message
 
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
@@ -64,6 +66,10 @@ class LeaveAcrossAllocationsError(frappe.ValidationError):
 	pass
 
 
+class LeaveApprovalError(frappe.ValidationError):
+	pass
+
+
 from frappe.model.document import Document
 
 
@@ -72,7 +78,11 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		return _("{0}: From {0} of type {1}").format(self.employee_name, self.leave_type)
 
 	def after_insert(self):
-		self.notify_approver()
+		if self.approvers:
+			for row in self.approvers:
+				self.notify_approver(row.approver)
+		else:
+			self.notify_approver()
 
 	def validate(self):
 		validate_active_employee(self.employee)
@@ -90,7 +100,13 @@ class LeaveApplication(Document, PWANotificationsMixin):
 			self.validate_optional_leave()
 		self.validate_applicable_after()
 		self.validate_for_self_approval()
-		self.validate_leave_approver()
+		if is_leave_approval_by_levels() and not frappe.flags.in_import:
+			# the department's approvers decide, not one approver chosen on the application
+			self.leave_approver = None
+			self.set_leave_approvers()
+			self.validate_approval_status()
+		else:
+			self.validate_leave_approver()
 		self.set_leave_approver_name()
 
 	def on_update(self):
@@ -100,6 +116,7 @@ class LeaveApplication(Document, PWANotificationsMixin):
 				self.notify_leave_approver()
 
 		share_doc_with_approver(self, self.leave_approver)
+		self.share_with_approvers()
 		self.publish_update()
 		self.notify_approval_status()
 
@@ -917,6 +934,159 @@ class LeaveApplication(Document, PWANotificationsMixin):
 				)
 				create_leave_ledger_entry(self, args, submit)
 
+	def set_leave_approvers(self):
+		"""Fills the approvers from the department's current leave approvers.
+
+		Decisions already made are read from the database (never from the submitted rows) and kept,
+		also for approvers who have since been removed from the department.
+		"""
+		decided = {}
+		if not self.is_new():
+			decided = {
+				(row.approver, row.approval_level): row
+				for row in frappe.get_all(
+					"Leave Application Approver",
+					filters={"parent": self.name, "parenttype": self.doctype, "decision": ("!=", "Pending")},
+					fields=[
+						"approver",
+						"approver_name",
+						"approval_level",
+						"department",
+						"decision",
+						"decided_on",
+					],
+					order_by="idx",
+				)
+			}
+
+		self.set("approvers", [])
+		for approver in get_leave_approvers(self.employee):
+			self.append(
+				"approvers", decided.pop((approver.approver, approver.approval_level), None) or approver
+			)
+		for row in decided.values():
+			self.append("approvers", row)
+
+	def get_approval_outcome(self) -> str | None:
+		"""Rejected as soon as any approver rejects. Approved once every Required approver and, if the
+		request has Regular approvers, one of them approves."""
+		if any(row.decision == "Rejected" for row in self.approvers):
+			return "Rejected"
+
+		required = [row.decision for row in self.approvers if row.approval_level == "Required"]
+		regular = [row.decision for row in self.approvers if row.approval_level == "Regular"]
+		if (
+			required
+			and all(decision == "Approved" for decision in required)
+			and (not regular or "Approved" in regular)
+		):
+			return "Approved"
+		return None
+
+	def validate_approval_status(self):
+		if self.status not in ("Approved", "Rejected"):
+			return
+
+		outcome = self.get_approval_outcome()
+		if outcome == self.status:
+			return
+
+		if outcome:
+			frappe.throw(
+				_("This leave request was {0} by its approvers.").format(_(outcome)),
+				exc=LeaveApprovalError,
+			)
+
+		waiting_for = [
+			row.approver_name or row.approver
+			for row in self.approvers
+			if row.approval_level == "Required" and row.decision == "Pending"
+		]
+		regular = [row for row in self.approvers if row.approval_level == "Regular"]
+		if regular and not any(row.decision == "Approved" for row in regular):
+			waiting_for.append(
+				_("one of {0}").format(", ".join(row.approver_name or row.approver for row in regular))
+			)
+		frappe.throw(
+			_("This leave request is still waiting for approval from {0}.").format(", ".join(waiting_for)),
+			title=_("Approval Pending"),
+			exc=LeaveApprovalError,
+		)
+
+	def record_decision(self, decision: str):
+		if self.docstatus != 0 or self.status != "Open":
+			frappe.throw(
+				_("This leave request is already {0}.").format(_(self.status)), exc=LeaveApprovalError
+			)
+
+		user = frappe.session.user
+		rows = [row for row in self.approvers if row.approver == user]
+		if not rows:
+			frappe.throw(_("You are not an approver of this leave request."), frappe.PermissionError)
+
+		# someone whose level changed after deciding has a decided row and a pending one
+		row = next((row for row in rows if row.decision == "Pending"), None)
+		if not row:
+			frappe.throw(_("You have already decided on this leave request."), exc=LeaveApprovalError)
+
+		# Regular approvers decide as one group: the first decision counts for all of them
+		if row.approval_level == "Regular" and any(
+			other.approval_level == "Regular" and other.decision != "Pending" for other in self.approvers
+		):
+			frappe.throw(
+				_("Another approver has already decided on this leave request."), exc=LeaveApprovalError
+			)
+
+		row.db_set({"decision": decision, "decided_on": now_datetime()})
+		self.add_comment(
+			"Info",
+			_("{0} ({1} approver): {2}").format(
+				row.approver_name or user, _(row.approval_level), _(decision)
+			),
+		)
+		self.apply_approval_outcome()
+
+	def apply_approval_outcome(self):
+		"""Submits the leave request once its approvers have decided."""
+		if not (outcome := self.get_approval_outcome()):
+			return
+
+		self.status = outcome
+		# the decision was checked against the approvers above, who may not have submit rights themselves
+		self.flags.ignore_permissions = True
+		self.submit()
+
+	def update_leave_approvers(self):
+		"""Moves an open leave request to the department's current approvers, keeping decisions made."""
+		previous_approvers = {row.approver for row in self.approvers}
+		try:
+			self.set_leave_approvers()
+		except LeaveApprovalError:
+			clear_last_message()
+			frappe.msgprint(
+				_(
+					"Leave request {0} has no Required approver left and can't be approved until one is added."
+				).format(get_link_to_form(self.doctype, self.name)),
+				indicator="orange",
+				alert=True,
+			)
+			return
+
+		self.update_child_table("approvers")
+		self.share_with_approvers()
+		for row in self.approvers:
+			if row.approver not in previous_approvers and row.decision == "Pending":
+				self.notify_approver(row.approver)
+
+		self.apply_approval_outcome()
+
+	def share_with_approvers(self):
+		for row in self.approvers:
+			if not frappe.has_permission(doc=self, ptype="read", user=row.approver):
+				frappe.share.add_docshare(
+					self.doctype, self.name, row.approver, flags={"ignore_share_permission": True}
+				)
+
 	def validate_leave_approver(self):
 		if (
 			self.docstatus != 2
@@ -1586,6 +1756,195 @@ def get_employee_leave_approver(employee: str) -> str:
 		)
 
 	return leave_approver
+
+
+def is_leave_approval_by_levels() -> bool:
+	return bool(frappe.db.get_single_value("HR Settings", "leave_approval_by_levels"))
+
+
+def get_leave_approvers(employee: str) -> list[frappe._dict]:
+	"""Returns who decides on the employee's leave, with HR Settings' "Approve Leave by Levels".
+
+	- Staff: their department's Required approvers, plus its Regular approvers.
+	- A Regular approver: their department's Required approvers.
+	- A Required approver, or anyone in a department without Required approvers: the Required
+	  approvers of the nearest parent department that has any.
+	"""
+	user, department = frappe.db.get_value("Employee", employee, ["user_id", "department"])
+	if not department:
+		frappe.throw(
+			_("Set a department for employee {0} so their leave can be approved.").format(employee),
+			exc=LeaveApprovalError,
+		)
+
+	approvers = get_department_leave_approvers(department)
+	requester_level = next((a.approval_level for a in approvers if a.approver == user), None)
+	required = [a for a in approvers if a.approval_level == "Required"]
+
+	leave_approvers = []
+	if not requester_level:
+		leave_approvers += [a for a in approvers if a.approval_level == "Regular"]
+
+	if required and requester_level != "Required":
+		required_approvers = required
+	else:
+		required_approvers = get_parent_required_leave_approvers(department, user)
+
+	# someone Regular here and Required higher up counts once, as Required
+	required_users = {a.approver for a in required_approvers}
+	return [a for a in leave_approvers if a.approver not in required_users] + required_approvers
+
+
+def get_parent_required_leave_approvers(department: str, exclude_user: str | None) -> list[frappe._dict]:
+	parent = frappe.db.get_value("Department", department, "parent_department")
+	while parent:
+		required = [
+			a
+			for a in get_department_leave_approvers(parent)
+			if a.approval_level == "Required" and a.approver != exclude_user
+		]
+		if required:
+			return required
+		parent = frappe.db.get_value("Department", parent, "parent_department")
+
+	frappe.throw(
+		_("No Required leave approver is set up in any department above {0}.").format(department),
+		title=_("No Leave Approver"),
+		exc=LeaveApprovalError,
+	)
+
+
+def get_department_leave_approvers(department: str) -> list[frappe._dict]:
+	"""The department's enabled leave approvers; someone listed at both levels counts as Required."""
+	DepartmentApprover = frappe.qb.DocType("Department Approver")
+	User = frappe.qb.DocType("User")
+	rows = (
+		frappe.qb.from_(DepartmentApprover)
+		.join(User)
+		.on(DepartmentApprover.approver == User.name)
+		.select(
+			DepartmentApprover.approver,
+			User.full_name.as_("approver_name"),
+			DepartmentApprover.approval_level,
+		)
+		.where(
+			(DepartmentApprover.parent == department)
+			& (DepartmentApprover.parenttype == "Department")
+			& (DepartmentApprover.parentfield == "leave_approvers")
+			& (User.enabled == 1)
+		)
+		.orderby(DepartmentApprover.idx)
+	).run(as_dict=True)
+
+	approvers = {}
+	for row in rows:
+		level = row.approval_level or "Regular"
+		if approvers.get(row.approver, {}).get("approval_level") != "Required":
+			approvers[row.approver] = frappe._dict(
+				approver=row.approver,
+				approver_name=row.approver_name,
+				approval_level=level,
+				department=department,
+				decision="Pending",
+			)
+
+	return list(approvers.values())
+
+
+@frappe.whitelist(methods=["POST"])
+def record_leave_decision(leave_application: str, decision: str) -> str:
+	"""Records the logged-in approver's decision on a leave request and returns its status.
+
+	The request is rejected as soon as any approver rejects, and approved once all its Required approvers
+	and one of its Regular approvers approve. Regular approvers decide as one group: the first decision
+	counts for all of them.
+	"""
+	if not is_leave_approval_by_levels():
+		frappe.throw(_("Approve Leave by Levels is not enabled in HR Settings."))
+
+	if decision not in ("Approved", "Rejected"):
+		frappe.throw(_("Decision must be Approved or Rejected."))
+
+	# lock the request so two approvers deciding at the same time both count
+	frappe.db.get_value("Leave Application", leave_application, "name", for_update=True)
+	doc = frappe.get_doc("Leave Application", leave_application)
+	doc.record_decision(decision)
+
+	return doc.status
+
+
+@frappe.whitelist()
+def get_leave_applications_to_decide() -> list[str]:
+	return get_leave_applications_waiting_for(frappe.session.user)
+
+
+def get_leave_applications_waiting_for(user: str) -> list[str]:
+	"""Open leave requests waiting for the user's decision.
+
+	A Regular approver stops seeing a request once any Regular approver has decided on it.
+	"""
+	rows = frappe.get_all(
+		"Leave Application Approver",
+		filters={"parenttype": "Leave Application", "approver": user, "decision": "Pending"},
+		fields=["parent", "approval_level"],
+	)
+	if not rows:
+		return []
+
+	parents = list({row.parent for row in rows})
+	open_applications = set(
+		frappe.get_all(
+			"Leave Application",
+			filters={"name": ("in", parents), "docstatus": 0, "status": "Open"},
+			pluck="name",
+		)
+	)
+	decided_by_regular = set(
+		frappe.get_all(
+			"Leave Application Approver",
+			filters={
+				"parenttype": "Leave Application",
+				"parent": ("in", parents),
+				"approval_level": "Regular",
+				"decision": ("!=", "Pending"),
+			},
+			pluck="parent",
+		)
+	)
+
+	return sorted(
+		row.parent
+		for row in rows
+		if row.parent in open_applications
+		and (row.approval_level == "Required" or row.parent not in decided_by_regular)
+	)
+
+
+def update_open_leave_approvers(doc, method=None):
+	"""After a department's leave approvers change, moves its open leave requests to the current approvers."""
+	if not is_leave_approval_by_levels():
+		return
+
+	affected = set(
+		frappe.get_all(
+			"Leave Application Approver",
+			filters={"parenttype": "Leave Application", "department": doc.name},
+			pluck="parent",
+		)
+	)
+	open_filters = {"docstatus": 0, "status": "Open"}
+	open_applications = set(
+		frappe.get_all("Leave Application", filters={**open_filters, "department": doc.name}, pluck="name")
+	)
+	if affected:
+		open_applications.update(
+			frappe.get_all(
+				"Leave Application", filters={**open_filters, "name": ("in", list(affected))}, pluck="name"
+			)
+		)
+
+	for name in sorted(open_applications):
+		frappe.get_doc("Leave Application", name).update_leave_approvers()
 
 
 def on_doctype_update():

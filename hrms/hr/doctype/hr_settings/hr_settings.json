@@ -24,6 +24,7 @@
   "sender_email",
   "leaves_tab",
   "leave_settings_section",
+  "leave_approval_by_levels",
   "auto_leave_encashment",
   "leave_approver_mandatory_in_leave_application",
   "prevent_self_leave_approval",
@@ -90,6 +91,7 @@
   },
   {
    "default": "0",
+   "depends_on": "eval:!doc.leave_approval_by_levels",
    "fieldname": "leave_approver_mandatory_in_leave_application",
    "fieldtype": "Check",
    "label": "Leave Approver Mandatory In Leave Application"
@@ -395,6 +397,13 @@
    "label": "Leave Settings"
   },
   {
+   "default": "0",
+   "description": "Leave requests go to all of the department's leave approvers instead of one chosen approver. It is approved once every Required approver and one Regular approver approve, and rejected as soon as anyone rejects. Departments without a Required approver, and Required approvers' own leave, go to the nearest parent department's Required approvers.",
+   "fieldname": "leave_approval_by_levels",
+   "fieldtype": "Check",
+   "label": "Approve Leave by Levels"
+  },
+  {
    "fieldname": "hiring_settings_section",
    "fieldtype": "Section Break",
    "label": "Hiring Settings"
@@ -409,7 +418,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-20 14:00:00.000000",
+ "modified": "2026-10-21 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",
