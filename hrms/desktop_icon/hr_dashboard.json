@@ -1,0 +1,29 @@
+{
+ "app": "hrms",
+ "creation": "2026-10-21 14:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "layout-dashboard",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "HR Dashboard",
+ "link": "/desk/hr-dashboard",
+ "link_type": "External",
+ "logo_url": "/assets/hrms/icons/desktop_icons/hr_dashboard.svg",
+ "modified": "2026-10-21 14:00:00.000000",
+ "modified_by": "Administrator",
+ "name": "HR Dashboard",
+ "owner": "Administrator",
+ "parent_icon": "Frappe HR",
+ "restrict_removal": 0,
+ "roles": [
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ],
+ "standard": 1
+}

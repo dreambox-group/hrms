@@ -1,8 +1,9 @@
 <template>
 	<div class="flex flex-col bg-white rounded w-full py-6 px-4 border-none">
-		<h2 class="text-lg font-bold text-gray-900">
+		<h2 v-if="showGreeting" class="text-lg font-bold text-gray-900">
 			{{ __("Hey, {0} 👋", [employee?.data?.first_name]) }}
 		</h2>
+		<h2 v-else class="text-base font-semibold text-gray-900">{{ __("Check-in") }}</h2>
 
 		<template v-if="settings.data?.allow_employee_checkin_from_mobile_app">
 			<div class="font-medium text-sm text-gray-500 mt-1.5" v-if="lastLog?.time">
@@ -40,7 +41,7 @@
 		:initial-breakpoint="1"
 		:breakpoints="[0, 1]"
 	>
-		<div class="h-120 w-full flex flex-col items-center justify-center gap-5 p-4 mb-5">
+		<div class="min-h-120 max-h-[90vh] overflow-y-auto w-full flex flex-col items-center justify-center gap-5 p-4 mb-5">
 			<div class="flex flex-col gap-1.5 mt-2 items-center justify-center">
 				<div class="font-bold text-xl">
 					{{ dayjs(checkinTimestamp).format("hh:mm:ss a") }}
@@ -70,7 +71,15 @@
 				</div>
 			</template>
 
-			<Button :loading="checkins.insert.loading" variant="solid" class="w-full py-5 text-sm disabled:bg-gray-700" @click="submitLog(nextAction.action)">
+			<SelfieCamera v-if="selfieRequired" v-model="selfie" />
+
+			<Button
+				:loading="checkins.insert.loading || selfieCheckin.loading"
+				:disabled="selfieRequired && !selfie"
+				variant="solid"
+				class="w-full py-5 text-sm disabled:bg-gray-700"
+				@click="submitLog(nextAction.action)"
+			>
 				{{ __("Confirm {0}", [nextAction.label]) }}
 			</Button>
 		</div>
@@ -78,12 +87,15 @@
 </template>
 
 <script setup>
-import { createListResource, toast, FeatherIcon } from "frappe-ui"
+import { createListResource, createResource, toast, FeatherIcon } from "frappe-ui"
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue"
 import { IonModal, modalController } from "@ionic/vue"
 
 import { formatTimestamp } from "@/utils/formatters"
 import { settings } from "@/data/settings"
+import SelfieCamera from "@/components/SelfieCamera.vue"
+
+defineProps({ showGreeting: { type: Boolean, default: true } })
 
 const DOCTYPE = "Employee Checkin"
 
@@ -95,6 +107,13 @@ const checkinTimestamp = ref(null)
 const latitude = ref(0)
 const longitude = ref(0)
 const locationStatus = ref("")
+const selfie = ref("")
+const selfieRequired = computed(() => Boolean(settings.data?.require_selfie_for_checkin))
+
+// with a live selfie required, the server takes the photo, sets the time and creates the check-in
+const selfieCheckin = createResource({
+	url: "hrms.hr.doctype.employee_checkin.employee_checkin.add_log_with_selfie",
+})
 
 const checkins = createListResource({
 	doctype: DOCTYPE,
@@ -147,6 +166,7 @@ const fetchLocation = () => {
 
 const handleEmployeeCheckin = () => {
 	checkinTimestamp.value = dayjs().format("YYYY-MM-DD HH:mm:ss")
+	selfie.value = ""
 
 	if (settings.data?.allow_geolocation_tracking) {
 		fetchLocation()
@@ -155,6 +175,42 @@ const handleEmployeeCheckin = () => {
 
 const submitLog = (logType) => {
 	const actionLabel = logType === "IN" ? __("Check-in") : __("Check-out")
+
+	if (selfieRequired.value) {
+		selfieCheckin.submit(
+			{
+				log_type: logType,
+				selfie: selfie.value,
+				latitude: latitude.value || null,
+				longitude: longitude.value || null,
+			},
+			{
+				onSuccess() {
+					modalController.dismiss()
+					checkins.reload()
+					toast({
+						title: __("Success"),
+						text: __("{0} successful!", [actionLabel]),
+						icon: "check-circle",
+						position: "bottom-center",
+						iconClasses: "text-green-500",
+					})
+				},
+				onError(error) {
+					for (const message of error.messages?.length ? error.messages : [__("{0} failed!", [actionLabel])]) {
+						toast({
+							title: __("Error"),
+							text: message,
+							icon: "alert-circle",
+							position: "bottom-center",
+							iconClasses: "text-red-500",
+						})
+					}
+				},
+			}
+		)
+		return
+	}
 
 	checkins.insert.submit(
 		{

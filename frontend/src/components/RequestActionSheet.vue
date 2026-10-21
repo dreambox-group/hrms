@@ -72,9 +72,71 @@
 			</div>
 		</div>
 
+		<!-- Approvers of a leave request when leave is approved by levels -->
+		<div v-if="leaveByLevels && document.doc.approvers?.length" class="w-full px-4 pb-4 flex flex-col gap-2">
+			<div class="text-gray-600 text-base">{{ __("Approvers") }}</div>
+			<div
+				v-for="row in document.doc.approvers"
+				:key="row.name"
+				class="flex flex-row justify-between items-center text-sm"
+			>
+				<span>
+					{{ row.approver_name || row.approver }}
+					<span class="text-gray-500">· {{ __(row.approval_level) }}</span>
+				</span>
+				<span
+					:class="[
+						'rounded-full px-2 py-0.5 text-xs font-semibold',
+						row.decision === 'Approved'
+							? 'bg-green-100 text-green-800'
+							: row.decision === 'Rejected'
+							? 'bg-red-100 text-red-800'
+							: 'bg-gray-100 text-gray-700',
+					]"
+				>
+					{{ __(row.decision) }}
+				</span>
+			</div>
+		</div>
+
 		<!-- Actions -->
+		<div
+			v-if="leaveByLevels && document.doc.docstatus === 0 && document.doc.status === 'Open'"
+			class="flex w-full flex-row items-center justify-between gap-3 sticky bottom-0 border-t z-[100] p-4"
+		>
+			<template v-if="myPendingApproval">
+				<Button
+					@click="recordDecision('Rejected')"
+					:loading="leaveDecision.loading"
+					class="w-full py-5"
+					variant="subtle"
+					theme="red"
+				>
+					<template #prefix>
+						<FeatherIcon name="x" class="w-4" />
+					</template>
+					{{ __("Reject") }}
+				</Button>
+				<Button
+					@click="recordDecision('Approved')"
+					:loading="leaveDecision.loading"
+					class="w-full py-5"
+					variant="solid"
+					theme="green"
+				>
+					<template #prefix>
+						<FeatherIcon name="check" class="w-4" />
+					</template>
+					{{ __("Approve") }}
+				</Button>
+			</template>
+			<div v-else class="w-full text-center text-sm text-gray-500">
+				{{ __("Waiting for the other approvers.") }}
+			</div>
+		</div>
+
 		<WorkflowActionSheet
-			v-if="workflow?.hasWorkflow"
+			v-else-if="workflow?.hasWorkflow"
 			:doc="document.doc"
 			:workflow="workflow"
 			view="actionSheet"
@@ -172,6 +234,8 @@ import WorkflowActionSheet from "@/components/WorkflowActionSheet.vue"
 
 import { getCompanyCurrency } from "@/data/currencies"
 import { settings } from "@/data/settings"
+import { homeData, leaveDecision } from "@/data/home"
+import { teamLeaves } from "@/data/leaves"
 import { formatCurrency } from "@/utils/formatters"
 
 import useWorkflow from "@/composables/workflow"
@@ -233,6 +297,58 @@ const permittedWriteFields = createResource({
 })
 
 const sessionEmployee = inject("$employee")
+const sessionUser = inject("$user")
+
+// with approval by levels a leave request is decided through record_leave_decision, one vote each
+const leaveByLevels = computed(
+	() => props.modelValue.doctype === "Leave Application" && Boolean(settings.data?.leave_approval_by_levels)
+)
+
+const myPendingApproval = computed(() => {
+	const approvers = document?.doc?.approvers || []
+	const mine = approvers.find(
+		(row) => row.approver === sessionUser?.data?.name && row.decision === "Pending"
+	)
+	if (!mine) return null
+	// Regular approvers decide as one group: the first decision counts for all of them
+	const regularDecided = approvers.some(
+		(row) => row.approval_level === "Regular" && row.decision !== "Pending"
+	)
+	return mine.approval_level === "Regular" && regularDecided ? null : mine
+})
+
+function recordDecision(decision) {
+	leaveDecision.submit(
+		{ leave_application: document.doc.name, decision },
+		{
+			onSuccess(status) {
+				document.reload()
+				homeData.reload()
+				teamLeaves.reload()
+				modalController.dismiss()
+				toast({
+					title: __("Success"),
+					text:
+						status === "Open"
+							? __("Your decision was saved. The request is still waiting for other approvers.")
+							: __("The leave request is now {0}.", [__(status)]),
+					icon: "check-circle",
+					position: "bottom-center",
+					iconClasses: "text-green-500",
+				})
+			},
+			onError(error) {
+				toast({
+					title: __("Error"),
+					text: error.messages?.[0] || __("Your decision could not be saved."),
+					icon: "alert-circle",
+					position: "bottom-center",
+					iconClasses: "text-red-500",
+				})
+			},
+		}
+	)
+}
 
 function hasPermission(action) {
 	if (action === "approval" && props.modelValue.doctype === "Leave Application"){
