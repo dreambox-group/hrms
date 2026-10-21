@@ -342,8 +342,8 @@
    "label": "Show Expenses in the Employee App"
   },
   {
-   "default": "0",
-   "description": "Show Salary Slips in the employee app's menu and home page.",
+   "default": "1",
+   "description": "Show Salary Slips in the employee app's menu and home page. Everyone only sees their own slips; HR Manager and HR User see all.",
    "fieldname": "show_salary_in_employee_app",
    "fieldtype": "Check",
    "label": "Show Salary Slips in the Employee App"
@@ -456,7 +456,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 19:00:00.000000",
+ "modified": "2026-10-21 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",
