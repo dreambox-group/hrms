@@ -105,7 +105,7 @@ import SalaryIcon from "@/components/icons/SalaryIcon.vue"
 
 import { homeData } from "@/data/home"
 import { leaveBalance } from "@/data/leaves"
-import { showExpenses, showSalary } from "@/utils/navigation"
+import { showAttendanceRequests, showExpenses, showSalary } from "@/utils/navigation"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -165,12 +165,15 @@ const quickLinks = [
 ]
 
 // Expenses (claims, advances) and Salary Slips only when HR Settings show them in the app
+// ... and Attendance / Shift requests
 const EXPENSE_ROUTES = ["ExpenseClaimFormView", "EmployeeAdvanceFormView"]
+const REQUEST_ROUTES = ["AttendanceRequestFormView", "ShiftRequestFormView"]
 const visibleQuickLinks = computed(() =>
 	quickLinks.filter(
 		(link) =>
 			(showExpenses.value || !EXPENSE_ROUTES.includes(link.route)) &&
-			(showSalary.value || link.route !== "SalarySlipsDashboard")
+			(showSalary.value || link.route !== "SalarySlipsDashboard") &&
+			(showAttendanceRequests.value || !REQUEST_ROUTES.includes(link.route))
 	)
 )
 </script>

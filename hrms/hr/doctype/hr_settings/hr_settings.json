@@ -53,6 +53,7 @@
   "employee_app_section",
   "show_expenses_in_employee_app",
   "show_salary_in_employee_app",
+  "show_attendance_requests_in_employee_app",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -348,6 +349,13 @@
    "label": "Show Salary Slips in the Employee App"
   },
   {
+   "default": "0",
+   "description": "Show Request Attendance and Request a Shift (and their recent requests) in the employee app's home page and Attendance page.",
+   "fieldname": "show_attendance_requests_in_employee_app",
+   "fieldtype": "Check",
+   "label": "Show Attendance & Shift Requests in the Employee App"
+  },
+  {
    "fieldname": "attendance_settings_section",
    "fieldtype": "Section Break",
    "label": "Attendance Settings"
@@ -448,7 +456,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 16:00:00.000000",
+ "modified": "2026-10-21 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

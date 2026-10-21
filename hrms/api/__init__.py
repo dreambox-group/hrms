@@ -107,6 +107,7 @@ def get_hr_settings() -> dict:
 		leave_approval_by_levels=settings.leave_approval_by_levels,
 		show_expenses_in_employee_app=settings.show_expenses_in_employee_app,
 		show_salary_in_employee_app=settings.show_salary_in_employee_app,
+		show_attendance_requests_in_employee_app=settings.show_attendance_requests_in_employee_app,
 		prevent_self_leave_approval=settings.prevent_self_leave_approval,
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
 	)
