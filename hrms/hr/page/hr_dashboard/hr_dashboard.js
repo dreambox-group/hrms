@@ -105,6 +105,7 @@ class HRDashboard {
 				${this.headcount(d.headcount)}
 				${this.changes(d.changes)}
 				${this.requests(d.requests)}
+				${this.missingDocuments(d.missing_documents || [])}
 			</div>
 			<h2 class="hrd-section-title">${__("Module settings")}</h2>
 			<div class="hrd-settings">
@@ -301,6 +302,26 @@ class HRDashboard {
 					.join("")
 			: `<div class="hrd-empty">${__("Nothing in the next 30 days.")}</div>`;
 		return card(__("Joining, leaving & contracts ending"), null, body);
+	}
+
+	missingDocuments(rows) {
+		const body = rows.length
+			? rows
+					.map(
+						(row) => `
+						<a class="hrd-row" href="#" data-route='${route(["Form", "Leave Application", row.name])}'>
+							<span>
+								<div class="hrd-strong">${esc(row.label)} - ${esc(row.employee_name)}</div>
+								<div class="hrd-muted">${dates(row.from_date, row.to_date)}</div>
+							</span>
+							<span class="hrd-pill ${row.overdue ? "hrd-badge" : "hrd-bg-orange"}">
+								${row.overdue ? __("Overdue") : __("Due {0}", [frappe.datetime.str_to_user(row.document_due_date)])}
+							</span>
+						</a>`
+					)
+					.join("")
+			: `<div class="hrd-empty">${__("No supporting documents are missing.")}</div>`;
+		return card(__("Documents still missing"), null, body);
 	}
 
 	requests(rows) {

@@ -114,6 +114,39 @@ frappe.ui.form.on("Leave Application", {
 			frm.trigger("make_dashboard");
 		}
 		frm.trigger("set_form_buttons");
+		frm.trigger("add_decision_buttons");
+	},
+
+	// one-tap Approve / Reject for whoever decides on this request (the status isn't edited by hand)
+	add_decision_buttons(frm) {
+		if (frm.is_new() || frm.doc.docstatus !== 0 || frm.doc.status !== "Open") return;
+
+		const user = frappe.session.user;
+		const approvers = frm.doc.approvers || [];
+		let can_decide = false;
+		if (approvers.length) {
+			const mine = approvers.find((row) => row.approver === user && row.decision === "Pending");
+			const regular_decided = approvers.some(
+				(row) => row.approval_level === "Regular" && row.decision !== "Pending"
+			);
+			can_decide = Boolean(mine) && !(mine.approval_level === "Regular" && regular_decided);
+		} else {
+			can_decide =
+				frm.doc.leave_approver === user ||
+				frappe.user.has_role(["HR Manager", "HR User", "System Manager"]);
+		}
+		if (!can_decide) return;
+
+		const decide = (decision) =>
+			frappe
+				.call({
+					method: "hrms.hr.doctype.leave_application.leave_application.decide_leave_application",
+					args: { leave_application: frm.doc.name, decision },
+					freeze: true,
+				})
+				.then(() => frm.reload_doc());
+		frm.add_custom_button(__("Reject"), () => decide("Rejected"));
+		frm.add_custom_button(__("Approve"), () => decide("Approved")).addClass("btn-primary");
 	},
 
 	async set_employee(frm) {

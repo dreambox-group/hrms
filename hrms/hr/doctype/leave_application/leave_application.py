@@ -74,6 +74,27 @@ class LeaveApprovalError(frappe.ValidationError):
 	pass
 
 
+class LeaveRequestLockedError(frappe.ValidationError):
+	pass
+
+
+# roles that may still correct a leave request after it has been sent
+LEAVE_CORRECTION_ROLES = ("HR Manager", "HR User", "System Manager")
+# what the employee and approvers can't change once the request is sent: approvers decide with
+# decide_leave_application / record_leave_decision instead of editing the status
+LOCKED_AFTER_REQUEST = (
+	"employee",
+	"leave_type",
+	"from_date",
+	"to_date",
+	"half_day",
+	"half_day_date",
+	"description",
+	"leave_approver",
+	"status",
+)
+
+
 from frappe.model.document import Document
 
 
@@ -104,6 +125,8 @@ class LeaveApplication(Document, PWANotificationsMixin):
 			self.validate_optional_leave()
 		self.validate_applicable_after()
 		self.validate_for_self_approval()
+		self.validate_no_changes_after_request()
+		self.set_document_due_date()
 		if is_leave_approval_by_levels() and not frappe.flags.in_import:
 			# the department's approvers decide, not one approver chosen on the application
 			self.leave_approver = None
@@ -941,6 +964,33 @@ class LeaveApplication(Document, PWANotificationsMixin):
 					or "",
 				)
 				create_leave_ledger_entry(self, args, submit)
+
+	def validate_no_changes_after_request(self):
+		"""Once sent, a leave request stays as it is; HR can still correct it."""
+		if self.is_new() or self.docstatus != 0 or frappe.flags.in_import or self.flags.leave_decision:
+			return
+		if self.flags.ignore_permissions or set(LEAVE_CORRECTION_ROLES) & set(frappe.get_roles()):
+			return
+
+		changed = [field for field in LOCKED_AFTER_REQUEST if self.has_value_changed(field)]
+		if changed:
+			frappe.throw(
+				_("This leave request was already sent, so it can't be changed. Ask HR to correct it."),
+				title=_("Leave Request Sent"),
+				exc=LeaveRequestLockedError,
+			)
+
+	def set_document_due_date(self):
+		"""Leave types that need a supporting document give the employee some days to upload it."""
+		if self.docstatus != 0:
+			return
+		requires, grace_days = frappe.db.get_value(
+			"Leave Type", self.leave_type, ["requires_supporting_document", "document_grace_days"]
+		) or (0, 0)
+		if not requires:
+			self.document_due_date = None
+		elif not self.document_due_date or self.has_value_changed("leave_type"):
+			self.document_due_date = add_days(self.posting_date or nowdate(), cint(grace_days))
 
 	def set_leave_approvers(self):
 		"""Fills the approvers from the department's current leave approvers.
@@ -1878,6 +1928,36 @@ def record_leave_decision(leave_application: str, decision: str) -> str:
 	doc = frappe.get_doc("Leave Application", leave_application)
 	doc.record_decision(decision)
 
+	return doc.status
+
+
+@frappe.whitelist(methods=["POST"])
+def decide_leave_application(leave_application: str, decision: str) -> str:
+	"""Approves or rejects a leave request with one tap, and returns its status.
+
+	With HR Settings' "Approve Leave by Levels" the decision is one vote among the approvers
+	(record_leave_decision); otherwise the chosen Leave Approver (or HR) decides and the request
+	is submitted, as in stock Frappe HR.
+	"""
+	if is_leave_approval_by_levels():
+		return record_leave_decision(leave_application, decision)
+
+	if decision not in ("Approved", "Rejected"):
+		frappe.throw(_("Decision must be Approved or Rejected."))
+
+	frappe.db.get_value("Leave Application", leave_application, "name", for_update=True)
+	doc = frappe.get_doc("Leave Application", leave_application)
+	if doc.docstatus != 0 or doc.status != "Open":
+		frappe.throw(_("This leave request is already {0}.").format(_(doc.status)), exc=LeaveApprovalError)
+
+	user = frappe.session.user
+	is_hr = bool(set(LEAVE_CORRECTION_ROLES) & set(frappe.get_roles(user)))
+	if user != doc.leave_approver and not is_hr:
+		frappe.throw(_("You are not the approver of this leave request."), frappe.PermissionError)
+
+	doc.status = decision
+	doc.flags.leave_decision = True
+	doc.submit()
 	return doc.status
 
 

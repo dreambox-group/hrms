@@ -1030,11 +1030,12 @@ class TestLeaveApplication(HRMSTestSuite):
 		frappe.set_user(employee.user_id)
 		self.assertRaises(frappe.ValidationError, application.save)
 
+		# the approver decides with one tap; the status isn't edited by hand once the request is sent
+		from hrms.hr.doctype.leave_application.leave_application import decide_leave_application
+
 		frappe.set_user(leave_approver)
+		decide_leave_application(application.name, "Approved")
 		application.reload()
-		application.status = "Approved"
-		application.save()
-		application.submit()
 		self.assertEqual(1, application.docstatus)
 
 	@assign_holiday_list("Salary Slip Test Holiday List", "_Test Company")

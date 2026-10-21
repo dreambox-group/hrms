@@ -22,6 +22,7 @@ import { computed, inject } from "vue"
 import { homeData } from "@/data/home"
 
 const __ = inject("$translate")
+const dayjs = inject("$dayjs")
 
 const notices = computed(() => {
 	const data = homeData.data
@@ -49,6 +50,27 @@ const notices = computed(() => {
 			text: waiting === 1 ? __("1 request") : __("{0} requests", [waiting]),
 			dot: "bg-red-500",
 			to: { name: "Approvals" },
+		})
+	}
+	// supporting documents that are still missing: your own, and those of leave you approve
+	for (const doc of data.missing_documents?.mine || []) {
+		list.push({
+			title: doc.overdue ? __("Document overdue") : __("Document needed"),
+			text: __("{0} leave on {1}: upload by {2}", [
+				doc.label,
+				dayjs(doc.from_date).format("D MMM"),
+				dayjs(doc.document_due_date).format("D MMM"),
+			]),
+			dot: doc.overdue ? "bg-red-500" : "bg-orange-500",
+			to: { name: "LeaveApplicationDetailView", params: { id: doc.name } },
+		})
+	}
+	const toReview = data.missing_documents?.to_review || []
+	if (toReview.length) {
+		list.push({
+			title: __("Documents still missing"),
+			text: toReview.map((doc) => `${doc.employee_name} (${doc.label})`).join(", "),
+			dot: "bg-orange-500",
 		})
 	}
 	if (data.team) {

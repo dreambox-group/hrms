@@ -13,6 +13,10 @@ from hrms.hr.doctype.leave_application.leave_application import (
 	is_leave_approval_by_levels,
 )
 from hrms.hr.doctype.leave_application.leave_calendar import get_leave_label
+from hrms.hr.doctype.leave_application.leave_documents import (
+	get_leave_attachments,
+	get_missing_documents_for,
+)
 from hrms.hr.workforce_today import (
 	CHECKED_IN,
 	LATE,
@@ -46,6 +50,7 @@ def get_home_data() -> dict:
 		"other_approvals": get_other_approvals(user),
 		"team": team,
 		"approval_by_levels": is_leave_approval_by_levels(),
+		"missing_documents": get_missing_documents_for(user),
 	}
 
 
@@ -70,6 +75,8 @@ def get_leave_approvals(user: str) -> list[dict]:
 			"to_date",
 			"total_leave_days",
 			"leave_approver_name",
+			"description",
+			"document_due_date",
 		],
 		order_by="from_date",
 	)
@@ -83,10 +90,13 @@ def get_leave_approvals(user: str) -> list[dict]:
 		):
 			approvers.setdefault(row.parent, []).append(row)
 
+	attachments = get_leave_attachments([a.name for a in applications])
 	for application in applications:
 		application.label = get_leave_label(application.employee, application.leave_type)
 		application.approvers = approvers.get(application.name, [])
 		application.progress = get_approval_progress(application)
+		application.attachments = attachments.get(application.name, [])
+		application.document_missing = bool(application.document_due_date and not application.attachments)
 	return applications
 
 

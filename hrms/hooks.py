@@ -291,6 +291,7 @@ scheduler_events = {
 		"hrms.hr.doctype.job_opening.job_opening.close_expired_job_openings",
 		"hrms.telemetry.capture_daily_attendance_pulse",
 		"hrms.hr.doctype.leave_application.leave_calendar.push_missing_leave_to_google_calendar",
+		"hrms.hr.doctype.leave_application.leave_documents.remind_missing_leave_documents",
 	],
 	"daily_long": [
 		"hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry.process_expired_allocation",
