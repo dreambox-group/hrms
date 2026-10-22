@@ -1,7 +1,7 @@
 <template>
 	<div v-if="doc?.name" class="flex flex-col gap-3 w-full">
 		<!-- who decides and how far it is (approval by levels) -->
-		<div v-if="doc.approvers?.length" class="flex flex-col gap-1.5">
+		<div v-if="doc.approvers?.length && !hideApprovers" class="flex flex-col gap-1.5">
 			<div class="text-sm font-semibold text-gray-700">{{ __("Approvers") }}</div>
 			<div
 				v-for="row in doc.approvers"
@@ -65,7 +65,11 @@ const dayjs = inject("$dayjs")
 const user = inject("$user")
 const employee = inject("$employee")
 
-const props = defineProps({ doc: { type: Object, default: null } })
+const props = defineProps({
+	doc: { type: Object, default: null },
+	// the leave detail shows the approvers in its own timeline
+	hideApprovers: { type: Boolean, default: false },
+})
 const emit = defineEmits(["decided"])
 
 const DECISION_CLASSES = {

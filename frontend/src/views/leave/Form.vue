@@ -1,340 +1,36 @@
 <template>
-	<ion-page>
-		<ion-content :fullscreen="true">
-			<FormView
-				v-if="formFields.data"
-				doctype="Leave Application"
-				v-model="leaveApplication"
-				:isSubmittable="true"
-				:fields="formFields.data"
-				:id="props.id"
-				:showAttachmentView="true"
-				:readOnly="isLocked"
-				:showFormButton="!isLocked"
-				@validateForm="validateForm"
-			>
-				<template #formButton>
-					<div class="max-h-[50vh] overflow-y-auto">
-						<LeaveRequestActions :doc="leaveApplication" @decided="router.back()" />
-					</div>
-				</template>
-			</FormView>
-		</ion-content>
-	</ion-page>
+	<BaseLayout
+		:pageTitle="props.id ? __('Leave request') : __('Request leave')"
+		:backTo="{ name: 'LeavesDashboard' }"
+		:backLabel="__('Leaves')"
+	>
+		<template #body>
+			<div class="w-full px-4 pb-24 pt-4 lg:px-6 lg:pt-6">
+				<div class="mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl border border-line bg-white">
+					<LeaveDetail v-if="props.id" :name="props.id" class="p-5 lg:p-6" />
+					<LeaveRequestForm v-else @close="router.back()" />
+				</div>
+			</div>
+		</template>
+	</BaseLayout>
 </template>
 
 <script setup>
-import { IonPage, IonContent } from "@ionic/vue"
-import { createResource } from "frappe-ui"
-import { computed, ref, watch, inject, nextTick } from "vue"
+import { inject } from "vue"
 import { useRouter } from "vue-router"
 
-import FormView from "@/components/FormView.vue"
-import LeaveRequestActions from "@/components/LeaveRequestActions.vue"
+import BaseLayout from "@/components/BaseLayout.vue"
+import LeaveDetail from "@/components/LeaveDetail.vue"
+import LeaveRequestForm from "@/components/LeaveRequestForm.vue"
 
-const dayjs = inject("$dayjs")
 const __ = inject("$translate")
-const today = dayjs().format("YYYY-MM-DD")
+const router = useRouter()
 
+// a new request, or one request (from a notification, the To-do or the Leaves page)
 const props = defineProps({
 	id: {
 		type: String,
 		required: false,
 	},
 })
-
-const sessionEmployee = inject("$employee")
-const sessionUser = inject("$user")
-const router = useRouter()
-
-// a sent leave request is not edited by the employee or the approvers (the server refuses it too);
-// approvers decide with the buttons, HR can still correct it
-const isLocked = computed(
-	() =>
-		Boolean(props.id) &&
-		!(sessionUser?.data?.roles || []).some((role) => ["HR Manager", "HR User", "System Manager"].includes(role))
-)
-const currEmployee = ref(sessionEmployee.data.name)
-
-// reactive object to store form data
-const leaveApplication = ref({})
-
-// For existing docs, watchers fire during initial data population from the DB.
-// This flag prevents setLeaveBalance() from overwriting the stored
-// "leave balance before application" value during that initial load.
-const isFormInitialized = ref(!props.id)
-if (props.id) {
-	watch(
-		() => leaveApplication.value.name,
-		(name) => {
-			if (name && !isFormInitialized.value) {
-				nextTick(() => {
-					isFormInitialized.value = true
-				})
-			}
-		}
-	)
-}
-
-// get form fields
-const formFields = createResource({
-	url: "hrms.api.get_doctype_fields",
-	params: { doctype: "Leave Application" },
-	transform(data) {
-		let fields = getFilteredFields(data)
-
-		return fields.map((field) => {
-			if (field.fieldname === "half_day_date") field.hidden = true
-
-			if (field.fieldname === "posting_date") field.default = today
-
-			return field
-		})
-	},
-	onSuccess(_data) {
-		// the approver picker only matters while making a request
-		if (!props.id) leaveApprovalDetails.reload()
-		leaveTypes.reload()
-	},
-})
-formFields.reload()
-
-const leaveApprovalDetails = createResource({
-	url: "hrms.api.get_leave_approval_details",
-	params: { employee: currEmployee.value },
-	onSuccess(data) {
-		setLeaveApprovers(data)
-	},
-})
-
-const leaveTypes = createResource({
-	url: "hrms.api.get_leave_types",
-	params: {
-		employee: currEmployee.value,
-		date: today,
-	},
-	onSuccess(data) {
-		setLeaveTypes(data)
-	},
-})
-
-// form scripts
-watch(
-	() => leaveApplication.value.employee,
-	(employee_id) => {
-		if (props.id && employee_id !== currEmployee.value) {
-			// if employee is not the current user, set form as read only
-			setFormReadOnly()
-		}
-		currEmployee.value = employee_id
-		leaveTypes.fetch({ employee: currEmployee.value, date: today })
-		if (!props.id) leaveApprovalDetails.fetch({ employee: currEmployee.value })
-	}
-)
-watch(
-	() => leaveApplication.value.leave_type,
-	(leave_type) => setLeaveBalance(leave_type)
-)
-
-watch(
-	() => leaveApplication.value.half_day,
-	(half_day) => setHalfDayDate(half_day)
-)
-
-watch(
-	() => leaveApplication.value.half_day && leaveApplication.value.half_day_date,
-	() => setTotalLeaveDays()
-)
-
-watch(
-	() => leaveApplication.value.from_date,
-	(from_date) => {
-		if (!leaveApplication.value.to_date) {
-			leaveApplication.value.to_date = from_date
-		}
-
-		// fetch leave types for the selected date
-		leaveTypes.fetch({
-			employee: currEmployee.value,
-			date: from_date,
-		})
-	}
-)
-
-watch(
-	() => [leaveApplication.value.from_date, leaveApplication.value.to_date],
-	([from_date, to_date]) => {
-		validateDates(from_date, to_date)
-		setHalfDayDateRange()
-		setTotalLeaveDays()
-	}
-)
-
-watch(
-	() => leaveApplication.value.leave_approver,
-  	(newApprover) => {
-			const approverField = formFields.data.find(f => f.fieldname === "leave_approver")
-			const selected = approverField?.documentList?.find(opt => opt.value === newApprover)
-			leaveApplication.value.leave_approver_name = selected?.label?.split(" : ")[1] || ""
-  }
-)
-
-// helper functions
-function getFilteredFields(fields) {
-	// reduce noise from the form view by excluding unnecessary fields
-	// ex: employee and other details can be fetched from the session user
-	const excludeFields = [
-		"naming_series",
-		"sb_other_details",
-		"salary_slip",
-		"letter_head",
-		// filled in by the server with approval by levels; shown on the request itself
-		"approvers",
-	]
-
-	const employeeFields = [
-		"employee",
-		"employee_name",
-		"department",
-		"company",
-		"follow_via_email",
-		"status",
-		"posting_date",
-	]
-
-	if (!props.id) excludeFields.push(...employeeFields)
-
-	return fields.filter((field) => !excludeFields.includes(field.fieldname))
-}
-
-function setFormReadOnly() {
-	if (leaveApplication.value.leave_approver === sessionEmployee.data.user_id) return
-	formFields.data.map((field) => (field.read_only = true))
-}
-
-function validateDates(from_date, to_date) {
-	if (!(from_date && to_date)) return
-
-	const error_message =
-		from_date > to_date ? __("To Date cannot be before From Date") : ""
-
-	const from_date_field = formFields.data.find(
-		(field) => field.fieldname === "from_date"
-	)
-	from_date_field.error_message = error_message
-}
-
-function setTotalLeaveDays() {
-	if (!areValuesSet()) return
-
-	const leaveDays = createResource({
-		url: "hrms.hr.doctype.leave_application.leave_application.get_number_of_leave_days",
-		params: {
-			employee: currEmployee.value,
-			leave_type: leaveApplication.value.leave_type,
-			from_date: leaveApplication.value.from_date,
-			to_date: leaveApplication.value.to_date,
-			half_day: leaveApplication.value.half_day,
-			half_day_date: leaveApplication.value.half_day_date,
-		},
-		onSuccess(data) {
-			leaveApplication.value.total_leave_days = data
-		},
-	})
-	leaveDays.reload()
-	setLeaveBalance()
-}
-
-function setLeaveBalance() {
-	if (!areValuesSet()) return
-	if (!isFormInitialized.value) return
-
-	const leaveBalance = createResource({
-		url: "hrms.hr.doctype.leave_application.leave_application.get_leave_balance_on",
-		params: {
-			employee: currEmployee.value,
-			date: leaveApplication.value.from_date,
-			to_date: leaveApplication.value.to_date,
-			leave_type: leaveApplication.value.leave_type,
-			consider_all_leaves_in_the_allocation_period: 1,
-		},
-		onSuccess(data) {
-			leaveApplication.value.leave_balance = data
-		},
-	})
-	leaveBalance.reload()
-}
-
-function setHalfDayDate(half_day) {
-	const half_day_date = formFields.data.find(
-		(field) => field.fieldname === "half_day_date"
-	)
-	half_day_date.hidden = !half_day
-	half_day_date.reqd = half_day
-
-	if (!half_day) return
-
-	if (leaveApplication.value.from_date === leaveApplication.value.to_date) {
-		leaveApplication.value.half_day_date = leaveApplication.value.from_date
-	} else {
-		setHalfDayDateRange()
-	}
-}
-
-function setHalfDayDateRange() {
-	const half_day_date = formFields.data.find(
-		(field) => field.fieldname === "half_day_date"
-	)
-	half_day_date.minDate = leaveApplication.value.from_date
-	half_day_date.maxDate = leaveApplication.value.to_date
-}
-
-function setLeaveApprovers(data) {
-	const leave_approver = formFields.data?.find(
-		(field) => field.fieldname === "leave_approver"
-	)
-	if (data?.approval_by_levels) {
-		// the department's approvers decide; nobody is picked here
-		for (const field of formFields.data.filter((f) => ["leave_approver", "leave_approver_name"].includes(f.fieldname))) {
-			field.hidden = 1
-			field.reqd = 0
-		}
-		return
-	}
-	leave_approver.reqd = data?.is_mandatory
-	leave_approver.documentList = data?.department_approvers.map((approver) => ({
-		label: approver.full_name
-			? `${approver.name} : ${approver.full_name}`
-			: approver.name,
-		value: approver.name,
-	}))
-	if (!leaveApplication.value.leave_approver){
-		leaveApplication.value.leave_approver = data?.leave_approver
-		leaveApplication.value.leave_approver_name = data?.leave_approver_name
-	}
-	
-}
-
-function setLeaveTypes(data) {
-	const leave_type = formFields.data.find(
-		(field) => field.fieldname === "leave_type"
-	)
-	leave_type.documentList = data?.map((leave_type) => ({
-		label: leave_type,
-		value: leave_type,
-	}))
-}
-
-function areValuesSet() {
-	return (
-		leaveApplication.value.from_date &&
-		leaveApplication.value.to_date &&
-		leaveApplication.value.leave_type
-	)
-}
-
-function validateForm() {
-	setHalfDayDate(leaveApplication.value.half_day)
-	leaveApplication.value.employee = currEmployee.value
-}
 </script>

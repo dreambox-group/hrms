@@ -66,3 +66,17 @@ export const leaveBalance = createResource({
 		)
 	},
 })
+
+// what can still be asked for: the balance only subtracts leave already taken, not leave waiting
+export const availableLeaves = (allocation) =>
+	Math.max((allocation?.balance_leaves || 0) - (allocation?.leaves_pending_approval || 0), 0)
+
+// allocated leave types as rows for the used / waiting / left bars
+export const balanceRows = (data) =>
+	Object.entries(data || {}).map(([type, allocation]) => ({
+		type,
+		total: allocation.allocated_leaves,
+		left: availableLeaves(allocation),
+		used: allocation.leaves_taken || 0,
+		pending: allocation.leaves_pending_approval || 0,
+	}))

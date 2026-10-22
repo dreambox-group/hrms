@@ -28,3 +28,37 @@ body {
 	-ms-overflow-style: none; /* IE and Edge */
 	scrollbar-width: none; /* Firefox */
 }
+
+/* Drea HRIS: soft grey page behind white cards */
+ion-content.drea-page {
+	--background: #f4f5f3;
+}
+
+/* wide screens: forms and details slide in from the right; phones: full screen */
+ion-modal.side-panel {
+	--width: 100%;
+	--height: 100%;
+	--border-radius: 0;
+}
+@media (min-width: 1024px) {
+	ion-modal.side-panel {
+		--width: 520px;
+		justify-content: flex-end;
+		align-items: stretch;
+	}
+	ion-modal.centered-dialog {
+		--width: 440px;
+		--border-radius: 20px;
+	}
+}
+
+/* frappe-ui's text sizes carry their own weight, so a responsive size (lg:text-lg) undid font-bold */
+.font-medium {
+	font-weight: 500 !important;
+}
+.font-semibold {
+	font-weight: 600 !important;
+}
+.font-bold {
+	font-weight: 700 !important;
+}

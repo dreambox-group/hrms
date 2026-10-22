@@ -8,6 +8,7 @@ from frappe.utils import add_days, add_years, get_year_ending, get_year_start, g
 
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
+from hrms.api.employee_app import get_attendance_month, get_notifications, mark_notification_as_read
 from hrms.api.home import get_home_data
 from hrms.api.hr_dashboard import get_dashboard_data
 from hrms.hr.doctype.employee_checkin.test_employee_checkin import make_checkin
@@ -129,6 +130,61 @@ class TestHRFrontends(HRMSTestSuite):
 		self.assertIsNone(data["team"])
 		self.assertFalse(data["leave_approvals"])
 		self.assertIn("fe.away@example.com", [row["employee_name"] for row in data["on_leave_today"]])
+
+	def test_home_shows_my_own_day(self):
+		date = getdate()
+		make_checkin(self.employee("fe.late"), datetime.combine(date, time(8, 40)))
+
+		frappe.set_user("fe.late@example.com")
+		me = get_home_data()["me"]
+
+		self.assertEqual(me.status, "Late")
+		self.assertEqual(me.checked_in_at, datetime.combine(date, time(8, 40)))
+		# shift starts 08:00 with 15 minutes' grace
+		self.assertEqual(me.late_after, datetime.combine(date, time(8, 15)))
+		self.assertIsNotNone(me.opens_at)
+
+	def test_attendance_month_is_the_users_own(self):
+		date = getdate()
+		make_checkin(self.employee("fe.ontime"), datetime.combine(date, time(8, 10)))
+		make_checkin(self.employee("fe.late"), datetime.combine(date, time(7, 50)))
+
+		frappe.set_user("fe.ontime@example.com")
+		days = {getdate(row["date"]): row for row in get_attendance_month(str(add_days(date, -6)), str(date))}
+
+		self.assertEqual(len(days), 7)
+		self.assertEqual(days[date]["checked_in_at"], datetime.combine(date, time(8, 10)))
+		self.assertRaises(frappe.ValidationError, get_attendance_month, str(add_days(date, -90)), str(date))
+
+	def test_notifications_are_the_users_own(self):
+		self.employee("fe.ontime")
+		self.employee("fe.late")
+		mine = make_notification("fe.ontime@example.com")
+		theirs = make_notification("fe.late@example.com")
+
+		frappe.set_user("fe.ontime@example.com")
+		names = [row.name for row in get_notifications()]
+		self.assertIn(mine, names)
+		self.assertNotIn(theirs, names)
+
+		mark_notification_as_read(mine)
+		self.assertEqual(frappe.db.get_value("PWA Notification", mine, "read"), 1)
+		self.assertRaises(frappe.PermissionError, mark_notification_as_read, theirs)
+
+
+def make_notification(to_user):
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "PWA Notification",
+				"to_user": to_user,
+				"from_user": "Administrator",
+				"message": "Test notification",
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def make_department(name, approvers=()):

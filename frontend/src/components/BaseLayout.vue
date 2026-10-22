@@ -1,60 +1,55 @@
 <template>
 	<ion-page>
 		<ion-header class="ion-no-border">
-			<div class="w-full bg-white shadow-sm">
-				<div :class="['flex flex-row justify-between items-center p-4 w-full mx-auto', containerClass]">
-					<div class="flex flex-row items-center gap-6">
-						<h2 class="text-xl font-bold text-gray-900">
-							{{ props.pageTitle || __("Drea HRIS") }}
-						</h2>
-						<nav class="hidden lg:flex flex-row items-center gap-1" :aria-label="__('Main')">
-							<router-link
-								v-for="item in sections"
-								:key="item.route"
-								:to="item.route"
-								:class="[
-									'rounded px-3 py-1.5 text-sm',
-									route.path.startsWith(item.route)
-										? 'bg-gray-100 font-semibold text-gray-900'
-										: 'text-gray-600 hover:text-gray-900',
-								]"
-							>
-								{{ item.title }}
-							</router-link>
-						</nav>
-					</div>
-					<div class="flex flex-row items-center gap-3 ml-auto">
+			<div class="w-full border-b border-line bg-white">
+				<div class="mx-auto flex w-full max-w-[1200px] flex-row items-center gap-4 px-4 py-2.5 lg:gap-8 lg:px-6">
+					<router-link :to="{ name: 'Home' }" class="flex flex-row items-center gap-2.5 text-ink">
+						<FrappeHRLogo class="h-8 w-8" />
+						<span class="text-lg font-bold tracking-tight">{{ __("Drea HRIS") }}</span>
+					</router-link>
+					<nav class="hidden flex-row items-center gap-1 lg:flex" :aria-label="__('Main')">
 						<router-link
-							:to="{ name: 'Notifications' }"
-							v-slot="{ navigate }"
-							class="flex flex-col items-center"
+							v-for="item in sections"
+							:key="item.route"
+							:to="item.route"
+							:class="[
+								'rounded-lg px-3.5 py-2 text-sm',
+								isActive(item)
+									? 'bg-brand-100 font-semibold text-brand-800'
+									: 'font-medium text-gray-700 hover:bg-gray-100 hover:text-ink',
+							]"
 						>
-							<span class="relative inline-block" @click="navigate">
-								<FeatherIcon name="bell" class="h-6 w-6" />
-								<span
-									v-if="unreadNotificationsCount.data"
-									class="absolute top-0 right-0.5 inline-block w-2 h-2 bg-red-600 rounded-full border border-white"
-								>
-								</span>
-							</span>
+							{{ item.title }}
 						</router-link>
-						<router-link
-							:to="{ name: 'Profile' }"
-							class="flex flex-col items-center"
-						>
-							<Avatar
-								:image="user.data.user_image"
-								:label="user.data.first_name"
-								size="xl"
-							/>
+					</nav>
+					<div class="ml-auto flex flex-row items-center gap-2">
+						<NotificationBell />
+						<router-link :to="{ name: 'Profile' }" :aria-label="__('Profile')" class="flex items-center">
+							<Avatar :image="user.data.user_image" :label="user.data.first_name" size="xl" />
 						</router-link>
 					</div>
 				</div>
 			</div>
 		</ion-header>
 
-		<ion-content class="ion-no-padding">
-			<div :class="['flex flex-col h-screen w-full mx-auto', containerClass]">
+		<ion-content class="ion-no-padding drea-page">
+			<div class="mx-auto flex w-full max-w-[1200px] flex-col">
+				<div v-if="props.pageTitle || props.backTo" class="flex flex-col gap-2 px-4 pt-6 lg:px-6 lg:pt-8">
+					<router-link
+						v-if="props.backTo"
+						:to="props.backTo"
+						class="flex flex-row items-center gap-1 self-start text-sm font-medium text-gray-700 hover:text-ink"
+					>
+						<FeatherIcon name="chevron-left" class="h-4 w-4" />
+						{{ props.backLabel || __("Back") }}
+					</router-link>
+					<div class="flex flex-row flex-wrap items-center justify-between gap-3">
+						<h1 v-if="props.pageTitle" class="text-2xl font-bold tracking-tight text-ink lg:text-3xl">
+							{{ props.pageTitle }}
+						</h1>
+						<slot name="actions"></slot>
+					</div>
+				</div>
 				<slot name="body"></slot>
 			</div>
 		</ion-content>
@@ -65,11 +60,11 @@
 import { IonHeader, IonContent, IonPage } from "@ionic/vue"
 import { FeatherIcon, Avatar } from "frappe-ui"
 import { useRoute } from "vue-router"
+import { inject } from "vue"
 
-import { unreadNotificationsCount } from "@/data/notifications"
+import FrappeHRLogo from "@/components/icons/FrappeHRLogo.vue"
+import NotificationBell from "@/components/NotificationBell.vue"
 import { useMainSections } from "@/utils/navigation"
-
-import { computed, inject } from "vue"
 
 const user = inject("$user")
 const __ = inject("$translate")
@@ -77,17 +72,35 @@ const route = useRoute()
 const sections = useMainSections(__)
 
 const props = defineProps({
+	// shown as the page's heading, under the bar; the bar always says Drea HRIS
 	pageTitle: {
 		type: String,
 		required: false,
 		default: "",
 	},
-	// wide pages (the home page) use more of a desktop screen
+	backTo: {
+		type: [String, Object],
+		required: false,
+		default: null,
+	},
+	backLabel: {
+		type: String,
+		required: false,
+		default: "",
+	},
+	// kept for older callers: every page now uses the same width
 	wide: {
 		type: Boolean,
 		default: false,
 	},
 })
 
-const containerClass = computed(() => (props.wide ? "sm:max-w-6xl" : "sm:max-w-3xl"))
+function isActive(item) {
+	if (item.route === "/home") return route.path === "/home" || route.path === "/approvals"
+	if (item.route === "/dashboard/leaves")
+		return route.path.startsWith(item.route) || route.path.startsWith("/leave-applications")
+	if (item.route === "/dashboard/attendance")
+		return route.path.startsWith(item.route) || route.path.startsWith("/employee-checkins")
+	return route.path.startsWith(item.route)
+}
 </script>

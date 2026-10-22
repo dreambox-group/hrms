@@ -2,9 +2,13 @@
 # For license information, please see license.txt
 """Data for the employee home page (/hr): today's notices, approvals waiting and the approver's team."""
 
+from datetime import datetime, time, timedelta
+
 import frappe
 from frappe import _
-from frappe.utils import getdate, today
+from frappe.utils import cint, getdate, strip_html, today
+
+from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
 from hrms.api import get_current_employee_info
 from hrms.api.hr_dashboard import get_approval_progress
@@ -17,9 +21,12 @@ from hrms.hr.doctype.leave_application.leave_documents import (
 	get_leave_attachments,
 	get_missing_documents_for,
 )
+from hrms.hr.doctype.shift_assignment.shift_assignment import get_employee_shift
 from hrms.hr.workforce_today import (
 	CHECKED_IN,
+	HOLIDAY,
 	LATE,
+	ON_LEAVE,
 	get_active_employees,
 	get_celebrations,
 	get_leave_on,
@@ -51,7 +58,60 @@ def get_home_data() -> dict:
 		"team": team,
 		"approval_by_levels": is_leave_approval_by_levels(),
 		"missing_documents": get_missing_documents_for(user),
+		"me": get_my_day(employee, date) if employee else None,
+		"next_holiday": get_next_holiday(employee.get("name"), date) if employee else None,
 	}
+
+
+def get_my_day(employee: dict, date) -> dict:
+	"""The user's own status today, with the check-in times of their shift."""
+	row = get_workforce_today([frappe._dict(employee)], date)[0]
+	shift = get_employee_shift(employee["name"], datetime.combine(date, time(12)), True) or {}
+	shift_type = shift.get("shift_type")
+	row.opens_at = shift.get("actual_start")
+	row.late_after = None
+	if shift_type:
+		# the shift details carry only some Shift Type fields
+		late_marking, grace = frappe.get_cached_value(
+			"Shift Type", shift_type.name, ["enable_late_entry_marking", "late_entry_grace_period"]
+		)
+		if cint(late_marking):
+			row.late_after = shift["start_datetime"] + timedelta(minutes=cint(grace))
+	row.leave_to_date = None
+	if row.status == ON_LEAVE:
+		leave = get_leave_on([employee["name"]], date, date)
+		row.leave_to_date = leave[0].to_date if leave else None
+	row.holiday = None
+	if row.status == HOLIDAY:
+		row.holiday = get_holiday_description(employee["name"], date)
+	return row
+
+
+def get_holiday_description(employee: str, date) -> str | None:
+	holiday_list = get_holiday_list_for_employee(employee, raise_exception=False)
+	if not holiday_list:
+		return None
+	description = frappe.db.get_value(
+		"Holiday", {"parent": holiday_list, "holiday_date": date}, "description"
+	)
+	return strip_html(description or "").strip() or None
+
+
+def get_next_holiday(employee: str, date) -> dict | None:
+	"""The next public holiday (not a weekly day off) on the employee's holiday list."""
+	holiday_list = get_holiday_list_for_employee(employee, raise_exception=False)
+	if not holiday_list:
+		return None
+	holiday = frappe.db.get_value(
+		"Holiday",
+		{"parent": holiday_list, "holiday_date": (">=", date), "weekly_off": 0},
+		["holiday_date", "description"],
+		order_by="holiday_date",
+		as_dict=True,
+	)
+	if holiday:
+		holiday.description = strip_html(holiday.description or "").strip()
+	return holiday
 
 
 def get_leave_approvals(user: str) -> list[dict]:
