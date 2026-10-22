@@ -190,9 +190,9 @@ const leaveTypes = createResource({
 	params: { employee: employee.data.name, date: dayjs().format("YYYY-MM-DD") },
 	auto: true,
 })
+// read for the employee's own holiday list (employees can't open Holiday List itself)
 const holidays = createResource({
-	url: "hrms.api.get_holidays_for_employee",
-	params: { employee: employee.data.name },
+	url: "hrms.api.employee_app.get_upcoming_holidays",
 	auto: true,
 })
 leaveBalance.reload()

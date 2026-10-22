@@ -56,7 +56,9 @@ const rows = computed(() => {
 	if (data.next_holiday) {
 		list.push({
 			title: __("Next holiday"),
-			text: `${data.next_holiday.description} · ${dayjs(data.next_holiday.holiday_date).format("ddd D MMM")}`,
+			text: `${data.next_holiday.description} · ${dayjs(data.next_holiday.holiday_date).format(
+				dayjs(data.next_holiday.holiday_date).isSame(dayjs(), "year") ? "ddd D MMM" : "ddd D MMM YYYY"
+			)}`,
 			icon: "calendar",
 			chip: "bg-[#EEF0EE] text-gray-700",
 		})
