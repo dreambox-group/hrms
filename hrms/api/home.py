@@ -11,6 +11,7 @@ from frappe.utils import cint, getdate, strip_html, today
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
 from hrms.api import get_current_employee_info
+from hrms.api.employee_app import get_upcoming_holidays_for
 from hrms.api.hr_dashboard import get_approval_progress
 from hrms.hr.doctype.leave_application.leave_application import (
 	get_leave_applications_waiting_for,
@@ -99,19 +100,8 @@ def get_holiday_description(employee: str, date) -> str | None:
 
 def get_next_holiday(employee: str, date) -> dict | None:
 	"""The next public holiday (not a weekly day off) on the employee's holiday list."""
-	holiday_list = get_holiday_list_for_employee(employee, raise_exception=False)
-	if not holiday_list:
-		return None
-	holiday = frappe.db.get_value(
-		"Holiday",
-		{"parent": holiday_list, "holiday_date": (">=", date), "weekly_off": 0},
-		["holiday_date", "description"],
-		order_by="holiday_date",
-		as_dict=True,
-	)
-	if holiday:
-		holiday.description = strip_html(holiday.description or "").strip()
-	return holiday
+	holidays = get_upcoming_holidays_for(employee, 1)
+	return holidays[0] if holidays else None
 
 
 def get_leave_approvals(user: str) -> list[dict]:

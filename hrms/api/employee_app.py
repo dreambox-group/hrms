@@ -115,3 +115,26 @@ def get_holidays_between(employee: str, from_date, to_date) -> dict:
 			fields=["holiday_date", "description", "weekly_off"],
 		)
 	}
+
+
+# Holidays: read for the session employee's own list, which employees can't open directly
+@frappe.whitelist()
+def get_upcoming_holidays(limit: int = 50) -> list[dict]:
+	return get_upcoming_holidays_for(get_current_employee(), limit)
+
+
+def get_upcoming_holidays_for(employee: str, limit: int = 50) -> list[dict]:
+	"""Public holidays (not weekly days off) from today on, earliest first."""
+	holiday_list = get_holiday_list_for_employee(employee, raise_exception=False)
+	if not holiday_list:
+		return []
+	holidays = frappe.get_all(
+		"Holiday",
+		filters={"parent": holiday_list, "holiday_date": (">=", getdate()), "weekly_off": 0},
+		fields=["holiday_date", "description"],
+		order_by="holiday_date asc",
+		limit=min(cint(limit) or 50, 200),
+	)
+	for holiday in holidays:
+		holiday.description = strip_html(holiday.description or "").strip()
+	return holidays
