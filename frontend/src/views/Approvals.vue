@@ -1,14 +1,8 @@
 <template>
-	<BaseLayout :pageTitle="__('Approvals')">
+	<BaseLayout :pageTitle="__('To do')" :backTo="{ name: 'Home' }" :backLabel="__('Home')">
 		<template #body>
-			<div class="flex flex-col gap-4 p-4 pb-24 w-full">
-				<router-link :to="{ name: 'Home' }" class="flex flex-row items-center gap-1 text-sm text-gray-600">
-					<FeatherIcon name="chevron-left" class="h-4 w-4" />
-					{{ __("Home") }}
-				</router-link>
-				<h3 class="text-base font-semibold text-gray-900">{{ __("Leave waiting for your approval") }}</h3>
-				<LeaveApprovals layout="cards" />
-				<OtherApprovals />
+			<div class="flex w-full flex-col gap-4 px-4 pb-24 pt-4 lg:px-6">
+				<TodoList />
 			</div>
 		</template>
 	</BaseLayout>
@@ -17,11 +11,9 @@
 <script setup>
 import { inject } from "vue"
 import { onIonViewWillEnter } from "@ionic/vue"
-import { FeatherIcon } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
-import LeaveApprovals from "@/components/LeaveApprovals.vue"
-import OtherApprovals from "@/components/OtherApprovals.vue"
+import TodoList from "@/components/TodoList.vue"
 
 import { homeData } from "@/data/home"
 

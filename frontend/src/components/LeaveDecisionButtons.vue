@@ -1,24 +1,29 @@
 <template>
 	<div :class="['flex flex-row gap-2', fullWidth ? 'w-full' : 'justify-end']">
-		<Button
-			variant="subtle"
-			theme="red"
-			:class="fullWidth ? 'flex-1 py-5' : ''"
-			:loading="leaveDecision.loading"
+		<button
+			type="button"
+			:class="[
+				'flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-[#A8231A] hover:bg-red-50 disabled:opacity-60',
+				fullWidth ? 'min-h-[44px] flex-1' : '',
+			]"
+			:disabled="leaveDecision.loading"
 			@click.stop="decide('Rejected')"
 		>
-			<template #prefix><FeatherIcon name="x" class="w-4" /></template>
+			<FeatherIcon name="x" class="h-4 w-4" />
 			{{ __("Reject") }}
-		</Button>
-		<Button
-			variant="solid"
-			:class="fullWidth ? 'flex-1 py-5' : ''"
-			:loading="leaveDecision.loading"
+		</button>
+		<button
+			type="button"
+			:class="[
+				'flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-[18px] text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60',
+				fullWidth ? 'min-h-[44px] flex-1' : '',
+			]"
+			:disabled="leaveDecision.loading"
 			@click.stop="decide('Approved')"
 		>
-			<template #prefix><FeatherIcon name="check" class="w-4" /></template>
+			<FeatherIcon name="check" class="h-4 w-4" />
 			{{ __("Approve") }}
-		</Button>
+		</button>
 	</div>
 </template>
 

@@ -2,7 +2,7 @@
 	<ion-page>
 		<ListView
 			doctype="Employee Checkin"
-			:pageTitle="__('Employee Checkin History')"
+			:pageTitle="__('Check-in history')"
 			:fields="EMPLOYEE_CHECKIN_FIELDS"
 			:filterConfig="FILTER_CONFIG"
 		/>
@@ -22,7 +22,7 @@ const FILTER_CONFIG = [
 	{
 		fieldname: "log_type",
 		fieldtype: "Select",
-		label: __("Log Type"),
+		label: __("Type"),
 		options: "IN\nOUT",
 	},
 	{

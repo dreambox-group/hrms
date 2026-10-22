@@ -425,6 +425,9 @@ def get_leave_balance_map() -> dict[str, dict[str, float]]:
 		leave_map[leave_type] = {
 			"allocated_leaves": details.get("total_leaves"),
 			"balance_leaves": details.get("remaining_leaves"),
+			# for the employee app's used / waiting / left bar
+			"leaves_taken": details.get("leaves_taken"),
+			"leaves_pending_approval": details.get("leaves_pending_approval"),
 		}
 
 	return leave_map

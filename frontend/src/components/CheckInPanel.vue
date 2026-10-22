@@ -1,60 +1,95 @@
 <template>
-	<div class="flex flex-col bg-white rounded w-full py-6 px-4 border-none">
-		<h2 v-if="showGreeting" class="text-lg font-bold text-gray-900">
-			{{ __("Hey, {0} 👋", [employee?.data?.first_name]) }}
-		</h2>
-		<h2 v-else class="text-base font-semibold text-gray-900">{{ __("Check-in") }}</h2>
-
-		<template v-if="settings.data?.allow_employee_checkin_from_mobile_app">
-			<div class="font-medium text-sm text-gray-500 mt-1.5" v-if="lastLog?.time">
-				<span>{{ __("Last {0} was at {1}", [__(lastLogType), formatTimestamp(lastLog.time)]) }}</span>
-				<span class="whitespace-pre"> &middot; </span>
-				<router-link :to="{ name: 'EmployeeCheckinListView' }" v-slot="{ navigate }">
-					<span @click="navigate" class="underline">{{ __("View List") }}</span>
-				</router-link>
+	<!-- Today: what the employee needs to do now -->
+	<section
+		:aria-label="__('Today')"
+		class="flex flex-col gap-4 rounded-2xl border border-line bg-white p-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-6 lg:p-7"
+	>
+		<div class="flex min-w-0 flex-1 flex-col gap-2.5 lg:basis-[300px]">
+			<div class="flex flex-row items-center justify-between gap-2.5 lg:justify-start">
+				<div class="flex flex-row items-center gap-2.5">
+					<span class="text-xs font-bold uppercase tracking-[0.08em] text-gray-700">{{ __("Today") }}</span>
+					<span :class="['rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[today.tone]]">
+						{{ today.badge }}
+					</span>
+				</div>
+				<span v-if="today.showClock" class="text-xl font-semibold tabular-nums text-ink lg:hidden">
+					{{ clock }}
+				</span>
 			</div>
-			<Button
-				class="mt-4 mb-1 drop-shadow-sm py-5 text-base"
-				id="open-checkin-modal"
-				:loading="checkins.list.loading"
-				@click="handleEmployeeCheckin"
+			<div class="flex flex-row items-center gap-3">
+				<span
+					v-if="today.done"
+					class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#E2F4EA] text-[#0F6B4C]"
+				>
+					<FeatherIcon name="check" class="h-5 w-5" />
+				</span>
+				<h2 class="text-[21px] font-bold tracking-tight text-ink lg:text-[26px]">{{ today.title }}</h2>
+			</div>
+			<p v-if="today.sub" class="text-sm leading-relaxed text-gray-700 lg:text-[15px]">{{ today.sub }}</p>
+			<router-link
+				v-if="lastLog?.time"
+				:to="{ name: 'EmployeeCheckinListView' }"
+				class="self-start text-sm font-medium text-brand-600 hover:text-brand-700"
 			>
-				<template #prefix>
-					<FeatherIcon
-						:name="nextAction.action === 'IN' ? 'arrow-right-circle' : 'arrow-left-circle'"
-						class="w-4"
-					/>
-				</template>
-				{{ nextAction.label }}
-			</Button>
-		</template>
-
-		<div v-else class="font-medium text-sm text-gray-500 mt-1.5">
-			{{ dayjs().format("ddd, D MMMM, YYYY") }}
+				{{ __("Check-in history") }}
+			</router-link>
 		</div>
-	</div>
+
+		<div class="flex flex-col gap-3 lg:items-end">
+			<div v-if="today.showClock" class="hidden text-[44px] font-semibold leading-none tracking-tight tabular-nums text-ink lg:block">
+				{{ clock }}
+			</div>
+			<button
+				v-if="canCheckIn && today.showButton"
+				type="button"
+				:class="[
+					'flex min-h-[54px] items-center justify-center gap-2.5 rounded-xl px-7 text-base font-semibold text-white transition active:scale-[0.98] lg:min-h-[52px]',
+					today.tone === 'warn' ? 'bg-[#B86200] hover:bg-[#9A5200]' : 'bg-brand-600 hover:bg-brand-700',
+				]"
+				:disabled="checkins.list.loading"
+				@click="openCheckin"
+			>
+				<FeatherIcon name="camera" class="h-5 w-5" />
+				{{ today.buttonLabel }}
+			</button>
+			<button
+				v-else-if="canCheckIn && today.offerAnyway"
+				type="button"
+				class="self-start rounded-lg px-1 py-2 text-sm font-semibold text-brand-600 hover:text-brand-700 lg:self-end"
+				@click="openCheckin"
+			>
+				{{ __("Working today? Check in") }}
+			</button>
+		</div>
+	</section>
 
 	<ion-modal
-		v-if="settings.data?.allow_employee_checkin_from_mobile_app"
-		ref="modal"
-		trigger="open-checkin-modal"
-		:initial-breakpoint="1"
-		:breakpoints="[0, 1]"
+		v-if="canCheckIn"
+		:is-open="sheetOpen"
+		:class="isDesktop ? 'centered-dialog' : ''"
+		:initial-breakpoint="isDesktop ? undefined : 1"
+		:breakpoints="isDesktop ? undefined : [0, 1]"
+		@didDismiss="sheetOpen = false"
 	>
-		<div class="min-h-120 max-h-[90vh] overflow-y-auto w-full flex flex-col items-center justify-center gap-5 p-4 mb-5">
-			<div class="flex flex-col gap-1.5 mt-2 items-center justify-center">
-				<div class="font-bold text-xl">
-					{{ dayjs(checkinTimestamp).format("hh:mm:ss a") }}
-				</div>
-				<div class="font-medium text-gray-500 text-sm">
-					{{ dayjs().format("D MMM, YYYY") }}
-				</div>
+		<div class="flex max-h-[90vh] w-full flex-col gap-4 overflow-y-auto p-5">
+			<div class="flex flex-row items-center justify-between">
+				<h2 class="text-xl font-bold text-ink">
+					{{ __("Check in") }} · <span class="tabular-nums">{{ dayjs(checkinTimestamp).format("HH:mm") }}</span>
+				</h2>
+				<button
+					type="button"
+					class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-ink"
+					:aria-label="__('Close')"
+					@click="sheetOpen = false"
+				>
+					<FeatherIcon name="x" class="h-5 w-5" />
+				</button>
 			</div>
 
 			<template v-if="settings.data?.allow_geolocation_tracking">
 				<div
 					v-if="locationProblem"
-					class="w-full rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+					class="w-full rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
 					role="alert"
 				>
 					<div class="font-semibold">{{ locationProblem.title }}</div>
@@ -64,36 +99,31 @@
 						{{ __("Try again") }}
 					</Button>
 				</div>
-				<span v-else-if="locationStatus" class="font-medium text-gray-500 text-sm">
-					{{ locationStatus }}
-				</span>
-
-				<div v-if="locationFound" class="rounded border-4 translate-z-0 block overflow-hidden w-full h-170">
-					<iframe
-						width="100%"
-						height="170"
-						frameborder="0"
-						scrolling="no"
-						marginheight="0"
-						marginwidth="0"
-						style="border: 0"
-						:src="`https://maps.google.com/maps?q=${latitude},${longitude}&hl=en&z=15&amp;output=embed`"
-					>
-					</iframe>
+				<div v-else class="flex flex-row items-center justify-between text-sm">
+					<span class="text-gray-700">{{ today.shift || __("Location") }}</span>
+					<span :class="['font-semibold', locationFound ? 'text-[#0F6B4C]' : 'text-gray-700']">
+						{{ locationFound ? __("Location found") : locationStatus || __("Finding your location…") }}
+					</span>
 				</div>
 			</template>
 
 			<SelfieCamera v-if="selfieRequired" v-model="selfie" />
 
-			<Button
-				:loading="checkins.insert.loading || selfieCheckin.loading"
-				:disabled="(selfieRequired && !selfie) || (locationRequired && !locationFound)"
-				variant="solid"
-				class="w-full py-5 text-sm disabled:bg-gray-700"
-				@click="submitLog(nextAction.action)"
+			<div
+				v-if="today.tone === 'warn'"
+				class="rounded-xl bg-[#FDEFD6] px-3 py-2.5 text-sm text-[#8A4B00]"
 			>
-				{{ __("Confirm {0}", [nextAction.label]) }}
-			</Button>
+				{{ __("This check-in counts as late.") }}
+			</div>
+
+			<button
+				type="button"
+				class="flex min-h-[54px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
+				:disabled="(selfieRequired && !selfie) || (locationRequired && !locationFound) || submitting"
+				@click="submitLog('IN')"
+			>
+				{{ submitting ? __("Checking in…") : selfieRequired ? __("Check in with this photo") : __("Confirm check-in") }}
+			</button>
 		</div>
 	</ion-modal>
 </template>
@@ -101,14 +131,14 @@
 <script setup>
 import { createListResource, createResource, toast, FeatherIcon } from "frappe-ui"
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue"
-import { IonModal, modalController } from "@ionic/vue"
+import { IonModal } from "@ionic/vue"
 
-import { formatTimestamp } from "@/utils/formatters"
 import { settings } from "@/data/settings"
+import { homeData } from "@/data/home"
 import SelfieCamera from "@/components/SelfieCamera.vue"
+import { useIsDesktop } from "@/composables/useIsDesktop"
+import { TONE_CLASSES } from "@/utils/status"
 import { getBlockedHelp, getLocationOffHelp, watchPermission } from "@/utils/permissionHelp"
-
-defineProps({ showGreeting: { type: Boolean, default: true } })
 
 const DOCTYPE = "Employee Checkin"
 
@@ -116,12 +146,16 @@ const socket = inject("$socket")
 const employee = inject("$employee")
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
+const isDesktop = useIsDesktop()
+
+const sheetOpen = ref(false)
 const checkinTimestamp = ref(null)
 const latitude = ref(0)
 const longitude = ref(0)
 const locationStatus = ref("")
 const selfie = ref("")
 const selfieRequired = computed(() => Boolean(settings.data?.require_selfie_for_checkin))
+const canCheckIn = computed(() => Boolean(settings.data?.allow_employee_checkin_from_mobile_app))
 
 // with a live selfie required, the server takes the photo, sets the time and creates the check-in
 const selfieCheckin = createResource({
@@ -135,22 +169,92 @@ const checkins = createListResource({
 		employee: employee.data.name,
 	},
 	orderBy: "time desc",
+	pageLength: 5,
 })
 checkins.reload()
 
-const lastLog = computed(() => {
-	if (!checkins.data?.length) return null
-	return checkins.data[0]
+const lastLog = computed(() => checkins.data?.[0] || null)
+const submitting = computed(() => checkins.insert.loading || selfieCheckin.loading)
+
+// a clock for the card, refreshed every half minute
+const now = ref(dayjs())
+let clockTimer = null
+const clock = computed(() => now.value.format("HH:mm"))
+
+// check-in only (HR: no check-out); the card follows the employee's status today from the server
+const me = computed(() => homeData.data?.me || null)
+const firstInToday = computed(() => {
+	if (me.value?.checked_in_at) return dayjs(me.value.checked_in_at)
+	const log = (checkins.data || []).find(
+		(row) => row.log_type !== "OUT" && dayjs(row.time).isSame(now.value, "day")
+	)
+	return log ? dayjs(log.time) : null
 })
 
-const lastLogType = computed(() => {
-	return lastLog?.value?.log_type === "IN" ? "check-in" : "check-out"
-})
+const today = computed(() => {
+	const row = me.value || {}
+	const shift = row.shift || ""
+	const lateAfter = row.late_after ? dayjs(row.late_after) : null
+	const base = { shift, showClock: false, showButton: false, offerAnyway: false, done: false, sub: "" }
 
-const nextAction = computed(() => {
-	return lastLog?.value?.log_type === "IN"
-		? { action: "OUT", label: __("Check Out") }
-		: { action: "IN", label: __("Check In") }
+	if (row.status === "On leave") {
+		return {
+			...base,
+			badge: __("On leave"),
+			tone: "info",
+			title: __("You are on leave today"),
+			sub: row.leave_to_date
+				? __("{0} · until {1}", [row.leave_label || __("Leave"), dayjs(row.leave_to_date).format("ddd D MMM")])
+				: row.leave_label,
+		}
+	}
+	if (firstInToday.value) {
+		const late = row.status === "Late"
+		return {
+			...base,
+			badge: late ? __("Late") : __("On time"),
+			tone: late ? "warn" : "ok",
+			done: true,
+			title: __("Checked in at {0}", [firstInToday.value.format("HH:mm")]),
+			sub: [shift && __("{0} today", [shift]), __("nothing else to do")].filter(Boolean).join(" · "),
+		}
+	}
+	if (row.status === "Holiday") {
+		return {
+			...base,
+			badge: __("Holiday"),
+			tone: "neutral",
+			title: row.holiday || __("Day off"),
+			sub: __("No check-in needed today."),
+			offerAnyway: true,
+		}
+	}
+	if (lateAfter && now.value.isAfter(lateAfter)) {
+		return {
+			...base,
+			badge: __("Late"),
+			tone: "warn",
+			title: __("You can still check in"),
+			sub: __("After {0} counts as late.", [lateAfter.format("HH:mm")]),
+			showClock: true,
+			showButton: true,
+			buttonLabel: __("Check in late"),
+		}
+	}
+	return {
+		...base,
+		badge: __("Open"),
+		tone: "ok",
+		title: __("Check-in is open"),
+		sub: !shift
+			? __("No schedule set for today.")
+			: lateAfter
+				? __("{0} today · on time until {1}", [shift, lateAfter.format("HH:mm")])
+				: __("{0} today", [shift]),
+		showClock: true,
+		showButton: true,
+		buttonLabel: __("Check in"),
+	}
 })
 
 // with geolocation tracking on, the server refuses a check-in without a location
@@ -163,11 +267,7 @@ function handleLocationSuccess(position) {
 	longitude.value = position.coords.longitude
 	locationFound.value = true
 	locationProblem.value = null
-
-	locationStatus.value = [
-		__("Latitude: {0}°", [Number(latitude.value).toFixed(5)]),
-		__("Longitude: {0}°", [Number(longitude.value).toFixed(5)]),
-	].join(", ")
+	locationStatus.value = ""
 }
 
 function handleLocationError(error) {
@@ -214,18 +314,41 @@ watchPermission("geolocation", (state) => {
 	if (state === "granted" && locationRequired.value && !locationFound.value) fetchLocation()
 })
 
-const handleEmployeeCheckin = () => {
+function openCheckin() {
 	checkinTimestamp.value = dayjs().format("YYYY-MM-DD HH:mm:ss")
 	selfie.value = ""
-
+	sheetOpen.value = true
 	if (settings.data?.allow_geolocation_tracking) {
 		fetchLocation()
 	}
 }
 
-const submitLog = (logType) => {
-	const actionLabel = logType === "IN" ? __("Check-in") : __("Check-out")
+function onCheckedIn() {
+	sheetOpen.value = false
+	checkins.reload()
+	homeData.reload()
+	toast({
+		title: __("Checked in"),
+		text: __("Have a good day!"),
+		icon: "check-circle",
+		position: "bottom-center",
+		iconClasses: "text-green-500",
+	})
+}
 
+function showErrors(error) {
+	for (const message of error?.messages?.length ? error.messages : [__("Check-in failed!")]) {
+		toast({
+			title: __("Error"),
+			text: message,
+			icon: "alert-circle",
+			position: "bottom-center",
+			iconClasses: "text-red-500",
+		})
+	}
+}
+
+const submitLog = (logType) => {
 	if (selfieRequired.value) {
 		selfieCheckin.submit(
 			{
@@ -234,30 +357,7 @@ const submitLog = (logType) => {
 				latitude: latitude.value || null,
 				longitude: longitude.value || null,
 			},
-			{
-				onSuccess() {
-					modalController.dismiss()
-					checkins.reload()
-					toast({
-						title: __("Success"),
-						text: __("{0} successful!", [actionLabel]),
-						icon: "check-circle",
-						position: "bottom-center",
-						iconClasses: "text-green-500",
-					})
-				},
-				onError(error) {
-					for (const message of error.messages?.length ? error.messages : [__("{0} failed!", [actionLabel])]) {
-						toast({
-							title: __("Error"),
-							text: message,
-							icon: "alert-circle",
-							position: "bottom-center",
-							iconClasses: "text-red-500",
-						})
-					}
-				},
-			}
+			{ onSuccess: onCheckedIn, onError: showErrors }
 		)
 		return
 	}
@@ -272,44 +372,16 @@ const submitLog = (logType) => {
 		},
 		{
 			onSuccess(data) {
-				if (!data?.name) {
-					toast({
-						title: __("Error"),
-						text: __("{0} failed!", [actionLabel]),
-						icon: "alert-circle",
-						position: "bottom-center",
-						iconClasses: "text-red-500",
-					})
-					return
-				}
-
-				modalController.dismiss()
-				toast({
-					title: __("Success"),
-					text: __("{0} successful!", [actionLabel]),
-					icon: "check-circle",
-					position: "bottom-center",
-					iconClasses: "text-green-500",
-				})
+				if (!data?.name) return showErrors()
+				onCheckedIn()
 			},
-			onError(error) {
-				let messages = error.messages?.length ? error.messages : [__("{0} failed!", [actionLabel])]
-
-				for (const message of messages) {
-					toast({
-						title: __("Error"),
-						text: message || __("{0} failed!", [actionLabel]),
-						icon: "alert-circle",
-						position: "bottom-center",
-						iconClasses: "text-red-500",
-					})
-				}
-			},
+			onError: showErrors,
 		}
 	)
 }
 
 onMounted(() => {
+	clockTimer = setInterval(() => (now.value = dayjs()), 30000)
 	socket.emit("doctype_subscribe", DOCTYPE)
 	socket.on("list_update", (data) => {
 		if (data.doctype == DOCTYPE) {
@@ -319,6 +391,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+	clearInterval(clockTimer)
 	socket.emit("doctype_unsubscribe", DOCTYPE)
 	socket.off("list_update")
 })
