@@ -528,6 +528,15 @@ def get_leave_types(employee: str, date: str) -> list:
 	leave_details = get_leave_details(employee, date)
 	leave_types = list(leave_details["leave_allocation"].keys()) + leave_details["lwps"]
 
+	# Employee Types without Leave Allocation: leave types that need no allocation and don't cut pay
+	from hrms.hr.doctype.leave_application.leave_end_date import (
+		leave_types_without_allocation,
+		uses_leave_end_date,
+	)
+
+	if uses_leave_end_date(employee):
+		leave_types = leave_types_without_allocation() or leave_details["lwps"]
+
 	return leave_types
 
 

@@ -22,6 +22,7 @@ class HRSettings(Document):
 		PROCEED_WITH_FREQUENCY_CHANGE = False
 
 	def on_update(self):
+		self.start_leave_counting_for_added_types()
 		if self.leave_google_calendar and self.has_value_changed("leave_google_calendar"):
 			# upcoming approved leave goes onto the new calendar
 			frappe.enqueue(
@@ -29,6 +30,20 @@ class HRSettings(Document):
 				queue="long",
 				enqueue_after_commit=True,
 			)
+
+	def start_leave_counting_for_added_types(self):
+		"""Types just added to "Employee Types without Leave Allocation": their employees' leave
+		pushes the end date from today on (earlier leave isn't counted twice)."""
+		from hrms.hr.doctype.leave_application.leave_end_date import start_counting_for_types
+
+		before = self.get_doc_before_save()
+		old = (
+			{row.employment_type for row in (before.get("employment_types_without_leave_allocation") or [])}
+			if before
+			else set()
+		)
+		new = {row.employment_type for row in (self.get("employment_types_without_leave_allocation") or [])}
+		start_counting_for_types(new - old)
 
 	def set_naming_series(self):
 		from erpnext.utilities.naming import set_by_naming_series

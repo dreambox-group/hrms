@@ -4,7 +4,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, date_diff, get_datetime, getdate, strip_html
+from frappe.utils import add_days, cint, date_diff, flt, get_datetime, getdate, strip_html
 
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
@@ -138,3 +138,12 @@ def get_upcoming_holidays_for(employee: str, limit: int = 50) -> list[dict]:
 	for holiday in holidays:
 		holiday.description = strip_html(holiday.description or "").strip()
 	return holidays
+
+
+# Employee Types without Leave Allocation: leave pushes the end date
+@frappe.whitelist()
+def get_end_date_details(days: float = 0) -> dict | None:
+	"""The session employee's contract end date, and where `days` more leave would put it."""
+	from hrms.hr.doctype.leave_application.leave_end_date import end_date_details
+
+	return end_date_details(get_current_employee(), flt(days))

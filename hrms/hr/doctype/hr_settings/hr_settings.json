@@ -36,6 +36,8 @@
   "leave_status_notification_template",
   "restrict_backdated_leave_application",
   "role_allowed_to_create_backdated_leave_application",
+  "leave_without_allocation_section",
+  "employment_types_without_leave_allocation",
   "expenses_tab",
   "expenses_settings_section",
   "expense_approver_mandatory_in_expense_claim",
@@ -450,13 +452,25 @@
    "fieldname": "employee_exit_settings_section",
    "fieldtype": "Section Break",
    "label": "Employee Exit Settings"
+  },
+  {
+   "fieldname": "leave_without_allocation_section",
+   "fieldtype": "Section Break",
+   "label": "Leave without allocation"
+  },
+  {
+   "description": "Employees of these types get no paid leave allocation. Each approved leave day moves their Contract End Date one working day later; cancelling the leave moves it back.",
+   "fieldname": "employment_types_without_leave_allocation",
+   "fieldtype": "Table MultiSelect",
+   "label": "Employee Types without Leave Allocation",
+   "options": "HR Settings Employment Type"
   }
  ],
  "icon": "settings",
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 20:00:00.000000",
+ "modified": "2026-10-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

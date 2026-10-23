@@ -53,6 +53,30 @@ def before_app_uninstall(app_name):
 	remove_lending_docperms_from_ess()
 
 
+def get_leave_end_date_fields():
+	"""Employee fields for Employee Types without Leave Allocation (leave pushes the end date)."""
+	return [
+		{
+			"fieldname": "original_contract_end_date",
+			"fieldtype": "Date",
+			"label": _("Original Contract End Date"),
+			"insert_after": "contract_end_date",
+			"depends_on": "eval:doc.original_contract_end_date",
+			"description": _(
+				"For Employee Types without Leave Allocation: Contract End Date = this date + the approved leave since Leave Counted From. Change this date (or Contract End Date) to renew."
+			),
+		},
+		{
+			"fieldname": "leave_counted_from",
+			"fieldtype": "Date",
+			"label": _("Leave Counted From"),
+			"insert_after": "original_contract_end_date",
+			"depends_on": "eval:doc.original_contract_end_date",
+			"description": _("Only leave starting on or after this date moves the Contract End Date."),
+		},
+	]
+
+
 def get_custom_fields():
 	"""HR specific custom fields that need to be added to the masters in ERPNext"""
 	return {
@@ -224,6 +248,7 @@ def get_custom_fields():
 				"options": "Shift Type",
 				"insert_after": "holiday_list",
 			},
+			*get_leave_end_date_fields(),
 			{
 				"collapsible": 1,
 				"fieldname": "health_insurance_section",

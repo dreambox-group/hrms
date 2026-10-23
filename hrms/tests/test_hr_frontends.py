@@ -166,26 +166,31 @@ class TestHRFrontends(HRMSTestSuite):
 		employee = self.employee("fe.ontime")
 		# the list in effect (a Holiday List Assignment can override the Employee field)
 		holiday_list = frappe.get_doc("Holiday List", get_holiday_list_for_employee(employee))
-		# days the list doesn't have yet (weekends are usually there already as weekly days off)
+		# free days well ahead, so other tests' "today" never becomes a holiday; removed again below
 		free = [
 			date
-			for date in (add_days(getdate(), n) for n in range(-10, 60))
+			for date in (add_days(getdate(), n) for n in range(30, 90))
 			if not frappe.db.exists("Holiday", {"parent": holiday_list.name, "holiday_date": date})
 		]
-		dates = [free[-1], next(d for d in free if d > getdate()), free[0]]
+		dates = [free[-1], free[0], free[len(free) // 2]]
 		for offset, date in enumerate(dates):
-			if not frappe.db.exists("Holiday", {"parent": holiday_list.name, "holiday_date": date}):
-				holiday_list.append("holidays", {"holiday_date": date, "description": f"FE holiday {offset}"})
-		holiday_list.to_date = max(holiday_list.to_date, dates[0])
+			holiday_list.append("holidays", {"holiday_date": date, "description": f"FE holiday {offset}"})
+		holiday_list.to_date = max(getdate(holiday_list.to_date), dates[0])
 		holiday_list.save()
 
-		frappe.set_user("fe.ontime@example.com")
-		holidays = get_upcoming_holidays()
-		holiday_dates = [getdate(row.holiday_date) for row in holidays]
-		self.assertEqual(holiday_dates, sorted(holiday_dates))
-		self.assertTrue(all(date >= getdate() for date in holiday_dates))
-		self.assertIn(dates[1], holiday_dates)
-		self.assertEqual(getdate(get_home_data()["next_holiday"].holiday_date), holiday_dates[0])
+		try:
+			frappe.set_user("fe.ontime@example.com")
+			holidays = get_upcoming_holidays()
+			holiday_dates = [getdate(row.holiday_date) for row in holidays]
+			self.assertEqual(holiday_dates, sorted(holiday_dates))
+			self.assertTrue(all(date >= getdate() for date in holiday_dates))
+			self.assertIn(dates[1], holiday_dates)
+			self.assertEqual(getdate(get_home_data()["next_holiday"].holiday_date), holiday_dates[0])
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.delete(
+				"Holiday", {"parent": holiday_list.name, "description": ("like", "FE holiday %")}
+			)
 
 	def test_notifications_are_the_users_own(self):
 		self.employee("fe.ontime")

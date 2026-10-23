@@ -122,6 +122,7 @@ const items = computed(() => {
 				row.total_leave_days == 1 ? __("1 day") : __("{0} days", [row.total_leave_days]),
 				...(row.progress || []),
 				row.document_missing && __("document due {0}", [dayjs(row.document_due_date).format("D MMM")]),
+				row.end_date_after && __("end date moves to {0}", [dayjs(row.end_date_after).format("ddd D MMM YYYY")]),
 			]
 				.filter(Boolean)
 				.join(" · "),
