@@ -38,6 +38,8 @@
   "role_allowed_to_create_backdated_leave_application",
   "leave_without_allocation_section",
   "employment_types_without_leave_allocation",
+  "supporting_documents_section",
+  "leave_types_requiring_document",
   "expenses_tab",
   "expenses_settings_section",
   "expense_approver_mandatory_in_expense_claim",
@@ -464,13 +466,25 @@
    "fieldtype": "Table MultiSelect",
    "label": "Employee Types without Leave Allocation",
    "options": "HR Settings Employment Type"
+  },
+  {
+   "fieldname": "supporting_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Supporting documents"
+  },
+  {
+   "description": "Leave of these types needs a supporting document, e.g. a doctor's note. It can be sent and approved first; there is no deadline. Until the employee uploads it, a reminder stays on the dashboard of the employee, the approvers who approved it, and HR.",
+   "fieldname": "leave_types_requiring_document",
+   "fieldtype": "Table MultiSelect",
+   "label": "Leave Types that need a Supporting Document",
+   "options": "HR Settings Leave Type"
   }
  ],
  "icon": "settings",
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-23 10:00:00.000000",
+ "modified": "2026-10-23 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

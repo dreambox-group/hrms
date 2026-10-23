@@ -11,8 +11,6 @@
  "field_order": [
   "leave_type_name",
   "calendar_label",
-  "requires_supporting_document",
-  "document_grace_days",
   "is_compensatory",
   "is_lwp",
   "is_ppl",
@@ -62,22 +60,6 @@
    "fieldname": "calendar_label",
    "fieldtype": "Data",
    "label": "Calendar Label"
-  },
-  {
-   "default": "0",
-   "description": "Leave of this type needs a supporting document, e.g. a doctor's note. It can be sent and approved before the document is uploaded.",
-   "fieldname": "requires_supporting_document",
-   "fieldtype": "Check",
-   "label": "Requires a Supporting Document"
-  },
-  {
-   "default": "7",
-   "depends_on": "requires_supporting_document",
-   "description": "Days after the request is made to upload the document. Until then the employee and the approvers see a reminder.",
-   "fieldname": "document_grace_days",
-   "fieldtype": "Int",
-   "label": "Days to Upload the Document",
-   "non_negative": 1
   },
   {
    "fieldname": "max_leaves_allowed",
@@ -290,7 +272,7 @@
  "icon": "tag",
  "idx": 1,
  "links": [],
- "modified": "2026-10-21 21:00:00.000000",
+ "modified": "2026-10-23 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "Leave Type",

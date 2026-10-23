@@ -30,7 +30,7 @@
 		>
 			<div>
 				<span class="font-semibold">{{ __("Supporting document needed") }}</span>
-				· {{ __("due {0}", [dayjs(doc.document_due_date).format("D MMM YYYY")]) }}
+				· {{ __("there is no deadline; the reminder stays until it is uploaded") }}
 			</div>
 			<LeaveDocumentUpload
 				v-if="isOwnLeave"
@@ -92,7 +92,7 @@ const isHR = computed(() => (user?.data?.roles || []).some((role) => HR_ROLES.in
 
 const documentMissing = computed(
 	() =>
-		Boolean(props.doc?.document_due_date) &&
+		Boolean(props.doc?.document_required) &&
 		props.doc?.docstatus !== 2 &&
 		props.doc?.status !== "Rejected" &&
 		attachments.fetched &&

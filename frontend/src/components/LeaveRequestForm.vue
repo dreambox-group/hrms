@@ -33,6 +33,12 @@
 						</span>
 						<span v-if="card.side" class="text-[15px] font-bold text-ink">{{ card.side }}</span>
 					</button>
+					<div
+						v-if="needsDocument"
+						class="rounded-xl bg-[#FDEFD6] px-3.5 py-2.5 text-[13px] leading-snug text-[#8A4B00]"
+					>
+						{{ __("This leave needs a supporting document, e.g. a doctor's note. Add it below now or later; there is no deadline, and a reminder stays on your Home page until it's uploaded.") }}
+					</div>
 					<div v-if="leaveTypes.fetched && !typeCards.length" class="text-sm text-gray-700">
 						{{ __("No leave types are available to you. Ask HR.") }}
 					</div>
@@ -221,6 +227,7 @@ import { computed, inject, reactive, ref, watch } from "vue"
 import { createResource, FeatherIcon } from "frappe-ui"
 
 import { homeData, leaveDocumentUpload } from "@/data/home"
+import { settings } from "@/data/settings"
 import { availableLeaves, leaveBalance, myLeaves } from "@/data/leaves"
 import { TONE_CLASSES, avatarColour, initials } from "@/utils/status"
 
@@ -267,6 +274,9 @@ const typeCards = computed(() =>
 	})
 )
 const selectedType = computed(() => typeCards.value.find((card) => card.name === form.leave_type))
+const needsDocument = computed(() =>
+	(settings.data?.leave_types_requiring_document || []).includes(form.leave_type)
+)
 
 // who decides
 const approval = createResource({

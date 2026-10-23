@@ -42,8 +42,9 @@ class TestLeaveEndDate(HRMSTestSuite):
 
 	def employee(self, user, employment_type=TYPE, contract_end_date=None):
 		name = make_employee(f"{user}@example.com", COMPANY)
-		frappe.db.delete("Leave Application", {"employee": name})
-		frappe.db.delete("Leave Ledger Entry", {"employee": name})
+		# a clean slate on every run
+		for doctype in ("Leave Application", "Leave Ledger Entry", "Leave Allocation"):
+			frappe.db.delete(doctype, {"employee": name})
 		doc = frappe.get_doc("Employee", name)
 		doc.employment_type = employment_type
 		doc.contract_end_date = contract_end_date or self.end
@@ -124,6 +125,17 @@ class TestLeaveEndDate(HRMSTestSuite):
 		doc.reload()
 		self.assertEqual(getdate(doc.original_contract_end_date), renewed)
 		self.assertEqual(getdate(doc.contract_end_date), renewed)
+		self.assertEqual(getdate(doc.leave_counted_from), getdate())
+
+	def test_cleared_fields_start_again(self):
+		employee = self.employee("le.cleared")
+		approve(employee, *working_days_ahead(employee, 2))
+		moved = contract_end(employee)
+		doc = frappe.get_doc("Employee", employee)
+		doc.original_contract_end_date = None
+		doc.leave_counted_from = None
+		doc.save()
+		self.assertEqual(getdate(doc.original_contract_end_date), moved)
 		self.assertEqual(getdate(doc.leave_counted_from), getdate())
 
 	def test_editing_the_original_date_recalculates(self):

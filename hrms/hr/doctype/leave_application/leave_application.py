@@ -126,7 +126,7 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		self.validate_applicable_after()
 		self.validate_for_self_approval()
 		self.validate_no_changes_after_request()
-		self.set_document_due_date()
+		self.set_document_required()
 		if is_leave_approval_by_levels() and not frappe.flags.in_import:
 			# the department's approvers decide, not one approver chosen on the application
 			self.leave_approver = None
@@ -980,17 +980,13 @@ class LeaveApplication(Document, PWANotificationsMixin):
 				exc=LeaveRequestLockedError,
 			)
 
-	def set_document_due_date(self):
-		"""Leave types that need a supporting document give the employee some days to upload it."""
+	def set_document_required(self):
+		"""Leave types on HR Settings' "Leave Types that need a Supporting Document" list need one."""
 		if self.docstatus != 0:
 			return
-		requires, grace_days = frappe.db.get_value(
-			"Leave Type", self.leave_type, ["requires_supporting_document", "document_grace_days"]
-		) or (0, 0)
-		if not requires:
-			self.document_due_date = None
-		elif not self.document_due_date or self.has_value_changed("leave_type"):
-			self.document_due_date = add_days(self.posting_date or nowdate(), cint(grace_days))
+		from hrms.hr.doctype.leave_application.leave_documents import get_leave_types_requiring_document
+
+		self.document_required = cint(self.leave_type in get_leave_types_requiring_document())
 
 	def set_leave_approvers(self):
 		"""Fills the approvers from the department's current leave approvers.

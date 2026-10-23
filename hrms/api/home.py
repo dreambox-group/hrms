@@ -128,7 +128,7 @@ def get_leave_approvals(user: str) -> list[dict]:
 			"total_leave_days",
 			"leave_approver_name",
 			"description",
-			"document_due_date",
+			"document_required",
 		],
 		order_by="from_date",
 	)
@@ -148,7 +148,7 @@ def get_leave_approvals(user: str) -> list[dict]:
 		application.approvers = approvers.get(application.name, [])
 		application.progress = get_approval_progress(application)
 		application.attachments = attachments.get(application.name, [])
-		application.document_missing = bool(application.document_due_date and not application.attachments)
+		application.document_missing = bool(application.document_required and not application.attachments)
 		# Employee Types without Leave Allocation: where approving puts their end date
 		end_date = end_date_details(application.employee, application.total_leave_days)
 		application.end_date_after = end_date.get("end_date_after") if end_date else None

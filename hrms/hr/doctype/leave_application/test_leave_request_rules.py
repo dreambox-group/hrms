@@ -15,7 +15,6 @@ from hrms.hr.doctype.leave_application.leave_application import (
 )
 from hrms.hr.doctype.leave_application.leave_documents import (
 	get_missing_documents,
-	remind_missing_leave_documents,
 	upload_leave_document,
 )
 from hrms.hr.doctype.leave_application.test_leave_application import make_allocation_record
@@ -52,18 +51,13 @@ class TestLeaveRequestRules(HRMSTestSuite):
 		self.employee = make_employee(STAFF, COMPANY)
 		make_employee(APPROVER, COMPANY)
 		if not frappe.db.exists("Leave Type", SICK):
-			frappe.get_doc(
-				{
-					"doctype": "Leave Type",
-					"leave_type_name": SICK,
-					"requires_supporting_document": 1,
-					"document_grace_days": 7,
-				}
-			).insert()
+			frappe.get_doc({"doctype": "Leave Type", "leave_type_name": SICK}).insert()
+		set_leave_types_requiring_document([SICK])
 		clear_leave(self.employee)
 
 	def tearDown(self):
 		frappe.set_user("Administrator")
+		set_leave_types_requiring_document([])
 
 	def test_approver_decides_with_one_tap(self):
 		application = apply_for_leave(self.employee)
@@ -104,28 +98,35 @@ class TestLeaveRequestRules(HRMSTestSuite):
 
 	def test_document_can_follow_the_request(self):
 		application = apply_for_leave(self.employee, SICK)
-		self.assertEqual(
-			getdate(application.document_due_date), getdate(add_days(application.posting_date, 7))
-		)
+		self.assertTrue(application.document_required)
 		self.assertIn(application.name, [a.name for a in get_missing_documents()])
 
-		# approved without the document, still reminded
+		def dashboard(user, key):
+			return [a.name for a in as_user(user, get_home_data)["missing_documents"][key]]
+
+		# before approval: the employee and HR see it; approvers see it on the request card
+		self.assertIn(application.name, dashboard(STAFF, "mine"))
+		self.assertIn(application.name, dashboard(HR, "hr"))
+		self.assertNotIn(application.name, dashboard(APPROVER, "to_review"))
+
+		# approved without the document: also the approver who approved; no deadline, no daily message
 		as_user(APPROVER, decide_leave_application, application.name, "Approved")
-		self.assertIn(
-			application.name, [a.name for a in as_user(STAFF, get_home_data)["missing_documents"]["mine"]]
-		)
-		self.assertIn(
-			application.name,
-			[a.name for a in as_user(APPROVER, get_home_data)["missing_documents"]["to_review"]],
-		)
-		remind_missing_leave_documents()
-		self.assertTrue(
+		self.assertIn(application.name, dashboard(STAFF, "mine"))
+		self.assertIn(application.name, dashboard(APPROVER, "to_review"))
+		self.assertIn(application.name, dashboard(HR, "hr"))
+		self.assertNotIn(application.name, dashboard(OTHER, "to_review"))
+		self.assertFalse(
 			frappe.db.exists(
-				"PWA Notification", {"to_user": STAFF, "reference_document_name": application.name}
+				"PWA Notification",
+				{
+					"to_user": STAFF,
+					"reference_document_name": application.name,
+					"message": ("like", "%supporting document%"),
+				},
 			)
 		)
 
-		# only the employee (or HR) uploads it, also after approval
+		# only the employee (or HR) uploads it, also after approval; then every reminder goes
 		self.assertRaises(
 			frappe.PermissionError,
 			as_user,
@@ -137,6 +138,13 @@ class TestLeaveRequestRules(HRMSTestSuite):
 		)
 		as_user(STAFF, upload_leave_document, application.name, "note.png", PHOTO)
 		self.assertNotIn(application.name, [a.name for a in get_missing_documents()])
+		self.assertNotIn(application.name, dashboard(STAFF, "mine"))
+		self.assertNotIn(application.name, dashboard(APPROVER, "to_review"))
+		self.assertNotIn(application.name, dashboard(HR, "hr"))
+
+	def test_types_follow_the_hr_settings_list(self):
+		set_leave_types_requiring_document([])
+		self.assertFalse(apply_for_leave(self.employee, SICK).document_required)
 
 	def test_only_photos_and_pdfs(self):
 		application = apply_for_leave(self.employee, SICK)
@@ -145,9 +153,17 @@ class TestLeaveRequestRules(HRMSTestSuite):
 			frappe.ValidationError, as_user, STAFF, upload_leave_document, application.name, "x.html", script
 		)
 
-	def test_no_due_date_without_the_setting(self):
+	def test_no_document_without_the_setting(self):
 		application = apply_for_leave(self.employee)
-		self.assertFalse(application.document_due_date)
+		self.assertFalse(application.document_required)
+
+
+def set_leave_types_requiring_document(leave_types):
+	settings = frappe.get_single("HR Settings")
+	settings.leave_types_requiring_document = []
+	for leave_type in leave_types:
+		settings.append("leave_types_requiring_document", {"leave_type": leave_type})
+	settings.save()
 
 
 def as_user(user, fn, *args):

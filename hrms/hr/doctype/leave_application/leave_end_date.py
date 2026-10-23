@@ -194,13 +194,16 @@ def validate_employee(doc, method=None):
 		return
 
 	type_changed = not before or before.employment_type != doc.employment_type
-	if type_changed and not (doc.get("original_contract_end_date") and doc.get("leave_counted_from")):
-		start_counting(doc)
-		return
-
 	end_edited = before and doc.has_value_changed("contract_end_date")
 	tracked_edited = before and any(doc.has_value_changed(field) for field in TRACKED_FIELDS)
-	if end_edited and not tracked_edited:
+	if type_changed:
+		# just became an employee without leave allocation: a fresh start from the end date as it is
+		doc.original_contract_end_date = doc.contract_end_date
+		doc.leave_counted_from = getdate(today())
+	elif not (doc.get("original_contract_end_date") and doc.get("leave_counted_from")):
+		# the two fields were cleared: start again from the end date as it is
+		start_counting(doc)
+	elif end_edited and not tracked_edited:
 		# HR set a new end date by hand (a renewal): it becomes the original, counting restarts today
 		doc.original_contract_end_date = doc.contract_end_date
 		doc.leave_counted_from = getdate(today())

@@ -166,16 +166,20 @@ class TestHRFrontends(HRMSTestSuite):
 		employee = self.employee("fe.ontime")
 		# the list in effect (a Holiday List Assignment can override the Employee field)
 		holiday_list = frappe.get_doc("Holiday List", get_holiday_list_for_employee(employee))
-		# free days well ahead, so other tests' "today" never becomes a holiday; removed again below
+		# free days ahead but inside the list's own dates (other tests find this list by its dates),
+		# never today; removed again below
+		last = getdate(holiday_list.to_date)
 		free = [
 			date
-			for date in (add_days(getdate(), n) for n in range(30, 90))
-			if not frappe.db.exists("Holiday", {"parent": holiday_list.name, "holiday_date": date})
+			for date in (add_days(getdate(), n) for n in range(14, 120))
+			if date <= last
+			and not frappe.db.exists("Holiday", {"parent": holiday_list.name, "holiday_date": date})
 		]
+		if len(free) < 3:
+			self.skipTest("the test holiday list ends too soon")
 		dates = [free[-1], free[0], free[len(free) // 2]]
 		for offset, date in enumerate(dates):
 			holiday_list.append("holidays", {"holiday_date": date, "description": f"FE holiday {offset}"})
-		holiday_list.to_date = max(getdate(holiday_list.to_date), dates[0])
 		holiday_list.save()
 
 		try:
