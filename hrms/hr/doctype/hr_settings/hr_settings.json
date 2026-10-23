@@ -40,6 +40,8 @@
   "employment_types_without_leave_allocation",
   "supporting_documents_section",
   "leave_types_requiring_document",
+  "fixed_length_leave_section",
+  "leave_types_with_fixed_length",
   "expenses_tab",
   "expenses_settings_section",
   "expense_approver_mandatory_in_expense_claim",
@@ -478,13 +480,25 @@
    "fieldtype": "Table MultiSelect",
    "label": "Leave Types that need a Supporting Document",
    "options": "HR Settings Leave Type"
+  },
+  {
+   "fieldname": "fixed_length_leave_section",
+   "fieldtype": "Section Break",
+   "label": "Fixed-length leave"
+  },
+  {
+   "description": "A request of these types is always exactly this long: the end date is set from the start date (days count like the leave type counts days; months are calendar months, e.g. 1 Nov + 3 months = 31 Jan). Half days are not allowed. They need no leave allocation; if one is made anyway, its balance applies.",
+   "fieldname": "leave_types_with_fixed_length",
+   "fieldtype": "Table",
+   "label": "Leave Types with a Fixed Length",
+   "options": "HR Settings Fixed Leave Length"
   }
  ],
  "icon": "settings",
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-23 15:00:00.000000",
+ "modified": "2026-10-23 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

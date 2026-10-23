@@ -147,3 +147,12 @@ def get_end_date_details(days: float = 0) -> dict | None:
 	from hrms.hr.doctype.leave_application.leave_end_date import end_date_details
 
 	return end_date_details(get_current_employee(), flt(days))
+
+
+# Fixed-length leave types: where a leave starting on a date ends
+@frappe.whitelist()
+def get_fixed_leave_end(leave_type: str, from_date: str) -> str | None:
+	from hrms.hr.doctype.leave_application.leave_fixed_length import fixed_end_date
+
+	end = fixed_end_date(get_current_employee(), leave_type, from_date)
+	return str(end) if end else None

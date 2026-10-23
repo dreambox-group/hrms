@@ -111,6 +111,7 @@ def get_hr_settings() -> dict:
 		prevent_self_leave_approval=settings.prevent_self_leave_approval,
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
 		leave_types_requiring_document=sorted(get_leave_types_requiring_document()),
+		leave_types_with_fixed_length=get_leave_types_with_fixed_length(),
 	)
 
 
@@ -118,6 +119,12 @@ def get_leave_types_requiring_document() -> set[str]:
 	from hrms.hr.doctype.leave_application.leave_documents import get_leave_types_requiring_document
 
 	return get_leave_types_requiring_document()
+
+
+def get_leave_types_with_fixed_length() -> list[dict]:
+	from hrms.hr.doctype.leave_application.leave_fixed_length import get_fixed_lengths
+
+	return list(get_fixed_lengths().values())
 
 
 # Notifications
@@ -544,6 +551,10 @@ def get_leave_types(employee: str, date: str) -> list:
 	if uses_leave_end_date(employee):
 		leave_types = leave_types_without_allocation() or leave_details["lwps"]
 
+	# fixed-length leave types need no allocation, so everyone may ask for them
+	from hrms.hr.doctype.leave_application.leave_fixed_length import get_fixed_lengths
+
+	leave_types += [leave_type for leave_type in get_fixed_lengths() if leave_type not in leave_types]
 	return leave_types
 
 
