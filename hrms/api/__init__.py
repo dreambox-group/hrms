@@ -112,6 +112,7 @@ def get_hr_settings() -> dict:
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
 		leave_types_requiring_document=sorted(get_leave_types_requiring_document()),
 		leave_types_with_fixed_length=get_leave_types_with_fixed_length(),
+		unpaid_leave_types=frappe.get_all("Leave Type", filters={"is_lwp": 1}, pluck="name"),
 	)
 
 
@@ -472,6 +473,14 @@ def get_holidays_for_employee(employee: str) -> list[dict]:
 @frappe.whitelist()
 def get_leave_approval_details(employee: str) -> dict:
 	frappe.has_permission("Employee", "read", employee, throw=True)
+	department = frappe.get_cached_value("Employee", employee, "department")
+	if department and not frappe.get_cached_value("Employee", employee, "leave_approver"):
+		frappe.has_permission("Department", "read", department, throw=True)
+	return leave_approval_details(employee)
+
+
+def leave_approval_details(employee: str) -> dict:
+	"""Who decides the employee's leave; callers check permissions."""
 	leave_approver, department = frappe.get_cached_value(
 		"Employee",
 		employee,
@@ -479,7 +488,6 @@ def get_leave_approval_details(employee: str) -> dict:
 	)
 
 	if not leave_approver and department:
-		frappe.has_permission("Department", "read", department, throw=True)
 		leave_approver = frappe.db.get_value(
 			"Department Approver",
 			{"parent": department, "parentfield": "leave_approvers", "idx": 1},

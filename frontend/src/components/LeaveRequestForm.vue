@@ -277,7 +277,15 @@ const typeCards = computed(() =>
 		const fixed = fixedFor(name)
 		if (fixed) return { name, hint: __("Always exactly {0}", [fixedLabel(fixed)]), side: "" }
 		if (movesEndDate.value) return { name, hint: __("No allocation · moves your contract end date"), side: "" }
-		if (!balance) return { name, hint: __("Unpaid · deducted from salary"), side: "" }
+		if (!balance && isUnpaid(name)) return { name, hint: __("Unpaid · deducted from salary"), side: "" }
+		if (!balance)
+			return {
+				name,
+				hint: requiresDocument(name)
+					? __("No leave balance needed · supporting document needed")
+					: __("No leave balance needed"),
+				side: "",
+			}
 		return {
 			name,
 			hint: __("Paid · from your {0} days", [balance.allocated_leaves]),
@@ -314,14 +322,17 @@ function setFixedEnd() {
 }
 watch(() => form.leave_type, setFixedEnd)
 
+const isUnpaid = (leaveType) => (settings.data?.unpaid_leave_types || []).includes(leaveType)
+const requiresDocument = (leaveType) =>
+	(settings.data?.leave_types_requiring_document || []).includes(leaveType)
+
 const needsDocument = computed(() =>
 	(settings.data?.leave_types_requiring_document || []).includes(form.leave_type)
 )
 
 // who decides
 const approval = createResource({
-	url: "hrms.api.get_leave_approval_details",
-	params: { employee: employee.data.name },
+	url: "hrms.api.employee_app.get_my_leave_approval_details",
 	auto: true,
 	onSuccess(data) {
 		if (!data.approval_by_levels && !form.leave_approver) form.leave_approver = data.leave_approver || ""
@@ -480,6 +491,8 @@ const summary = computed(() => {
 	}
 	if (selectedType.value.left == null && fixedRule.value && !fixedRule.value.is_lwp)
 		return { ...green, line1, line2: __("{0} is always this long and needs no leave balance.", [form.leave_type]) }
+	if (selectedType.value.left == null && !isUnpaid(form.leave_type))
+		return { ...green, line1, line2: __("{0} needs no leave balance.", [form.leave_type]) }
 	if (selectedType.value.left == null)
 		return { ...amber, line1, line2: __("{0} will be deducted from your salary.", [daysLabel(days.value)]) }
 	const left = selectedType.value.left
