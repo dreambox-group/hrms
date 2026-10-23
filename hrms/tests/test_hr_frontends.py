@@ -9,8 +9,10 @@ from frappe.utils import add_days, add_years, get_year_ending, get_year_start, g
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
+from hrms.api import get_hr_settings
 from hrms.api.employee_app import (
 	get_attendance_month,
+	get_my_leave_approval_details,
 	get_notifications,
 	get_upcoming_holidays,
 	mark_notification_as_read,
@@ -195,6 +197,13 @@ class TestHRFrontends(HRMSTestSuite):
 			frappe.db.delete(
 				"Holiday", {"parent": holiday_list.name, "description": ("like", "FE holiday %")}
 			)
+
+	def test_leave_form_approvers_for_any_employee(self):
+		self.employee("fe.notin")
+		frappe.set_user("fe.notin@example.com")
+		details = get_my_leave_approval_details()
+		self.assertIn("fe.approver@example.com", [row["name"] for row in details["department_approvers"]])
+		self.assertIn("unpaid_leave_types", get_hr_settings())
 
 	def test_notifications_are_the_users_own(self):
 		self.employee("fe.ontime")

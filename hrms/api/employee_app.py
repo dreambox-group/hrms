@@ -156,3 +156,11 @@ def get_fixed_leave_end(leave_type: str, from_date: str) -> str | None:
 
 	end = fixed_end_date(get_current_employee(), leave_type, from_date)
 	return str(end) if end else None
+
+
+# The leave form's "Goes to" line: the employee's own approvers, without needing read on Department
+@frappe.whitelist()
+def get_my_leave_approval_details() -> dict:
+	from hrms.api import leave_approval_details
+
+	return leave_approval_details(get_current_employee())

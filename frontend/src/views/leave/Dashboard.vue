@@ -48,7 +48,9 @@
 									? __("Always exactly {0}. No leave balance needed.", [fixedLabel(fixedFor(type))])
 									: fixedFor(type)
 										? __("Always exactly {0}. Each day is deducted from your salary.", [fixedLabel(fixedFor(type))])
-										: __("No limit. Each day is deducted from your salary.")
+										: (settings.data?.unpaid_leave_types || []).includes(type)
+											? __("No limit. Each day is deducted from your salary.")
+											: __("No leave balance needed.")
 							}}
 						</p>
 					</section>
