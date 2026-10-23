@@ -555,6 +555,16 @@ def get_leave_types(employee: str, date: str) -> list:
 	from hrms.hr.doctype.leave_application.leave_fixed_length import get_fixed_lengths
 
 	leave_types += [leave_type for leave_type in get_fixed_lengths() if leave_type not in leave_types]
+
+	# leave types HR listed as needing a supporting document (e.g. sick leave with a doctor's note)
+	# and set up without a quota (Allow Negative Balance) are for everyone, with no allocation
+	from hrms.hr.doctype.leave_application.leave_documents import get_leave_types_requiring_document
+
+	leave_types += [
+		leave_type
+		for leave_type in sorted(get_leave_types_requiring_document())
+		if leave_type not in leave_types and frappe.db.get_value("Leave Type", leave_type, "allow_negative")
+	]
 	return leave_types
 
 
