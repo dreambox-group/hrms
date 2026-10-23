@@ -8,6 +8,7 @@ from frappe.utils import add_days, get_year_ending, get_year_start, getdate, now
 
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
+from hrms.api import get_leave_types
 from hrms.api.home import get_home_data
 from hrms.hr.doctype.leave_application.leave_application import (
 	LeaveRequestLockedError,
@@ -141,6 +142,22 @@ class TestLeaveRequestRules(HRMSTestSuite):
 		self.assertNotIn(application.name, dashboard(STAFF, "mine"))
 		self.assertNotIn(application.name, dashboard(APPROVER, "to_review"))
 		self.assertNotIn(application.name, dashboard(HR, "hr"))
+
+	def test_document_leave_without_quota_is_for_everyone(self):
+		open_sick = "_Test LR Open Sick Leave"
+		if not frappe.db.exists("Leave Type", open_sick):
+			frappe.get_doc(
+				{"doctype": "Leave Type", "leave_type_name": open_sick, "allow_negative": 1}
+			).insert()
+		staff = make_employee("lr.nobalance@example.com", COMPANY)
+		frappe.db.set_value("Employee", staff, "employment_type", None)
+		frappe.db.delete("Leave Allocation", {"employee": staff})
+
+		self.assertNotIn(open_sick, get_leave_types(staff, nowdate()))
+		set_leave_types_requiring_document([SICK, open_sick])
+		self.assertIn(open_sick, get_leave_types(staff, nowdate()))
+		# a listed type with a quota still needs its allocation
+		self.assertNotIn(SICK, get_leave_types(staff, nowdate()))
 
 	def test_types_follow_the_hr_settings_list(self):
 		set_leave_types_requiring_document([])
