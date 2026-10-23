@@ -48,7 +48,9 @@
 				<div class="flex flex-col gap-3">
 					<div class="text-sm font-semibold text-ink">
 						{{ __("2. Which days?") }}
-						<span class="font-normal text-gray-700">{{ __("Tap the first day, then the last.") }}</span>
+						<span class="font-normal text-gray-700">
+							{{ fixedRule ? __("Tap the first day; the end date is set for you.") : __("Tap the first day, then the last.") }}
+						</span>
 					</div>
 					<div class="rounded-2xl border border-line p-3 lg:p-4">
 						<div class="mb-2 flex flex-row items-center justify-between">
@@ -95,7 +97,16 @@
 							</div>
 						</div>
 					</div>
-					<label v-if="isSingleDay" class="flex min-h-[44px] flex-row items-center gap-2.5 text-sm text-ink">
+					<div
+						v-if="fixedRule"
+						class="rounded-xl bg-[#E4ECFB] px-3.5 py-2.5 text-[13px] leading-snug text-[#1E55B8]"
+					>
+						{{ __("{0} is always exactly {1}.", [form.leave_type, fixedLabel(fixedRule)]) }}
+					</div>
+					<label
+						v-if="isSingleDay && !fixedRule"
+						class="flex min-h-[44px] flex-row items-center gap-2.5 text-sm text-ink"
+					>
 						<input v-model="form.half_day" type="checkbox" class="h-[18px] w-[18px] rounded accent-brand-600" />
 						{{ __("Half day only") }}
 					</label>
@@ -263,6 +274,8 @@ const movesEndDate = computed(() => Boolean(endDate.data?.applies))
 const typeCards = computed(() =>
 	(leaveTypes.data || []).map((name) => {
 		const balance = leaveBalance.data?.[name]
+		const fixed = fixedFor(name)
+		if (fixed) return { name, hint: __("Always exactly {0}", [fixedLabel(fixed)]), side: "" }
 		if (movesEndDate.value) return { name, hint: __("No allocation · moves your contract end date"), side: "" }
 		if (!balance) return { name, hint: __("Unpaid · deducted from salary"), side: "" }
 		return {
@@ -274,6 +287,33 @@ const typeCards = computed(() =>
 	})
 )
 const selectedType = computed(() => typeCards.value.find((card) => card.name === form.leave_type))
+// fixed-length leave types (HR Settings): always exactly N days or months, end date set for you
+const fixedFor = (leaveType) =>
+	(settings.data?.leave_types_with_fixed_length || []).find((row) => row.leave_type === leaveType)
+const fixedRule = computed(() => fixedFor(form.leave_type))
+const fixedLabel = (rule) =>
+	rule.unit === "Months"
+		? rule.length == 1
+			? __("1 month")
+			: __("{0} months", [rule.length])
+		: rule.length == 1
+			? __("1 day")
+			: __("{0} days", [rule.length])
+const fixedEnd = createResource({ url: "hrms.api.employee_app.get_fixed_leave_end" })
+function setFixedEnd() {
+	if (!(fixedRule.value && form.from_date)) return
+	form.half_day = false
+	fixedEnd.submit(
+		{ leave_type: form.leave_type, from_date: form.from_date },
+		{
+			onSuccess(end) {
+				if (end) form.to_date = end
+			},
+		}
+	)
+}
+watch(() => form.leave_type, setFixedEnd)
+
 const needsDocument = computed(() =>
 	(settings.data?.leave_types_requiring_document || []).includes(form.leave_type)
 )
@@ -352,6 +392,12 @@ const monthHolidays = computed(() =>
 )
 
 function pick(date) {
+	if (fixedRule.value) {
+		form.from_date = date
+		form.to_date = ""
+		setFixedEnd()
+		return
+	}
 	if (!form.from_date || form.to_date) {
 		form.from_date = date
 		form.to_date = ""
@@ -432,6 +478,8 @@ const summary = computed(() => {
 				: __("Your contract end date moves by the leave days."),
 		}
 	}
+	if (selectedType.value.left == null && fixedRule.value && !fixedRule.value.is_lwp)
+		return { ...green, line1, line2: __("{0} is always this long and needs no leave balance.", [form.leave_type]) }
 	if (selectedType.value.left == null)
 		return { ...amber, line1, line2: __("{0} will be deducted from your salary.", [daysLabel(days.value)]) }
 	const left = selectedType.value.left

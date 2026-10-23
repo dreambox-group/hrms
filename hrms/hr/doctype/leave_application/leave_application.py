@@ -32,6 +32,7 @@ from hrms.hr.doctype.leave_application.leave_calendar import (
 	add_to_leave_calendar,
 	remove_from_leave_calendar,
 )
+from hrms.hr.doctype.leave_application.leave_fixed_length import apply_fixed_length, get_fixed_length
 from hrms.hr.doctype.leave_block_list.leave_block_list import get_applicable_block_dates
 from hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry import create_leave_ledger_entry
 from hrms.hr.utils import (
@@ -112,6 +113,8 @@ class LeaveApplication(Document, PWANotificationsMixin):
 	def validate(self):
 		validate_active_employee(self.employee)
 		set_employee_name(self)
+		# fixed-length leave types (HR Settings) set their own end date
+		apply_fixed_length(self)
 		self.validate_dates()
 		self.validate_balance_leaves()
 		self.validate_leave_overlap()
@@ -258,6 +261,8 @@ class LeaveApplication(Document, PWANotificationsMixin):
 	def validate_dates_across_allocation(self):
 		if frappe.db.get_value("Leave Type", self.leave_type, "allow_negative"):
 			return
+		if self.is_fixed_length_without_allocation():
+			return
 
 		alloc_on_from_date, alloc_on_to_date = self.get_allocation_based_on_application_dates()
 
@@ -268,6 +273,13 @@ class LeaveApplication(Document, PWANotificationsMixin):
 				_("Application period cannot be across two allocation records"),
 				exc=LeaveAcrossAllocationsError,
 			)
+
+	def is_fixed_length_without_allocation(self) -> bool:
+		"""Fixed-length leave needs no allocation; if HR allocated it anyway, the balance applies."""
+		if not get_fixed_length(self.leave_type):
+			return False
+		alloc_on_from_date, alloc_on_to_date = self.get_allocation_based_on_application_dates()
+		return not (alloc_on_from_date or alloc_on_to_date)
 
 	def get_allocation_based_on_application_dates(self) -> tuple[dict, dict]:
 		"""Returns allocation name, from and to dates for application dates"""
@@ -485,7 +497,7 @@ class LeaveApplication(Document, PWANotificationsMixin):
 					)
 				)
 
-			if not is_lwp(self.leave_type):
+			if not is_lwp(self.leave_type) and not self.is_fixed_length_without_allocation():
 				leave_balance = get_leave_balance_on(
 					self.employee,
 					self.leave_type,

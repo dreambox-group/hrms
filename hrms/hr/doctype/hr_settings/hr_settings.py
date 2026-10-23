@@ -14,6 +14,9 @@ PROCEED_WITH_FREQUENCY_CHANGE = False
 class HRSettings(Document):
 	def validate(self):
 		self.set_naming_series()
+		from hrms.hr.doctype.leave_application.leave_fixed_length import validate_settings
+
+		validate_settings(self)
 
 		# Based on proceed flag
 		global PROCEED_WITH_FREQUENCY_CHANGE

@@ -43,7 +43,13 @@
 					>
 						<h2 class="text-base font-semibold text-ink">{{ type }}</h2>
 						<p class="text-[15px] leading-relaxed text-gray-700">
-							{{ __("No limit. Each day is deducted from your salary.") }}
+							{{
+								fixedFor(type) && !fixedFor(type).is_lwp
+									? __("Always exactly {0}. No leave balance needed.", [fixedLabel(fixedFor(type))])
+									: fixedFor(type)
+										? __("Always exactly {0}. Each day is deducted from your salary.", [fixedLabel(fixedFor(type))])
+										: __("No limit. Each day is deducted from your salary.")
+							}}
 						</p>
 					</section>
 				</div>
@@ -171,6 +177,7 @@ import LeaveDetail from "@/components/LeaveDetail.vue"
 import { useIsDesktop } from "@/composables/useIsDesktop"
 import { leaveRequestOpen, openLeaveRequest } from "@/composables/leaveRequest"
 import { homeData } from "@/data/home"
+import { settings } from "@/data/settings"
 import { balanceRows, leaveBalance, myLeaves } from "@/data/leaves"
 import { LEAVE_STATUS_LABEL, LEAVE_STATUS_TONE, TONE_CLASSES } from "@/utils/status"
 
@@ -210,6 +217,16 @@ leaveBalance.reload()
 
 const endDate = createResource({ url: "hrms.api.employee_app.get_end_date_details", auto: true })
 const balances = computed(() => balanceRows(leaveBalance.data))
+// fixed-length leave types (HR Settings) are not unpaid unless the leave type says so
+const fixedFor = (type) => (settings.data?.leave_types_with_fixed_length || []).find((row) => row.leave_type === type)
+const fixedLabel = (rule) =>
+	rule.unit === "Months"
+		? rule.length == 1
+			? __("1 month")
+			: __("{0} months", [rule.length])
+		: rule.length == 1
+			? __("1 day")
+			: __("{0} days", [rule.length])
 const unpaidTypes = computed(() => (leaveTypes.data || []).filter((type) => !leaveBalance.data?.[type]))
 
 const rows = computed(() =>
