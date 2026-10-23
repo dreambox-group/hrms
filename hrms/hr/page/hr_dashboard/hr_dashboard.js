@@ -314,8 +314,8 @@ class HRDashboard {
 								<div class="hrd-strong">${esc(row.label)} - ${esc(row.employee_name)}</div>
 								<div class="hrd-muted">${dates(row.from_date, row.to_date)}</div>
 							</span>
-							<span class="hrd-pill ${row.overdue ? "hrd-badge" : "hrd-bg-orange"}">
-								${row.overdue ? __("Overdue") : __("Due {0}", [frappe.datetime.str_to_user(row.document_due_date)])}
+							<span class="hrd-pill hrd-bg-orange">
+								${row.status === "Approved" ? __("Approved, not uploaded") : __("Not uploaded")}
 							</span>
 						</a>`
 					)

@@ -32,7 +32,7 @@
 				v-if="row.document_missing"
 				class="self-start rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800"
 			>
-				{{ __("Document due {0}", [dayjs(row.document_due_date).format("D MMM")]) }}
+				{{ __("Document not uploaded yet") }}
 			</div>
 
 			<div class="flex flex-row flex-wrap items-end justify-between gap-3 mt-1">

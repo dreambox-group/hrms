@@ -110,7 +110,14 @@ def get_hr_settings() -> dict:
 		show_attendance_requests_in_employee_app=settings.show_attendance_requests_in_employee_app,
 		prevent_self_leave_approval=settings.prevent_self_leave_approval,
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
+		leave_types_requiring_document=sorted(get_leave_types_requiring_document()),
 	)
+
+
+def get_leave_types_requiring_document() -> set[str]:
+	from hrms.hr.doctype.leave_application.leave_documents import get_leave_types_requiring_document
+
+	return get_leave_types_requiring_document()
 
 
 # Notifications

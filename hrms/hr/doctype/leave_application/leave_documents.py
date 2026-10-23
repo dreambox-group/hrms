@@ -2,8 +2,9 @@
 # For license information, please see license.txt
 """Supporting documents for leave (e.g. a doctor's note) that may only arrive after the request.
 
-Leave types with "Requires a Supporting Document" give the request a Document Due date. It can be
-approved before the document is attached; until then the employee and the approvers are reminded.
+Leave types on HR Settings' "Leave Types that need a Supporting Document" list mark the request as
+needing one. There is no deadline: it can be approved first, and until the employee uploads the
+document a reminder stays on the dashboard of the employee, the approvers who approved it, and HR.
 """
 
 import base64
@@ -12,13 +13,23 @@ from mimetypes import guess_type
 
 import frappe
 from frappe import _
-from frappe.utils import formatdate, getdate, today
 
 from hrms.hr.doctype.leave_application.leave_calendar import get_leave_label
 
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 DOCUMENT_TYPES = ("image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf")
 CORRECTION_ROLES = ("HR Manager", "HR User", "System Manager")
+SETTINGS_FIELD = "leave_types_requiring_document"
+
+
+def get_leave_types_requiring_document() -> set[str]:
+	return set(
+		frappe.get_all(
+			"HR Settings Leave Type",
+			filters={"parenttype": "HR Settings", "parentfield": SETTINGS_FIELD},
+			pluck="leave_type",
+		)
+	)
 
 
 def get_leave_attachments(leave_applications: list[str]) -> dict[str, list[dict]]:
@@ -36,57 +47,65 @@ def get_leave_attachments(leave_applications: list[str]) -> dict[str, list[dict]
 
 
 def get_missing_documents(filters: dict | None = None) -> list[dict]:
-	"""Leave requests whose supporting document is due but not attached yet."""
+	"""Leave requests that need a supporting document and don't have one attached yet."""
 	applications = frappe.get_all(
 		"Leave Application",
 		filters={
 			**(filters or {}),
-			"document_due_date": ("is", "set"),
+			"document_required": 1,
 			"docstatus": ("!=", 2),
 			"status": ("not in", ["Rejected", "Cancelled"]),
 		},
-		fields=[
-			"name",
-			"employee",
-			"employee_name",
-			"leave_type",
-			"from_date",
-			"to_date",
-			"document_due_date",
-		],
-		order_by="document_due_date",
+		fields=["name", "employee", "employee_name", "leave_type", "from_date", "to_date", "status"],
+		order_by="from_date",
 	)
 	attached = get_leave_attachments([a.name for a in applications])
-	date = getdate(today())
 	missing = []
 	for application in applications:
 		if application.name in attached:
 			continue
 		application.label = get_leave_label(application.employee, application.leave_type)
-		application.overdue = getdate(application.document_due_date) < date
 		missing.append(application)
 	return missing
 
 
-def get_missing_documents_for(user: str) -> dict:
-	"""The user's own leave missing a document, and leave they approve that is missing one."""
-	employees = frappe.get_all("Employee", filters={"user_id": user}, pluck="name")
-	mine = get_missing_documents({"employee": ("in", employees)}) if employees else []
-
-	approving = set(
+def get_approved_by(user: str) -> list[str]:
+	"""Leave requests the user approved: as the chosen Leave Approver, or with their vote."""
+	approved = set(
 		frappe.get_all(
-			"Leave Application", filters={"leave_approver": user, "docstatus": ("!=", 2)}, pluck="name"
+			"Leave Application",
+			filters={"leave_approver": user, "status": "Approved", "docstatus": 1},
+			pluck="name",
 		)
 	)
-	approving.update(
+	approved.update(
 		frappe.get_all(
 			"Leave Application Approver",
-			filters={"parenttype": "Leave Application", "approver": user},
+			filters={"parenttype": "Leave Application", "approver": user, "decision": "Approved"},
 			pluck="parent",
 		)
 	)
-	to_review = get_missing_documents({"name": ("in", list(approving))}) if approving else []
-	return {"mine": mine, "to_review": [a for a in to_review if a.employee not in employees]}
+	return list(approved)
+
+
+def get_missing_documents_for(user: str) -> dict:
+	"""Missing documents on the user's dashboard: their own, the leave they approved, and for HR all."""
+	employees = frappe.get_all("Employee", filters={"user_id": user}, pluck="name")
+	mine = get_missing_documents({"employee": ("in", employees)}) if employees else []
+	shown = {a.name for a in mine}
+
+	approved = get_approved_by(user)
+	to_review = [
+		a
+		for a in (get_missing_documents({"name": ("in", approved)}) if approved else [])
+		if a.name not in shown
+	]
+	shown.update(a.name for a in to_review)
+
+	hr = []
+	if set(CORRECTION_ROLES) & set(frappe.get_roles(user)):
+		hr = [a for a in get_missing_documents() if a.name not in shown]
+	return {"mine": mine, "to_review": to_review, "hr": hr}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -128,27 +147,3 @@ def upload_leave_document(leave_application: str, filename: str, content: str) -
 	).insert(ignore_permissions=True)
 	doc.add_comment("Attachment", _("Supporting document added: {0}").format(file.file_name))
 	return {"name": file.name, "file_name": file.file_name, "file_url": file.file_url}
-
-
-def remind_missing_leave_documents() -> None:
-	"""Daily: reminds employees whose leave still needs its supporting document."""
-	for application in get_missing_documents():
-		user = frappe.db.get_value("Employee", application.employee, "user_id")
-		if not user:
-			continue
-		due = formatdate(application.document_due_date)
-		message = (
-			_("The supporting document for your {0} leave ({1}) was due on {2}. Please upload it.")
-			if application.overdue
-			else _("Please upload the supporting document for your {0} leave ({1}) by {2}.")
-		).format(frappe.bold(application.label), formatdate(application.from_date), due)
-		frappe.get_doc(
-			{
-				"doctype": "PWA Notification",
-				"to_user": user,
-				"from_user": "Administrator",
-				"message": message,
-				"reference_document_type": "Leave Application",
-				"reference_document_name": application.name,
-			}
-		).insert(ignore_permissions=True)

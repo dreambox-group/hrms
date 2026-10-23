@@ -55,13 +55,9 @@ const notices = computed(() => {
 	// supporting documents that are still missing: your own, and those of leave you approve
 	for (const doc of data.missing_documents?.mine || []) {
 		list.push({
-			title: doc.overdue ? __("Document overdue") : __("Document needed"),
-			text: __("{0} leave on {1}: upload by {2}", [
-				doc.label,
-				dayjs(doc.from_date).format("D MMM"),
-				dayjs(doc.document_due_date).format("D MMM"),
-			]),
-			dot: doc.overdue ? "bg-red-500" : "bg-orange-500",
+			title: __("Document needed"),
+			text: __("{0} leave on {1}: please upload it", [doc.label, dayjs(doc.from_date).format("D MMM")]),
+			dot: "bg-orange-500",
 			to: { name: "LeaveApplicationDetailView", params: { id: doc.name } },
 		})
 	}

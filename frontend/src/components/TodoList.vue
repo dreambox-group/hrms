@@ -121,7 +121,7 @@ const items = computed(() => {
 			meta: [
 				row.total_leave_days == 1 ? __("1 day") : __("{0} days", [row.total_leave_days]),
 				...(row.progress || []),
-				row.document_missing && __("document due {0}", [dayjs(row.document_due_date).format("D MMM")]),
+				row.document_missing && __("document not uploaded yet"),
 				row.end_date_after && __("end date moves to {0}", [dayjs(row.end_date_after).format("ddd D MMM YYYY")]),
 			]
 				.filter(Boolean)
@@ -133,16 +133,17 @@ const items = computed(() => {
 		})
 	}
 
+	// supporting documents: no deadline, the reminder stays until the employee uploads it
 	for (const doc of data.missing_documents?.mine || []) {
 		list.push({
 			key: `my-doc-${doc.name}`,
 			who: __("You"),
 			initials: initials(myName) || "•",
 			avatar: avatarColour(myName),
-			kind: doc.overdue ? __("Document overdue") : __("Document needed"),
-			tone: doc.overdue ? "bad" : "warn",
+			kind: __("Document needed"),
+			tone: "warn",
 			title: __("{0} leave on {1}", [doc.label, dayjs(doc.from_date).format("ddd D MMM")]),
-			meta: __("Upload by {0}", [dayjs(doc.document_due_date).format("D MMM")]),
+			meta: __("Upload the supporting document. This stays here until you do."),
 			action: __("Upload"),
 			open: openLeave(doc.name),
 		})
@@ -157,7 +158,22 @@ const items = computed(() => {
 			kind: __("Document missing"),
 			tone: "neutral",
 			title: __("{0} leave on {1}", [doc.label, dayjs(doc.from_date).format("ddd D MMM")]),
-			meta: __("Waiting for the upload"),
+			meta: __("You approved this · waiting for the employee to upload it"),
+			action: __("View"),
+			open: openLeave(doc.name),
+		})
+	}
+
+	for (const doc of data.missing_documents?.hr || []) {
+		list.push({
+			key: `hr-doc-${doc.name}`,
+			who: doc.employee_name,
+			initials: initials(doc.employee_name),
+			avatar: avatarColour(doc.employee_name),
+			kind: __("Document missing · HR"),
+			tone: "neutral",
+			title: __("{0} leave on {1}", [doc.label, dayjs(doc.from_date).format("ddd D MMM")]),
+			meta: doc.status === "Approved" ? __("Approved · waiting for the upload") : __("Not decided yet · waiting for the upload"),
 			action: __("View"),
 			open: openLeave(doc.name),
 		})

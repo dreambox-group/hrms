@@ -57,3 +57,4 @@ hrms.patches.v16_0.set_job_offer_in_employee
 hrms.patches.v16_0.delete_old_salary_slip_print_formats
 hrms.patches.v16_0.show_salary_slips_in_employee_app
 hrms.patches.v16_0.leave_pushes_end_date
+hrms.patches.v16_0.leave_documents_setting
