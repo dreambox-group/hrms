@@ -12,8 +12,18 @@
 		</template>
 		<template #body>
 			<div class="flex w-full flex-col gap-5 px-4 pb-24 pt-5 lg:gap-6 lg:px-6">
+				<!-- Employee Types without Leave Allocation: the contract end date instead of balances -->
+				<section
+					v-if="endDate.data?.applies"
+					:aria-label="__('Contract end date')"
+					class="rounded-2xl border border-line bg-white p-5 lg:max-w-[560px] lg:p-6"
+				>
+					<h2 class="mb-2 text-base font-semibold text-ink">{{ __("Contract end date") }}</h2>
+					<EndDateCard :details="endDate.data" />
+				</section>
+
 				<!-- balances -->
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<section
 						v-for="row in balances"
 						:key="row.type"
@@ -155,6 +165,7 @@ import { IonModal, onIonViewWillEnter } from "@ionic/vue"
 import { createResource, FeatherIcon } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
+import EndDateCard from "@/components/EndDateCard.vue"
 import LeaveBar from "@/components/LeaveBar.vue"
 import LeaveDetail from "@/components/LeaveDetail.vue"
 import { useIsDesktop } from "@/composables/useIsDesktop"
@@ -197,6 +208,7 @@ const holidays = createResource({
 })
 leaveBalance.reload()
 
+const endDate = createResource({ url: "hrms.api.employee_app.get_end_date_details", auto: true })
 const balances = computed(() => balanceRows(leaveBalance.data))
 const unpaidTypes = computed(() => (leaveTypes.data || []).filter((type) => !leaveBalance.data?.[type]))
 
@@ -230,6 +242,7 @@ function select(name) {
 
 function reloadAll() {
 	allLeaves.reload()
+	endDate.reload()
 	leaveBalance.reload()
 	myLeaves.reload()
 	homeData.reload()

@@ -22,6 +22,7 @@ from hrms.hr.doctype.leave_application.leave_documents import (
 	get_leave_attachments,
 	get_missing_documents_for,
 )
+from hrms.hr.doctype.leave_application.leave_end_date import end_date_details
 from hrms.hr.doctype.shift_assignment.shift_assignment import get_employee_shift
 from hrms.hr.workforce_today import (
 	CHECKED_IN,
@@ -61,6 +62,7 @@ def get_home_data() -> dict:
 		"missing_documents": get_missing_documents_for(user),
 		"me": get_my_day(employee, date) if employee else None,
 		"next_holiday": get_next_holiday(employee.get("name"), date) if employee else None,
+		"end_date": end_date_details(employee.get("name")) if employee else None,
 	}
 
 
@@ -147,6 +149,9 @@ def get_leave_approvals(user: str) -> list[dict]:
 		application.progress = get_approval_progress(application)
 		application.attachments = attachments.get(application.name, [])
 		application.document_missing = bool(application.document_due_date and not application.attachments)
+		# Employee Types without Leave Allocation: where approving puts their end date
+		end_date = end_date_details(application.employee, application.total_leave_days)
+		application.end_date_after = end_date.get("end_date_after") if end_date else None
 	return applications
 
 

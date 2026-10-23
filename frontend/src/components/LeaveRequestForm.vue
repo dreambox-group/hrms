@@ -248,9 +248,15 @@ const leaveTypes = createResource({
 })
 leaveBalance.reload()
 
+// Employee Types without Leave Allocation: leave moves the contract end date instead of using a balance
+const endDate = createResource({ url: "hrms.api.employee_app.get_end_date_details", auto: true })
+const endDatePreview = createResource({ url: "hrms.api.employee_app.get_end_date_details" })
+const movesEndDate = computed(() => Boolean(endDate.data?.applies))
+
 const typeCards = computed(() =>
 	(leaveTypes.data || []).map((name) => {
 		const balance = leaveBalance.data?.[name]
+		if (movesEndDate.value) return { name, hint: __("No allocation · moves your contract end date"), side: "" }
 		if (!balance) return { name, hint: __("Unpaid · deducted from salary"), side: "" }
 		return {
 			name,
@@ -388,6 +394,10 @@ const rangeLabel = computed(() => {
 	const start = dayjs(form.from_date).format("ddd D MMM")
 	return form.from_date === toDate.value ? start : `${start} – ${dayjs(toDate.value).format("ddd D MMM")}`
 })
+watch(
+	() => [movesEndDate.value, days.value],
+	([moves, count]) => moves && count > 0 && endDatePreview.submit({ days: count })
+)
 const daysLabel = (n) => (n === 0.5 ? __("half a day") : n === 1 ? __("1 day") : __("{0} days", [n]))
 
 const summary = computed(() => {
@@ -397,6 +407,21 @@ const summary = computed(() => {
 	const green = { box: "bg-[#E2F4EA]", text: "text-[#0F6B4C]" }
 	if (!days.value) return { ...grey, line1, line2: __("Only weekend or holiday days, so nothing is counted.") }
 	if (!selectedType.value) return { ...grey, line1, line2: __("Choose a leave type to see your balance.") }
+	if (movesEndDate.value) {
+		const blue = { box: "bg-[#E4ECFB]", text: "text-[#1E55B8]" }
+		if (!endDate.data.contract_end_date) return { ...grey, line1, line2: __("No contract end date is set yet. Ask HR.") }
+		const after = endDatePreview.data?.end_date_after
+		return {
+			...blue,
+			line1,
+			line2: after
+				? __("Your contract end date moves from {0} to {1}.", [
+						dayjs(endDate.data.contract_end_date).format("ddd D MMM YYYY"),
+						dayjs(after).format("ddd D MMM YYYY"),
+					])
+				: __("Your contract end date moves by the leave days."),
+		}
+	}
 	if (selectedType.value.left == null)
 		return { ...amber, line1, line2: __("{0} will be deducted from your salary.", [daysLabel(days.value)]) }
 	const left = selectedType.value.left

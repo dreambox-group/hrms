@@ -233,7 +233,10 @@ doc_events = {
 		"on_update": "hrms.hr.doctype.leave_application.leave_application.update_open_leave_approvers"
 	},
 	"Employee": {
-		"validate": "hrms.overrides.employee_master.validate_onboarding_process",
+		"validate": [
+			"hrms.overrides.employee_master.validate_onboarding_process",
+			"hrms.hr.doctype.leave_application.leave_end_date.validate_employee",
+		],
 		"on_update": [
 			"hrms.overrides.employee_master.update_approver_role",
 			"hrms.overrides.employee_master.publish_update",
@@ -248,7 +251,18 @@ doc_events = {
 	"Project": {"validate": "hrms.controllers.employee_boarding_controller.update_employee_boarding_status"},
 	"Task": {"on_update": "hrms.controllers.employee_boarding_controller.update_task"},
 	# ---- Usage telemetry: recurring feature usage (see hrms/telemetry.py) ----
-	"Leave Application": {"on_submit": "hrms.telemetry.on_leave_application_submit"},
+	"Leave Application": {
+		"on_submit": [
+			"hrms.telemetry.on_leave_application_submit",
+			# Employee Types without Leave Allocation: leave pushes the Contract End Date
+			"hrms.hr.doctype.leave_application.leave_end_date.on_leave_change",
+		],
+		"on_cancel": "hrms.hr.doctype.leave_application.leave_end_date.on_leave_change",
+	},
+	"Leave Allocation": {"validate": "hrms.hr.doctype.leave_application.leave_end_date.refuse_allocation"},
+	"Leave Policy Assignment": {
+		"validate": "hrms.hr.doctype.leave_application.leave_end_date.refuse_allocation"
+	},
 	"Expense Claim": {"on_submit": "hrms.telemetry.on_expense_claim_submit"},
 	"Attendance Request": {"on_submit": "hrms.telemetry.on_attendance_request_submit"},
 	"Shift Request": {"on_submit": "hrms.telemetry.on_shift_request_submit"},
