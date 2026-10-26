@@ -114,38 +114,46 @@ class EmployeeCheckin(Document):
 			self.overtime_type = shift_actual_timings.overtime_type or None
 
 	def validate_distance_from_shift_location(self):
+		"""Outside the office's check-in radius the employee can still check in, with a reason
+		(Meeting di Luar / Sudah izin Supervisor); their supervisors and HR see it that day."""
 		if not frappe.db.get_single_value("HR Settings", "allow_geolocation_tracking"):
 			return
 
 		if not (self.latitude or self.longitude):
 			frappe.throw(_("Latitude and longitude values are required for checking in."))
 
-		assignment_locations = frappe.get_all(
-			"Shift Assignment",
-			filters={
-				"employee": self.employee,
-				"shift_type": self.shift,
-				"start_date": ["<=", self.time],
-				"shift_location": ["is", "set"],
-				"docstatus": 1,
-				"status": "Active",
-			},
-			or_filters=[["end_date", ">=", self.time], ["end_date", "is", "not set"]],
-			pluck="shift_location",
-		)
-		if not assignment_locations:
+		if not self.is_new():
 			return
 
-		checkin_radius, latitude, longitude = frappe.db.get_value(
-			"Shift Location", assignment_locations[0], ["checkin_radius", "latitude", "longitude"]
-		)
-		if checkin_radius <= 0:
+		from hrms.hr.office_range import OUTSIDE_OFFICE_REASONS, get_checkin_location
+
+		self.office_distance = None
+		self.outside_office_range = 0
+		location = get_checkin_location(self.employee, self.shift, self.time)
+		if not location:
+			self.outside_office_reason = None
 			return
 
-		distance = get_distance_between_coordinates(latitude, longitude, self.latitude, self.longitude)
-		if distance > checkin_radius:
+		distance = get_distance_between_coordinates(
+			location.latitude, location.longitude, self.latitude, self.longitude
+		)
+		self.office_distance = round(distance)
+		if distance <= location.radius:
+			self.outside_office_reason = None
+			return
+
+		self.outside_office_range = 1
+		if self.outside_office_reason not in OUTSIDE_OFFICE_REASONS:
 			frappe.throw(
-				_("You must be within {0} meters of your shift location to check in.").format(checkin_radius),
+				_(
+					"You are {0} m from {1}; check-in there is within {2} m. Choose why you are checking in from here: {3}."
+				).format(
+					self.office_distance,
+					location.name,
+					location.radius,
+					_(" or ").join(OUTSIDE_OFFICE_REASONS),
+				),
+				title=_("Outside the Office"),
 				exc=CheckinRadiusExceededError,
 			)
 
@@ -219,6 +227,7 @@ def add_log_with_selfie(
 	latitude: str | float | None = None,
 	longitude: str | float | None = None,
 	device_id: str | None = None,
+	outside_office_reason: str | None = None,
 ) -> Document:
 	"""Creates an Employee Checkin for the logged-in employee with a camera selfie attached.
 
@@ -230,6 +239,7 @@ def add_log_with_selfie(
 	:param latitude: (optional) Latitude of the employee.
 	:param longitude: (optional) Longitude of the employee.
 	:param device_id: (optional) Location / Device ID.
+	:param outside_office_reason: (optional) Why the employee checks in outside the office's radius.
 	"""
 	if not frappe.db.get_single_value("HR Settings", "allow_employee_checkin_from_mobile_app"):
 		frappe.throw(_("Checking in from the mobile app is disabled in HR Settings."))
@@ -256,6 +266,7 @@ def add_log_with_selfie(
 	doc.device_id = device_id
 	doc.latitude = latitude
 	doc.longitude = longitude
+	doc.outside_office_reason = outside_office_reason
 	doc.flags.selfie_checkin = True
 	# the employee is the session user's own; time and selfie are above the Employee role's permlevel
 	doc.insert(ignore_permissions=True)

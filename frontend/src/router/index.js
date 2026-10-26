@@ -41,6 +41,12 @@ const routes = [
 				component: () => import("@/views/leave/Dashboard.vue"),
 			},
 			{
+				// not /roster: the server sends /hr/roster to the desk Roster app
+				path: "/schedule",
+				name: "Roster",
+				component: () => import("@/views/Roster.vue"),
+			},
+			{
 				path: "/dashboard/expense-claims",
 				name: "ExpenseClaimsDashboard",
 				component: () => import("@/views/expense_claim/Dashboard.vue"),

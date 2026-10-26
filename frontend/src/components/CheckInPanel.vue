@@ -107,6 +107,46 @@
 				</div>
 			</template>
 
+			<!-- an office shift checked in from too far away: allowed with a reason, shown to supervisors and HR -->
+			<div
+				v-if="outsideOffice"
+				class="flex flex-col gap-3 rounded-xl border border-[#F2C77C] bg-[#FDEFD6] p-3.5 text-[#8A4B00]"
+				role="alert"
+			>
+				<div>
+					<div class="text-[15px] font-semibold">
+						{{ __("You are {0} from {1}", [distanceLabel(distance), officeLocation.data.name]) }}
+					</div>
+					<div class="mt-1 text-sm leading-snug">
+						{{ __("Office check-in counts within {0} m. Why are you checking in from here? Your supervisors and HR will see this today.", [officeLocation.data.radius]) }}
+					</div>
+				</div>
+				<div role="radiogroup" :aria-label="__('Reason')" class="flex flex-col gap-2">
+					<button
+						v-for="option in officeLocation.data.reasons"
+						:key="option"
+						type="button"
+						role="radio"
+						:aria-checked="outsideReason === option"
+						:class="[
+							'flex min-h-[48px] items-center gap-3 rounded-xl border-2 bg-white px-3.5 text-left text-[15px] font-semibold text-ink',
+							outsideReason === option ? 'border-[#B86200]' : 'border-transparent',
+						]"
+						@click="outsideReason = option"
+					>
+						<span
+							:class="[
+								'flex h-5 w-5 flex-none items-center justify-center rounded-full border-2',
+								outsideReason === option ? 'border-[#B86200]' : 'border-[#B9C0BA]',
+							]"
+						>
+							<span v-if="outsideReason === option" class="h-2.5 w-2.5 rounded-full bg-[#B86200]"></span>
+						</span>
+						{{ option }}
+					</button>
+				</div>
+			</div>
+
 			<SelfieCamera v-if="selfieRequired" v-model="selfie" />
 
 			<div
@@ -119,7 +159,12 @@
 			<button
 				type="button"
 				class="flex min-h-[54px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
-				:disabled="(selfieRequired && !selfie) || (locationRequired && !locationFound) || submitting"
+				:disabled="
+					(selfieRequired && !selfie) ||
+					(locationRequired && !locationFound) ||
+					(outsideOffice && !outsideReason) ||
+					submitting
+				"
 				@click="submitLog('IN')"
 			>
 				{{ submitting ? __("Checking in…") : selfieRequired ? __("Check in with this photo") : __("Confirm check-in") }}
@@ -156,6 +201,27 @@ const locationStatus = ref("")
 const selfie = ref("")
 const selfieRequired = computed(() => Boolean(settings.data?.require_selfie_for_checkin))
 const canCheckIn = computed(() => Boolean(settings.data?.allow_employee_checkin_from_mobile_app))
+
+// the office of today's shift, if it has a check-in radius
+const officeLocation = createResource({ url: "hrms.api.employee_app.get_my_checkin_location" })
+const outsideReason = ref("")
+
+// metres between two points on the globe (haversine), as the server measures it
+function metresBetween(lat1, lon1, lat2, lon2) {
+	const rad = (deg) => (deg * Math.PI) / 180
+	const a =
+		Math.sin(rad(lat2 - lat1) / 2) ** 2 +
+		Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2
+	return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+const distance = computed(() => {
+	const office = officeLocation.data
+	if (!office || !locationFound.value) return null
+	return metresBetween(office.latitude, office.longitude, latitude.value, longitude.value)
+})
+const outsideOffice = computed(() => distance.value != null && distance.value > officeLocation.data.radius)
+const distanceLabel = (metres) =>
+	metres >= 1000 ? __("{0} km", [(metres / 1000).toFixed(1)]) : __("{0} m", [Math.round(metres)])
 
 // with a live selfie required, the server takes the photo, sets the time and creates the check-in
 const selfieCheckin = createResource({
@@ -210,13 +276,16 @@ const today = computed(() => {
 	}
 	if (firstInToday.value) {
 		const late = row.status === "Late"
+		const outside = row.outside_office
 		return {
 			...base,
 			badge: late ? __("Late") : __("On time"),
 			tone: late ? "warn" : "ok",
 			done: true,
 			title: __("Checked in at {0}", [firstInToday.value.format("HH:mm")]),
-			sub: [shift && __("{0} today", [shift]), __("nothing else to do")].filter(Boolean).join(" · "),
+			sub: outside
+				? [__("Outside the office ({0})", [distanceLabel(outside.office_distance)]), outside.outside_office_reason].join(" · ")
+				: [shift && __("{0} today", [shift]), __("nothing else to do")].filter(Boolean).join(" · "),
 		}
 	}
 	if (row.status === "Holiday") {
@@ -317,8 +386,10 @@ watchPermission("geolocation", (state) => {
 function openCheckin() {
 	checkinTimestamp.value = dayjs().format("YYYY-MM-DD HH:mm:ss")
 	selfie.value = ""
+	outsideReason.value = ""
 	sheetOpen.value = true
 	if (settings.data?.allow_geolocation_tracking) {
+		officeLocation.reload()
 		fetchLocation()
 	}
 }
@@ -356,6 +427,7 @@ const submitLog = (logType) => {
 				selfie: selfie.value,
 				latitude: latitude.value || null,
 				longitude: longitude.value || null,
+				outside_office_reason: outsideOffice.value ? outsideReason.value : null,
 			},
 			{ onSuccess: onCheckedIn, onError: showErrors }
 		)
@@ -369,6 +441,7 @@ const submitLog = (logType) => {
 			time: checkinTimestamp.value,
 			latitude: latitude.value,
 			longitude: longitude.value,
+			outside_office_reason: outsideOffice.value ? outsideReason.value : null,
 		},
 		{
 			onSuccess(data) {

@@ -14,3 +14,8 @@ export const leaveDecision = createResource({
 export const leaveDocumentUpload = createResource({
 	url: "hrms.hr.doctype.leave_application.leave_documents.upload_leave_document",
 })
+
+// a supervisor's decision on a Cuti Pengganti request (a day worked, for a day off)
+export const cutiPenggantiDecision = createResource({
+	url: "hrms.api.employee_app.decide_cuti_pengganti",
+})

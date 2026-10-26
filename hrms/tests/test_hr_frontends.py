@@ -14,6 +14,7 @@ from hrms.api.employee_app import (
 	get_attendance_month,
 	get_my_leave_approval_details,
 	get_notifications,
+	get_roster,
 	get_upcoming_holidays,
 	mark_notification_as_read,
 )
@@ -151,6 +152,23 @@ class TestHRFrontends(HRMSTestSuite):
 		# shift starts 08:00 with 15 minutes' grace
 		self.assertEqual(me.late_after, datetime.combine(date, time(8, 15)))
 		self.assertIsNotNone(me.opens_at)
+
+	def test_roster_shows_everyone_to_staff(self):
+		date = getdate()
+		approve_leave(self.employee("fe.away"), date)
+
+		frappe.set_user("fe.notin@example.com")
+		roster = get_roster(str(date), 7)
+
+		self.assertEqual(len(roster["dates"]), 7)
+		rows = {row["employee_name"]: row for row in roster["employees"]}
+		# everyone, not only the user's team; default shift when there is no assignment
+		self.assertEqual(rows["fe.ontime@example.com"]["days"][0]["shift"], self.shift.name)
+		self.assertIsNone(rows["fe.noshift@example.com"]["days"][0]["shift"])
+		self.assertTrue(rows["fe.away@example.com"]["days"][0]["on_leave"])
+		self.assertIn(self.shift.name, roster["shift_types"])
+		# a week has its weekly days off from the holiday list
+		self.assertTrue(any(day["day_off"] or day["holiday"] for day in rows["fe.ontime@example.com"]["days"]))
 
 	def test_attendance_month_is_the_users_own(self):
 		date = getdate()

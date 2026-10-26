@@ -2,8 +2,8 @@
  "actions": [],
  "creation": "2013-08-02 13:45:23",
  "doctype": "DocType",
- "documentation": "https://docs.frappe.io/hr/hr-settings",
  "document_type": "Other",
+ "documentation": "https://docs.frappe.io/hr/hr-settings",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
@@ -42,6 +42,10 @@
   "leave_types_requiring_document",
   "fixed_length_leave_section",
   "leave_types_with_fixed_length",
+  "cuti_pengganti_section",
+  "compensatory_leave_type",
+  "column_break_cuti_pengganti",
+  "compensatory_leave_expiry_months",
   "expenses_tab",
   "expenses_settings_section",
   "expense_approver_mandatory_in_expense_claim",
@@ -492,13 +496,38 @@
    "fieldtype": "Table",
    "label": "Leave Types with a Fixed Length",
    "options": "HR Settings Fixed Leave Length"
+  },
+  {
+   "fieldname": "cuti_pengganti_section",
+   "fieldtype": "Section Break",
+   "label": "Cuti Pengganti (days off for overtime)"
+  },
+  {
+   "description": "Employees name a day they worked overtime or on a day off (Compensatory Leave Request in the desk, Leaves → Cuti Pengganti in the employee app). Once their supervisors approve, they get the same number of days of this leave type.",
+   "fieldname": "compensatory_leave_type",
+   "fieldtype": "Link",
+   "label": "Cuti Pengganti Leave Type",
+   "options": "Leave Type"
+  },
+  {
+   "fieldname": "column_break_cuti_pengganti",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "3",
+   "depends_on": "compensatory_leave_type",
+   "description": "Counted from the day worked, not from the approval: worked 1 Sep, approved 1 Oct, usable until 1 Dec. Unused days then expire.",
+   "fieldname": "compensatory_leave_expiry_months",
+   "fieldtype": "Int",
+   "label": "Cuti Pengganti Expires After (Months)",
+   "non_negative": 1
   }
  ],
  "icon": "settings",
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-23 16:00:00.000000",
+ "modified": "2026-10-26 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

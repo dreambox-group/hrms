@@ -13,6 +13,7 @@ from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employe
 from hrms.api import get_current_employee_info
 from hrms.api.employee_app import get_upcoming_holidays_for
 from hrms.api.hr_dashboard import get_approval_progress
+from hrms.hr.doctype.compensatory_leave_request.cuti_pengganti import get_requests_waiting_for
 from hrms.hr.doctype.leave_application.leave_application import (
 	get_leave_applications_waiting_for,
 	is_leave_approval_by_levels,
@@ -24,6 +25,7 @@ from hrms.hr.doctype.leave_application.leave_documents import (
 )
 from hrms.hr.doctype.leave_application.leave_end_date import end_date_details
 from hrms.hr.doctype.shift_assignment.shift_assignment import get_employee_shift
+from hrms.hr.office_range import get_outside_office_for_supervisor
 from hrms.hr.workforce_today import (
 	CHECKED_IN,
 	HOLIDAY,
@@ -60,6 +62,9 @@ def get_home_data() -> dict:
 		"team": team,
 		"approval_by_levels": is_leave_approval_by_levels(),
 		"missing_documents": get_missing_documents_for(user),
+		# today's check-ins outside the office by the people the user supervises
+		"outside_office": get_outside_office_for_supervisor(user, date),
+		"cuti_pengganti_approvals": get_requests_waiting_for(user),
 		"me": get_my_day(employee, date) if employee else None,
 		"next_holiday": get_next_holiday(employee.get("name"), date) if employee else None,
 		"end_date": end_date_details(employee.get("name")) if employee else None,
@@ -87,6 +92,14 @@ def get_my_day(employee: dict, date) -> dict:
 	row.holiday = None
 	if row.status == HOLIDAY:
 		row.holiday = get_holiday_description(employee["name"], date)
+	row.outside_office = None
+	if row.checked_in_at:
+		row.outside_office = frappe.db.get_value(
+			"Employee Checkin",
+			{"employee": employee["name"], "time": row.checked_in_at, "outside_office_range": 1},
+			["office_distance", "outside_office_reason"],
+			as_dict=True,
+		)
 	return row
 
 

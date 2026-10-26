@@ -27,7 +27,8 @@
    "unique": 1
   },
   {
-   "description": "Radius within which check-in is allowed (in meters)",
+   "default": "500",
+   "description": "How far from this location (in meters, at most 500) an employee can check in for a shift here. Further away, they can still check in but must say why; their supervisors and HR see it on their dashboards. 0 = no check (e.g. for working from home).",
    "fieldname": "checkin_radius",
    "fieldtype": "Int",
    "label": "Checkin Radius",
@@ -69,7 +70,7 @@
    "link_fieldname": "shift_location"
   }
  ],
- "modified": "2026-10-05 15:00:00.000000",
+ "modified": "2026-10-26 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "Shift Location",

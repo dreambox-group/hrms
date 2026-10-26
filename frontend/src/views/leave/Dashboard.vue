@@ -122,6 +122,8 @@
 							<LeaveDetail :name="selected" @changed="reloadAll" />
 						</section>
 
+						<CutiPenggantiCard v-if="endDate.fetched && !endDate.data?.applies" />
+
 						<section class="flex flex-col rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<div class="flex flex-row items-baseline justify-between pb-2">
 								<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("Upcoming holidays") }}</h2>
@@ -173,6 +175,7 @@ import { IonModal, onIonViewWillEnter } from "@ionic/vue"
 import { createResource, FeatherIcon } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
+import CutiPenggantiCard from "@/components/CutiPenggantiCard.vue"
 import EndDateCard from "@/components/EndDateCard.vue"
 import LeaveBar from "@/components/LeaveBar.vue"
 import LeaveDetail from "@/components/LeaveDetail.vue"
@@ -218,7 +221,9 @@ const holidays = createResource({
 leaveBalance.reload()
 
 const endDate = createResource({ url: "hrms.api.employee_app.get_end_date_details", auto: true })
-const balances = computed(() => balanceRows(leaveBalance.data))
+// Cuti Pengganti has its own card (each request's days expire on their own)
+const cutiType = computed(() => settings.data?.cuti_pengganti_leave_type)
+const balances = computed(() => balanceRows(leaveBalance.data).filter((row) => row.type !== cutiType.value))
 // fixed-length leave types (HR Settings) are not unpaid unless the leave type says so
 const fixedFor = (type) => (settings.data?.leave_types_with_fixed_length || []).find((row) => row.leave_type === type)
 const fixedLabel = (rule) =>
@@ -229,7 +234,9 @@ const fixedLabel = (rule) =>
 		: rule.length == 1
 			? __("1 day")
 			: __("{0} days", [rule.length])
-const unpaidTypes = computed(() => (leaveTypes.data || []).filter((type) => !leaveBalance.data?.[type]))
+const unpaidTypes = computed(() =>
+	(leaveTypes.data || []).filter((type) => !leaveBalance.data?.[type] && type !== cutiType.value)
+)
 
 const rows = computed(() =>
 	(allLeaves.data || [])

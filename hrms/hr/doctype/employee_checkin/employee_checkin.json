@@ -24,6 +24,11 @@
   "section_break_ksbo",
   "fetch_geolocation",
   "geolocation",
+  "office_range_section",
+  "office_distance",
+  "outside_office_range",
+  "column_break_office_range",
+  "outside_office_reason",
   "selfie_section",
   "selfie",
   "shift_timings_section",
@@ -199,12 +204,43 @@
    "hidden": 1,
    "label": "Overtime Type",
    "options": "Overtime Type"
+  },
+  {
+   "fieldname": "office_range_section",
+   "fieldtype": "Section Break",
+   "label": "Office Range"
+  },
+  {
+   "description": "How far the check-in was from the office of the employee's shift (its Shift Location).",
+   "fieldname": "office_distance",
+   "fieldtype": "Int",
+   "label": "Distance from Office (m)",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "outside_office_range",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Outside Office Range",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_office_range",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "outside_office_range",
+   "fieldname": "outside_office_reason",
+   "fieldtype": "Select",
+   "label": "Reason for Checking In Outside the Office",
+   "options": "\nMeeting di Luar\nSudah izin Supervisor"
   }
  ],
  "icon": "fingerprint-pattern",
  "in_create": 1,
  "links": [],
- "modified": "2026-10-20 14:00:00.000000",
+ "modified": "2026-10-26 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "Employee Checkin",
