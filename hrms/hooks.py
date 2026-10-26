@@ -252,12 +252,18 @@ doc_events = {
 	"Task": {"on_update": "hrms.controllers.employee_boarding_controller.update_task"},
 	# ---- Usage telemetry: recurring feature usage (see hrms/telemetry.py) ----
 	"Leave Application": {
+		# Cuti Pengganti: leave must fit days that haven't expired by then
+		"validate": "hrms.hr.doctype.compensatory_leave_request.cuti_pengganti.validate_leave",
 		"on_submit": [
 			"hrms.telemetry.on_leave_application_submit",
 			# Employee Types without Leave Allocation: leave pushes the Contract End Date
 			"hrms.hr.doctype.leave_application.leave_end_date.on_leave_change",
+			"hrms.hr.doctype.compensatory_leave_request.cuti_pengganti.on_leave_change",
 		],
-		"on_cancel": "hrms.hr.doctype.leave_application.leave_end_date.on_leave_change",
+		"on_cancel": [
+			"hrms.hr.doctype.leave_application.leave_end_date.on_leave_change",
+			"hrms.hr.doctype.compensatory_leave_request.cuti_pengganti.on_leave_change",
+		],
 	},
 	"Leave Allocation": {"validate": "hrms.hr.doctype.leave_application.leave_end_date.refuse_allocation"},
 	"Leave Policy Assignment": {
@@ -305,6 +311,7 @@ scheduler_events = {
 		"hrms.hr.doctype.job_opening.job_opening.close_expired_job_openings",
 		"hrms.telemetry.capture_daily_attendance_pulse",
 		"hrms.hr.doctype.leave_application.leave_calendar.push_missing_leave_to_google_calendar",
+		"hrms.hr.doctype.compensatory_leave_request.cuti_pengganti.process_expired",
 	],
 	"daily_long": [
 		"hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry.process_expired_allocation",

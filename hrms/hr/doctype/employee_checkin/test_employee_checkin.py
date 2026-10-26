@@ -511,7 +511,7 @@ class TestEmployeeCheckin(HRMSTestSuite):
 
 		date = getdate()
 		location1 = make_shift_location("Loc A", 24, 72)
-		location2 = make_shift_location("Loc B", 25, 75, checkin_radius=2000)
+		location2 = make_shift_location("Loc B", 25, 75, checkin_radius=500)
 		make_shift_assignment(shift1.name, employee, date, shift_location=location1.name)
 		make_shift_assignment(shift2.name, employee, date, shift_location=location2.name)
 
@@ -542,8 +542,8 @@ class TestEmployeeCheckin(HRMSTestSuite):
 
 		# to ensure that the correct shift assignment is considered
 		timestamp = datetime.combine(date, get_time("16:00:00"))
-		# allowed as distance (1506m) is within checkin radius (2000m)
-		make_checkin(employee, timestamp, 25.01, 75.01)
+		# allowed as distance (about 300m) is within checkin radius (500m, the most a Shift Location allows)
+		make_checkin(employee, timestamp, 25.002, 75.002)
 
 		timestamp = datetime.combine(date, get_time("16:30:00"))
 		log = frappe.get_doc(
@@ -551,11 +551,11 @@ class TestEmployeeCheckin(HRMSTestSuite):
 				"doctype": "Employee Checkin",
 				"employee": employee,
 				"time": timestamp,
-				"latitude": 25.1,
-				"longitude": 75.1,
+				"latitude": 25.01,
+				"longitude": 75.01,
 			}
 		)
-		# not allowed as distance (15004m) is not within checkin radius
+		# not allowed without a reason as distance (1506m) is not within checkin radius
 		self.assertRaises(CheckinRadiusExceededError, log.insert)
 
 	def test_add_log_with_selfie(self):

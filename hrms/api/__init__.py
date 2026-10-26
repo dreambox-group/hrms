@@ -113,6 +113,8 @@ def get_hr_settings() -> dict:
 		leave_types_requiring_document=sorted(get_leave_types_requiring_document()),
 		leave_types_with_fixed_length=get_leave_types_with_fixed_length(),
 		unpaid_leave_types=frappe.get_all("Leave Type", filters={"is_lwp": 1}, pluck="name"),
+		# Cuti Pengganti has its own card: each request's days expire on their own
+		cuti_pengganti_leave_type=settings.get("compensatory_leave_type"),
 	)
 
 

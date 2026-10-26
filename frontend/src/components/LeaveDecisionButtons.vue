@@ -6,7 +6,7 @@
 				'flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-[#A8231A] hover:bg-red-50 disabled:opacity-60',
 				fullWidth ? 'min-h-[44px] flex-1' : '',
 			]"
-			:disabled="leaveDecision.loading"
+			:disabled="resource.loading"
 			@click.stop="decide('Rejected')"
 		>
 			<FeatherIcon name="x" class="h-4 w-4" />
@@ -18,7 +18,7 @@
 				'flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-[18px] text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60',
 				fullWidth ? 'min-h-[44px] flex-1' : '',
 			]"
-			:disabled="leaveDecision.loading"
+			:disabled="resource.loading"
 			@click.stop="decide('Approved')"
 		>
 			<FeatherIcon name="check" class="h-4 w-4" />
@@ -28,22 +28,27 @@
 </template>
 
 <script setup>
-import { inject } from "vue"
+import { computed, inject } from "vue"
 import { FeatherIcon, toast } from "frappe-ui"
 
-import { homeData, leaveDecision } from "@/data/home"
+import { cutiPenggantiDecision, homeData, leaveDecision } from "@/data/home"
 import { myLeaves, teamLeaves } from "@/data/leaves"
 
 const __ = inject("$translate")
+// a leave request, or a Cuti Pengganti request (a day worked, for a day off)
 const props = defineProps({
-	leaveApplication: { type: String, required: true },
+	leaveApplication: { type: String, default: "" },
+	cutiPengganti: { type: String, default: "" },
 	fullWidth: { type: Boolean, default: false },
 })
 const emit = defineEmits(["decided"])
+const resource = computed(() => (props.cutiPengganti ? cutiPenggantiDecision : leaveDecision))
 
 function decide(decision) {
-	leaveDecision.submit(
-		{ leave_application: props.leaveApplication, decision },
+	resource.value.submit(
+		props.cutiPengganti
+			? { name: props.cutiPengganti, decision }
+			: { leave_application: props.leaveApplication, decision },
 		{
 			onSuccess(status) {
 				toast({
@@ -51,7 +56,9 @@ function decide(decision) {
 					text:
 						status === "Open"
 							? __("Your decision was saved. The request is still waiting for other approvers.")
-							: __("The leave request is now {0}.", [__(status)]),
+							: props.cutiPengganti
+								? __("The Cuti Pengganti request is now {0}.", [__(status)])
+								: __("The leave request is now {0}.", [__(status)]),
 					icon: "check-circle",
 					position: "bottom-center",
 					iconClasses: "text-green-500",

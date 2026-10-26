@@ -2,52 +2,20 @@
 	<BaseLayout :pageTitle="__('Salary')">
 		<template #body>
 			<div class="flex w-full flex-col gap-5 px-4 pb-24 pt-5 lg:gap-6 lg:px-6">
-				<!-- the latest slip, opened by default -->
-				<section
-					v-if="latest"
-					:aria-label="__('Latest salary slip')"
-					class="flex flex-col gap-5 rounded-2xl border border-line bg-white p-5 lg:flex-row lg:items-center lg:justify-between lg:p-7"
-				>
-					<div class="flex flex-col gap-2">
-						<span class="text-xs font-bold uppercase tracking-[0.08em] text-gray-700">{{ __("Latest slip") }}</span>
-						<h2 class="text-xl font-bold text-ink lg:text-2xl">{{ slipPeriod(latest) }}</h2>
-						<div class="flex flex-row items-baseline gap-2">
-							<span class="text-[34px] font-bold leading-none tracking-tight text-ink lg:text-[44px]">
-								{{ formatCurrency(latest.net_pay, latest.currency) }}
-							</span>
-							<span class="text-sm text-gray-700">{{ __("take-home") }}</span>
-						</div>
-						<div class="text-sm text-gray-700">
-							{{ __("Gross {0} · Deductions {1}", [formatCurrency(latest.gross_pay, latest.currency), formatCurrency(latest.total_deduction, latest.currency)]) }}
-						</div>
-						<div v-if="latest.posting_date" class="text-[13px] text-gray-700">
-							{{ __("Slip date {0}", [dayjs(latest.posting_date).format("D MMM YYYY")]) }}
-						</div>
-					</div>
-					<div class="flex flex-row gap-3">
-						<button
-							type="button"
-							class="min-h-[48px] rounded-xl border border-line px-5 text-[15px] font-semibold text-ink hover:bg-gray-50 disabled:opacity-60"
-							:disabled="downloading"
-							@click="download(latest.name)"
-						>
-							{{ downloading ? __("Downloading…") : __("Download PDF") }}
-						</button>
-						<router-link
-							:to="{ name: 'SalarySlipDetailView', params: { id: latest.name } }"
-							class="flex min-h-[48px] items-center rounded-xl bg-brand-600 px-6 text-[15px] font-semibold text-white hover:bg-brand-700"
-						>
-							{{ __("View slip") }}
-						</router-link>
-					</div>
-				</section>
-				<div v-if="downloadError" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-					{{ downloadError }}
-				</div>
-
 				<section class="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
 					<div class="flex flex-row flex-wrap items-center justify-between gap-3">
 						<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("All salary slips") }}</h2>
+						<!-- amounts stay hidden until asked for, so a glance at the phone shows no salary -->
+						<button
+							v-if="slips.data?.length"
+							type="button"
+							:aria-pressed="showAmounts"
+							class="flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-600 hover:text-brand-700 lg:ml-auto"
+							@click="showAmounts = !showAmounts"
+						>
+							<FeatherIcon :name="showAmounts ? 'eye-off' : 'eye'" class="h-4 w-4" />
+							{{ showAmounts ? __("Hide amounts") : __("Show amounts") }}
+						</button>
 						<div
 							v-if="years.length > 1"
 							role="tablist"
@@ -83,11 +51,13 @@
 						</span>
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 							<span class="text-sm font-semibold text-ink lg:text-[15px]">{{ slipPeriod(slip) }}</span>
-							<span class="hidden text-[13px] text-gray-700 lg:block">
+							<span v-if="showAmounts" class="hidden text-[13px] text-gray-700 lg:block">
 								{{ __("Gross {0}", [formatCurrency(slip.gross_pay, slip.currency)]) }}
 							</span>
 						</span>
-						<span class="text-right text-[15px] font-semibold text-ink">{{ formatCurrency(slip.net_pay, slip.currency) }}</span>
+						<span class="text-right text-[15px] font-semibold tabular-nums text-ink">
+							{{ showAmounts ? formatCurrency(slip.net_pay, slip.currency) : "••••••" }}
+						</span>
 						<FeatherIcon name="chevron-right" class="h-5 w-5 flex-none text-gray-500" />
 					</router-link>
 
@@ -110,7 +80,7 @@ import { createListResource, FeatherIcon } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
 import { formatCurrency } from "@/utils/formatters"
-import { downloadSlipPDF, slipPeriod } from "@/utils/salarySlip"
+import { slipPeriod } from "@/utils/salarySlip"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -127,7 +97,6 @@ const slips = createListResource({
 })
 onIonViewWillEnter(() => slips.reload())
 
-const latest = computed(() => slips.data?.[0] || null)
 const years = computed(() => [...new Set((slips.data || []).map((slip) => dayjs(slip.end_date).format("YYYY")))])
 const activeYear = ref("")
 watch(years, (list) => {
@@ -137,17 +106,7 @@ const shown = computed(() =>
 	(slips.data || []).filter((slip) => !activeYear.value || dayjs(slip.end_date).format("YYYY") === activeYear.value)
 )
 
-const downloading = ref(false)
-const downloadError = ref("")
-async function download(name) {
-	downloading.value = true
-	downloadError.value = ""
-	try {
-		await downloadSlipPDF(name)
-	} catch (error) {
-		downloadError.value = __("The PDF could not be downloaded: {0}", [error.message])
-	} finally {
-		downloading.value = false
-	}
-}
+// hidden again each time the page opens
+const showAmounts = ref(false)
+onIonViewWillEnter(() => (showAmounts.value = false))
 </script>

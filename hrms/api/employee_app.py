@@ -164,3 +164,195 @@ def get_my_leave_approval_details() -> dict:
 	from hrms.api import leave_approval_details
 
 	return leave_approval_details(get_current_employee())
+
+
+# Check-in: the office of today's shift, so the app can warn before an out-of-range check-in
+@frappe.whitelist()
+def get_my_checkin_location() -> dict | None:
+	from hrms.hr.doctype.shift_assignment.shift_assignment import get_employee_shift
+	from hrms.hr.office_range import OUTSIDE_OFFICE_REASONS, get_checkin_location
+
+	employee = get_current_employee()
+	now = frappe.utils.now_datetime()
+	shift = get_employee_shift(employee, now, True) or {}
+	shift_type = shift.get("shift_type")
+	location = get_checkin_location(employee, shift_type.name if shift_type else None, now)
+	if not location:
+		return None
+	return {
+		"name": location.name,
+		"latitude": location.latitude,
+		"longitude": location.longitude,
+		"radius": location.radius,
+		"reasons": OUTSIDE_OFFICE_REASONS,
+	}
+
+
+# Roster: everyone's shifts for a week, read-only for every employee (staff can't read others'
+# Shift Assignments)
+@frappe.whitelist()
+def get_roster(start_date: str | None = None, days: int = 7) -> dict:
+	from hrms.hr.workforce_today import get_active_employees, get_leave_on
+
+	get_current_employee()
+	days = min(max(cint(days) or 7, 1), 31)
+	start = getdate(start_date or frappe.utils.today())
+	end = add_days(start, days - 1)
+	dates = [add_days(start, n) for n in range(days)]
+
+	employees = get_active_employees()
+	names = [e.name for e in employees]
+	default_shifts = dict(
+		frappe.get_all(
+			"Employee", filters={"name": ("in", names or [""])}, fields=["name", "default_shift"], as_list=True
+		)
+	)
+	assignments = {}
+	for row in frappe.get_all(
+		"Shift Assignment",
+		filters={
+			"employee": ("in", names or [""]),
+			"docstatus": 1,
+			"status": "Active",
+			"start_date": ("<=", end),
+		},
+		or_filters=[["end_date", ">=", start], ["end_date", "is", "not set"]],
+		fields=["employee", "shift_type", "shift_location", "start_date", "end_date"],
+		order_by="start_date desc",
+	):
+		assignments.setdefault(row.employee, []).append(row)
+
+	on_leave = {}
+	for row in get_leave_on(names, start, end):
+		on_leave.setdefault(row.employee, []).append(row)
+
+	holidays_by_list = {}
+	shift_types = set()
+	rows = []
+	for employee in employees:
+		holiday_list = get_holiday_list_for_employee(employee.name, raise_exception=False)
+		if holiday_list not in holidays_by_list:
+			holidays_by_list[holiday_list] = (
+				{
+					row.holiday_date: frappe._dict(
+						description=strip_html(row.description or "").strip(), weekly_off=row.weekly_off
+					)
+					for row in frappe.get_all(
+						"Holiday",
+						filters={"parent": holiday_list, "holiday_date": ("between", [start, end])},
+						fields=["holiday_date", "description", "weekly_off"],
+					)
+				}
+				if holiday_list
+				else {}
+			)
+		holidays = holidays_by_list[holiday_list]
+
+		cells = []
+		for date in dates:
+			assignment = next(
+				(
+					a
+					for a in assignments.get(employee.name, [])
+					if getdate(a.start_date) <= date and (not a.end_date or getdate(a.end_date) >= date)
+				),
+				None,
+			)
+			shift = assignment.shift_type if assignment else default_shifts.get(employee.name)
+			holiday = holidays.get(date)
+			leave = next(
+				(
+					l
+					for l in on_leave.get(employee.name, [])
+					if getdate(l.from_date) <= date <= getdate(l.to_date)
+				),
+				None,
+			)
+			if shift:
+				shift_types.add(shift)
+			cells.append(
+				{
+					"date": date,
+					"shift": shift,
+					"location": assignment.shift_location if assignment else None,
+					"on_leave": bool(leave),
+					"holiday": holiday.description if holiday and not holiday.weekly_off else None,
+					"day_off": bool(holiday and holiday.weekly_off),
+				}
+			)
+		rows.append(
+			{
+				"employee": employee.name,
+				"employee_name": employee.employee_name,
+				"department": employee.department,
+				"image": employee.image,
+				"days": cells,
+			}
+		)
+
+	return {
+		"dates": dates,
+		"employees": rows,
+		"shift_types": {
+			row.name: row
+			for row in frappe.get_all(
+				"Shift Type",
+				filters={"name": ("in", list(shift_types) or [""])},
+				fields=["name", "start_time", "end_time", "color"],
+			)
+		},
+	}
+
+
+# Cuti Pengganti: days off for overtime
+@frappe.whitelist()
+def get_my_cuti_pengganti() -> dict:
+	from hrms.hr.doctype.compensatory_leave_request.cuti_pengganti import get_summary
+
+	return get_summary(get_current_employee())
+
+
+@frappe.whitelist(methods=["POST"])
+def request_cuti_pengganti(work_date: str, reason: str, half_day: int = 0) -> str:
+	from hrms.hr.doctype.compensatory_leave_request.cuti_pengganti import get_leave_type
+
+	if not get_leave_type():
+		frappe.throw(_("Cuti Pengganti isn't set up yet. Ask HR."))
+	if not (reason or "").strip():
+		frappe.throw(_("Say what the overtime was for."))
+	doc = frappe.get_doc(
+		{
+			"doctype": "Compensatory Leave Request",
+			"employee": get_current_employee(),
+			"leave_type": get_leave_type(),
+			"work_from_date": getdate(work_date),
+			"work_end_date": getdate(work_date),
+			"half_day": cint(half_day),
+			"half_day_date": getdate(work_date) if cint(half_day) else None,
+			"reason": reason.strip(),
+		}
+	)
+	doc.insert()
+	return doc.name
+
+
+@frappe.whitelist(methods=["POST"])
+def withdraw_cuti_pengganti(name: str) -> None:
+	"""The employee takes back a request nobody has decided on yet."""
+	doc = frappe.get_doc("Compensatory Leave Request", name)
+	if doc.employee != get_current_employee():
+		frappe.throw(_("This is not your request."), frappe.PermissionError)
+	if doc.docstatus != 0 or doc.status != "Open" or any(r.decision != "Pending" for r in doc.approvers):
+		frappe.throw(_("A supervisor has already decided on this request, so it can't be withdrawn."))
+	frappe.delete_doc("Compensatory Leave Request", name, ignore_permissions=True)
+
+
+@frappe.whitelist(methods=["POST"])
+def decide_cuti_pengganti(name: str, decision: str) -> str:
+	from hrms.hr.doctype.compensatory_leave_request.cuti_pengganti import record_decision
+
+	if decision not in ("Approved", "Rejected"):
+		frappe.throw(_("Decision must be Approved or Rejected."))
+	# lock the request so two supervisors deciding at the same time both count
+	frappe.db.get_value("Compensatory Leave Request", name, "name", for_update=True)
+	return record_decision(frappe.get_doc("Compensatory Leave Request", name), decision)

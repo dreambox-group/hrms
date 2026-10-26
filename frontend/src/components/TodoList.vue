@@ -49,6 +49,12 @@
 			</div>
 			<div class="flex flex-row gap-2 lg:ml-auto" @click.stop>
 				<LeaveDecisionButtons v-if="item.leaveApplication" :leave-application="item.leaveApplication" class="w-full lg:w-auto" :full-width="!isDesktop" />
+				<LeaveDecisionButtons
+					v-else-if="item.cutiPengganti"
+					:cuti-pengganti="item.cutiPengganti"
+					class="w-full lg:w-auto"
+					:full-width="!isDesktop"
+				/>
 				<button
 					v-else-if="item.action"
 					type="button"
@@ -130,6 +136,44 @@ const items = computed(() => {
 			attachments: row.attachments,
 			leaveApplication: row.name,
 			open: openLeave(row.name),
+		})
+	}
+
+	for (const row of data.cuti_pengganti_approvals || []) {
+		list.push({
+			key: `cuti-${row.name}`,
+			who: row.employee_name,
+			initials: initials(row.employee_name),
+			avatar: avatarColour(row.employee_name),
+			kind: __("Cuti Pengganti"),
+			tone: "info",
+			title: __("Worked on {0} · asks for {1}", [
+				dates(row.work_from_date, row.work_end_date),
+				row.days == 1 ? __("1 day off") : __("{0} days off", [row.days]),
+			]),
+			meta: row.expires_on && __("If approved, usable until {0}", [dayjs(row.expires_on).format("D MMM YYYY")]),
+			note: row.reason,
+			cutiPengganti: row.name,
+		})
+	}
+
+	// today only: people the user supervises who checked in away from their office
+	for (const row of data.outside_office || []) {
+		list.push({
+			key: `outside-${row.name}`,
+			who: row.employee_name,
+			initials: initials(row.employee_name),
+			avatar: avatarColour(row.employee_name),
+			kind: __("Outside the office"),
+			tone: "warn",
+			title: row.outside_office_reason,
+			meta: __("Checked in {0} · {1} from {2}", [
+				dayjs(row.time).format("HH:mm"),
+				row.office_distance >= 1000
+					? __("{0} km", [(row.office_distance / 1000).toFixed(1)])
+					: __("{0} m", [row.office_distance]),
+				row.location || __("the office"),
+			]),
 		})
 	}
 

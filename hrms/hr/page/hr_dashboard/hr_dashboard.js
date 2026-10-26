@@ -43,6 +43,11 @@ const MODULE_SETTINGS = [
 		route: ["List", "Department"],
 	},
 	{
+		title: __("Office locations"),
+		text: __("Office coordinates and check-in radius (at most 500 m)"),
+		route: ["List", "Shift Location"],
+	},
+	{
 		title: __("Payroll settings"),
 		text: __("Payroll periods, salary components and structures"),
 		route: ["Form", "Payroll Settings"],
@@ -105,6 +110,7 @@ class HRDashboard {
 				${this.headcount(d.headcount)}
 				${this.changes(d.changes)}
 				${this.requests(d.requests)}
+				${this.outsideOffice(d.outside_office || [])}
 				${this.missingDocuments(d.missing_documents || [])}
 			</div>
 			<h2 class="hrd-section-title">${__("Module settings")}</h2>
@@ -302,6 +308,30 @@ class HRDashboard {
 					.join("")
 			: `<div class="hrd-empty">${__("Nothing in the next 30 days.")}</div>`;
 		return card(__("Joining, leaving & contracts ending"), null, body);
+	}
+
+	outsideOffice(rows) {
+		const body = rows.length
+			? rows
+					.map(
+						(row) => `
+						<a class="hrd-row" href="#" data-route='${route(["Form", "Employee Checkin", row.name])}'>
+							<span>
+								<div class="hrd-strong">${esc(row.employee_name)} <span class="hrd-muted">· ${esc(row.department || "")}</span></div>
+								<div class="hrd-muted">${__("Checked in {0} · {1} from {2}", [
+									moment(row.time).format("HH:mm"),
+									row.office_distance >= 1000
+										? __("{0} km", [(row.office_distance / 1000).toFixed(1)])
+										: __("{0} m", [row.office_distance]),
+									esc(row.location || __("the office")),
+								])}</div>
+							</span>
+							<span class="hrd-pill hrd-bg-orange">${esc(row.outside_office_reason || "")}</span>
+						</a>`
+					)
+					.join("")
+			: `<div class="hrd-empty">${__("Everyone who checked in for an office shift today was at the office.")}</div>`;
+		return card(__("Checked in outside the office today"), null, body);
 	}
 
 	missingDocuments(rows) {

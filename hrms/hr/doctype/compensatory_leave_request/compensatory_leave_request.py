@@ -8,6 +8,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_days, cint, date_diff, format_date, get_url_to_list, getdate
 
+from hrms.hr.doctype.compensatory_leave_request import cuti_pengganti
 from hrms.hr.utils import (
 	create_additional_leave_ledger_entry,
 	get_holiday_dates_for_employee,
@@ -21,6 +22,9 @@ from hrms.hr.utils import (
 class CompensatoryLeaveRequest(Document):
 	def validate(self):
 		validate_active_employee(self.employee)
+		if not self.leave_type:
+			# asked for from the employee app: the Cuti Pengganti leave type in HR Settings
+			self.leave_type = cuti_pengganti.get_leave_type()
 		validate_dates(self, self.work_from_date, self.work_end_date)
 		if self.half_day:
 			if not self.half_day_date:
@@ -28,10 +32,17 @@ class CompensatoryLeaveRequest(Document):
 			if not getdate(self.work_from_date) <= getdate(self.half_day_date) <= getdate(self.work_end_date):
 				frappe.throw(_("Half Day Date should be in between Work From Date and Work End Date"))
 		validate_overlap(self, self.work_from_date, self.work_end_date)
-		self.validate_holidays()
-		self.validate_attendance()
 		if not self.leave_type:
 			frappe.throw(_("Leave Type is mandatory"))
+		if self.is_cuti_pengganti():
+			# overtime counts too, not only holidays; the supervisors confirm the day was worked
+			cuti_pengganti.validate_request(self)
+		else:
+			self.validate_holidays()
+			self.validate_attendance()
+
+	def is_cuti_pengganti(self) -> bool:
+		return cuti_pengganti.is_cuti_pengganti(self.leave_type)
 
 	def validate_attendance(self):
 		attendance_records = frappe.get_all(
@@ -70,7 +81,14 @@ class CompensatoryLeaveRequest(Document):
 
 			frappe.throw(msg)
 
+	def before_submit(self):
+		if self.is_cuti_pengganti():
+			cuti_pengganti.before_submit(self)
+
 	def on_submit(self):
+		if self.is_cuti_pengganti():
+			return cuti_pengganti.on_submit(self)
+
 		company = frappe.db.get_value("Employee", self.employee, "company")
 		date_difference = date_diff(self.work_end_date, self.work_from_date) + 1
 		if self.half_day:
@@ -105,6 +123,9 @@ class CompensatoryLeaveRequest(Document):
 			frappe.throw(msg, title=_("No Leave Period Found"))
 
 	def on_cancel(self):
+		if self.is_cuti_pengganti():
+			return cuti_pengganti.on_cancel(self)
+
 		if self.leave_allocation:
 			date_difference = date_diff(self.work_end_date, self.work_from_date) + 1
 			if self.half_day:
