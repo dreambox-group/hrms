@@ -26,6 +26,8 @@ from hrms.hr.doctype.leave_application.leave_documents import (
 from hrms.hr.doctype.leave_application.leave_end_date import end_date_details
 from hrms.hr.doctype.shift_assignment.shift_assignment import get_employee_shift
 from hrms.hr.office_range import get_outside_office_for_supervisor
+from hrms.hr.penalties import get_penalties
+from hrms.hr.supervisors import get_supervised_departments, get_team
 from hrms.hr.workforce_today import (
 	CHECKED_IN,
 	HOLIDAY,
@@ -68,6 +70,8 @@ def get_home_data() -> dict:
 		"me": get_my_day(employee, date) if employee else None,
 		"next_holiday": get_next_holiday(employee.get("name"), date) if employee else None,
 		"end_date": end_date_details(employee.get("name")) if employee else None,
+		# the user's own late days, unpaid leave and days without check-in this pay period
+		"penalties": get_penalties(employee["name"], date) if employee else None,
 	}
 
 
@@ -188,16 +192,11 @@ def get_other_approvals(user: str) -> list[dict]:
 
 def get_team_today(user: str, date) -> dict | None:
 	"""For leave approvers: who in their departments has checked in today."""
-	departments = frappe.get_all(
-		"Department Approver",
-		filters={"parenttype": "Department", "parentfield": "leave_approvers", "approver": user},
-		pluck="parent",
-		distinct=True,
-	)
+	departments = get_supervised_departments(user)
 	if not departments:
 		return None
 
-	employees = [e for e in get_active_employees(departments=departments) if e.user_id != user]
+	employees = get_team(user)
 	rows = get_workforce_today(employees, date)
 	return {
 		"departments": sorted(departments),

@@ -1,0 +1,233 @@
+{
+ "actions": [],
+ "autoname": "format:HR-OLD-{YYYY}-{###}",
+ "creation": "2026-10-27 13:00:00.000000",
+ "description": "Brings employees, leave and attendance over from the old AppSheet HRIS spreadsheets. Check first (nothing is saved), then Import. Running it again skips what was already imported. A team's supervisors with a login become its department's leave approvers when the department has none yet.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "status",
+  "workbook",
+  "attendance_files",
+  "section_options",
+  "default_company",
+  "import_from",
+  "create_logins",
+  "column_break_options",
+  "annual_leave_type",
+  "unpaid_leave_type",
+  "other_leave_type",
+  "section_mappings",
+  "mappings",
+  "section_result",
+  "checked_on",
+  "column_break_result",
+  "imported_on",
+  "section_report",
+  "result_html",
+  "report",
+  "checked_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nChecking\nChecked\nImporting\nImported\nFailed",
+   "default": "Draft",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "workbook",
+   "fieldtype": "Attach",
+   "label": "Old HRIS Workbook",
+   "reqd": 1,
+   "description": "The \"Drea HR - HRIS\" spreadsheet downloaded as .xlsx (File > Download > Microsoft Excel). Sheets used: A.01 Employee Database, A.02 Team Database, B.01 Attendance, C.01 Leave Balance, C.02 Leave Log."
+  },
+  {
+   "fieldname": "attendance_files",
+   "fieldtype": "Table",
+   "label": "Older Attendance Files",
+   "options": "Old HRIS Import File",
+   "description": "Optional: the yearly attendance archives from Drive (.xlsx, one tab per month), for attendance older than the B.01 sheet keeps."
+  },
+  {
+   "fieldname": "section_options",
+   "fieldtype": "Section Break",
+   "label": "How to bring it in"
+  },
+  {
+   "fieldname": "default_company",
+   "fieldtype": "Link",
+   "label": "Default Company",
+   "options": "Company",
+   "reqd": 1,
+   "description": "Employees whose old Business isn't matched to a company below go here, and so do new departments."
+  },
+  {
+   "fieldname": "import_from",
+   "fieldtype": "Date",
+   "label": "Leave and Attendance From",
+   "description": "Leave, leave balances and attendance before this date are left out. Empty = everything."
+  },
+  {
+   "fieldname": "create_logins",
+   "fieldtype": "Check",
+   "label": "Create logins for active employees",
+   "default": "0",
+   "description": "A login (no email is sent) for each active employee with an email address and no login yet, with HR roles for the old Admin and HR Team. HR sets their passwords."
+  },
+  {
+   "fieldname": "column_break_options",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "annual_leave_type",
+   "fieldtype": "Link",
+   "label": "Annual Leave Type",
+   "options": "Leave Type",
+   "reqd": 1,
+   "description": "Old \"Personal\" leave paid from the quota, and the leave balances."
+  },
+  {
+   "fieldname": "unpaid_leave_type",
+   "fieldtype": "Link",
+   "label": "Unpaid Leave Type",
+   "options": "Leave Type",
+   "reqd": 1,
+   "description": "Old \"Personal\" leave days that went over the quota."
+  },
+  {
+   "fieldname": "other_leave_type",
+   "fieldtype": "Link",
+   "label": "Other Special Leave Type",
+   "options": "Leave Type",
+   "reqd": 1,
+   "description": "Old \"Special\" leave (izin) whose reason doesn't name sick, wedding, birth, miscarriage or bereavement leave."
+  },
+  {
+   "fieldname": "section_mappings",
+   "fieldtype": "Section Break",
+   "label": "Matching old values",
+   "description": "Filled in by Check. Choose what each old value becomes. Left empty: Business goes to the default company, Team becomes a new department, Type and Placement stay empty."
+  },
+  {
+   "fieldname": "mappings",
+   "fieldtype": "Table",
+   "label": "Matching",
+   "options": "Old HRIS Import Mapping",
+   "cannot_add_rows": 1
+  },
+  {
+   "fieldname": "section_result",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "checked_on",
+   "fieldtype": "Datetime",
+   "label": "Checked On",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "imported_on",
+   "fieldtype": "Datetime",
+   "label": "Imported On",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_report",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "result_html",
+   "fieldtype": "HTML",
+   "label": "Result"
+  },
+  {
+   "fieldname": "report",
+   "fieldtype": "Long Text",
+   "label": "Report",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "checked_fingerprint",
+   "fieldtype": "Data",
+   "label": "Checked Fingerprint",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-27 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HR",
+ "name": "Old HRIS Import",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Gray",
+   "title": "Draft"
+  },
+  {
+   "color": "Orange",
+   "title": "Checking"
+  },
+  {
+   "color": "Blue",
+   "title": "Checked"
+  },
+  {
+   "color": "Orange",
+   "title": "Importing"
+  },
+  {
+   "color": "Green",
+   "title": "Imported"
+  },
+  {
+   "color": "Red",
+   "title": "Failed"
+  }
+ ],
+ "track_changes": 1
+}

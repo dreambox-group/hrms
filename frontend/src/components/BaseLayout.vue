@@ -4,7 +4,7 @@
 			<div class="w-full border-b border-line bg-white">
 				<div class="mx-auto flex w-full max-w-[1200px] flex-row items-center gap-4 px-4 py-2.5 lg:gap-8 lg:px-6">
 					<router-link :to="{ name: 'Home' }" class="flex flex-row items-center gap-2.5 text-ink">
-						<FrappeHRLogo class="h-8 w-8" />
+						<DreaLogo class="h-8 w-8" />
 						<span class="text-lg font-bold tracking-tight">{{ __("Drea HRIS") }}</span>
 					</router-link>
 					<nav class="hidden flex-row items-center gap-1 lg:flex" :aria-label="__('Main')">
@@ -62,7 +62,7 @@ import { FeatherIcon, Avatar } from "frappe-ui"
 import { useRoute } from "vue-router"
 import { inject } from "vue"
 
-import FrappeHRLogo from "@/components/icons/FrappeHRLogo.vue"
+import DreaLogo from "@/components/icons/DreaLogo.vue"
 import NotificationBell from "@/components/NotificationBell.vue"
 import { useMainSections } from "@/utils/navigation"
 

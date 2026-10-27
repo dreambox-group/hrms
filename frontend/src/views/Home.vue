@@ -17,6 +17,7 @@
 					</div>
 					<aside class="flex w-full flex-col gap-5 lg:w-[340px] lg:flex-none lg:gap-6">
 						<HomeLeaveCard />
+						<PenaltiesCard />
 						<AroundOffice />
 						<MyRequestsCard />
 						<QuickLinks v-if="extraLinks.length" :items="extraLinks" :title="__('More')" />
@@ -36,6 +37,7 @@ import CheckInPanel from "@/components/CheckInPanel.vue"
 import TodoList from "@/components/TodoList.vue"
 import TeamToday from "@/components/TeamToday.vue"
 import HomeLeaveCard from "@/components/HomeLeaveCard.vue"
+import PenaltiesCard from "@/components/PenaltiesCard.vue"
 import AroundOffice from "@/components/AroundOffice.vue"
 import MyRequestsCard from "@/components/MyRequestsCard.vue"
 import QuickLinks from "@/components/QuickLinks.vue"

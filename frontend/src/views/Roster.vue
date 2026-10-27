@@ -75,8 +75,14 @@
 								</th>
 							</tr>
 						</thead>
-						<tbody>
-							<tr v-for="row in shownRows" :key="row.employee" class="border-b border-[#EEF0EE] last:border-0">
+						<tbody v-for="group in departmentGroups" :key="group.department">
+							<tr class="border-b border-line bg-page">
+								<th scope="colgroup" colspan="8" class="sticky left-0 px-4 py-2 text-left">
+									<span class="text-sm font-bold text-ink">{{ group.label }}</span>
+									<span class="ml-2 text-[13px] font-medium text-gray-700">{{ peopleLabel(group.rows.length) }}</span>
+								</th>
+							</tr>
+							<tr v-for="row in group.rows" :key="row.employee" class="border-b border-[#EEF0EE] last:border-0">
 								<th scope="row" class="sticky left-0 bg-white px-4 py-2.5 text-left font-normal">
 									<div class="flex flex-row items-center gap-2.5">
 										<span
@@ -85,10 +91,7 @@
 										>
 											{{ initials(row.employee_name) }}
 										</span>
-										<span class="flex min-w-0 flex-col">
-											<span class="truncate font-semibold text-ink">{{ row.employee_name }}</span>
-											<span class="truncate text-xs text-gray-700">{{ row.department || "" }}</span>
-										</span>
+										<span class="truncate font-semibold text-ink">{{ row.employee_name }}</span>
 									</div>
 								</th>
 								<td
@@ -132,14 +135,12 @@
 					</div>
 
 					<section
-						v-for="group in dayGroups"
-						:key="group.key"
+						v-for="group in departmentGroups"
+						:key="group.department"
 						class="flex flex-col gap-1 rounded-2xl border border-line bg-white p-4"
 					>
 						<div class="flex flex-row items-center justify-between pb-1.5">
-							<h2 class="flex flex-row items-center gap-2 text-[15px] font-bold text-ink">
-								<span :class="['h-2.5 w-2.5 rounded-full', group.dot]"></span>{{ group.label }}
-							</h2>
+							<h2 class="text-[15px] font-bold text-ink">{{ group.label }}</h2>
 							<span class="text-sm font-semibold text-gray-700">{{ group.rows.length }}</span>
 						</div>
 						<div
@@ -153,11 +154,14 @@
 							>
 								{{ initials(row.employee_name) }}
 							</span>
-							<span class="flex min-w-0 flex-1 flex-col">
-								<span class="truncate text-[15px] font-semibold text-ink">{{ row.employee_name }}</span>
-								<span class="truncate text-[13px] text-gray-700">{{ row.department || "" }}</span>
+							<span class="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{{ row.employee_name }}</span>
+							<span
+								v-if="dayOf(row)"
+								:class="['flex max-w-[55%] flex-col rounded-lg px-2.5 py-1 text-right text-xs font-semibold', cell(dayOf(row)).classes]"
+							>
+								<span class="truncate">{{ cell(dayOf(row)).label }}</span>
+								<span v-if="cell(dayOf(row)).sub" class="truncate text-[11px] font-medium opacity-80">{{ cell(dayOf(row)).sub }}</span>
 							</span>
-							<span v-if="row.note" class="text-right text-[13px] text-gray-700">{{ row.note }}</span>
 						</div>
 					</section>
 				</template>
@@ -257,20 +261,6 @@ function shiftColour(shift) {
 	return FALLBACK[sum % FALLBACK.length]
 }
 const shiftClasses = (shift) => SHIFT_COLOURS[shiftColour(shift)]
-// the chip's text colour as a solid dot (written out so Tailwind keeps the classes)
-const SHIFT_DOTS = {
-	Blue: "bg-[#1E55B8]",
-	Cyan: "bg-[#0B6A78]",
-	Fuchsia: "bg-[#8E1F7C]",
-	Green: "bg-[#0F6B4C]",
-	Lime: "bg-[#4D6B0F]",
-	Orange: "bg-[#8A4B00]",
-	Pink: "bg-[#A3245E]",
-	Red: "bg-[#A8231A]",
-	Violet: "bg-[#5B33B0]",
-	Yellow: "bg-[#7A5C00]",
-}
-const shiftDot = (shift) => SHIFT_DOTS[shiftColour(shift)]
 const hours = (shift) => {
 	const type = roster.data?.shift_types?.[shift]
 	if (!type?.start_time) return ""
@@ -292,25 +282,20 @@ function cell(day) {
 	return { label: "–", classes: "text-gray-500", title: __("No shift") }
 }
 
-// one day on a phone: a group per shift and place, then leave, days off and no shift
-const dayGroups = computed(() => {
-	const index = dates.value.indexOf(selectedDate.value)
-	if (index < 0) return []
+// a group per department (A–Z, people without one last)
+const departmentGroups = computed(() => {
 	const groups = {}
-	const add = (key, label, dot, order, row, note) => {
-		groups[key] ||= { key, label, dot, order, rows: [] }
-		groups[key].rows.push({ ...row, note })
-	}
 	for (const row of shownRows.value) {
-		const day = row.days[index]
-		if (day.on_leave) add("leave", __("On leave"), "bg-[#1E55B8]", 2, row)
-		else if (day.holiday) add("holiday", day.holiday, "bg-[#8A9098]", 3, row)
-		else if (day.day_off) add("off", __("Day off"), "bg-[#C9CEC8]", 4, row)
-		else if (day.shift) {
-			const label = [day.shift, day.location].filter(Boolean).join(" · ")
-			add(`shift-${label}`, label, shiftDot(day.shift), 1, row, hours(day.shift))
-		} else add("none", __("No shift"), "bg-[#E1E4E0]", 5, row)
+		const key = row.department || ""
+		groups[key] ||= { department: key, label: key || __("No department"), rows: [] }
+		groups[key].rows.push(row)
 	}
-	return Object.values(groups).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+	return Object.values(groups).sort((a, b) =>
+		!a.department ? 1 : !b.department ? -1 : a.department.localeCompare(b.department)
+	)
 })
+const peopleLabel = (count) => (count == 1 ? __("1 person") : __("{0} people", [count]))
+
+// phones show one day at a time
+const dayOf = (row) => row.days[dates.value.indexOf(selectedDate.value)]
 </script>

@@ -44,13 +44,18 @@ def mark_notification_as_read(name: str | int) -> None:  # PWA Notification name
 
 # Attendance
 @frappe.whitelist()
-def get_attendance_month(from_date: str, to_date: str) -> list[dict]:
-	"""Each day between the dates for the session employee: attendance, first check-in and holiday."""
-	employee = get_current_employee()
+def get_attendance_month(from_date: str, to_date: str, employee: str | None = None) -> list[dict]:
+	"""Each day between the dates for the session employee, or for someone on their team (supervisors)."""
+	from hrms.hr.supervisors import get_viewable_employee
+
 	from_date, to_date = getdate(from_date), getdate(to_date)
 	if date_diff(to_date, from_date) > 62:
 		frappe.throw(_("Ask for at most two months at a time."))
+	return get_attendance_days(get_viewable_employee(employee), from_date, to_date)
 
+
+def get_attendance_days(employee: str, from_date, to_date) -> list[dict]:
+	"""Each day between the dates: attendance, first check-in and holiday."""
 	attendance = {
 		row.attendance_date: row
 		for row in frappe.get_all(
@@ -85,20 +90,120 @@ def get_attendance_month(from_date: str, to_date: str) -> list[dict]:
 		row = attendance.get(date) or {}
 		holiday = holidays.get(date) or {}
 		days.append(
-			{
-				"date": date,
-				"status": row.get("status"),
-				"late_entry": cint(row.get("late_entry")),
-				"early_exit": cint(row.get("early_exit")),
-				"leave_type": row.get("leave_type"),
-				"shift": row.get("shift"),
-				"checked_in_at": first_in.get(date),
-				"holiday": holiday.get("description"),
-				"weekly_off": cint(holiday.get("weekly_off")),
-			}
+			frappe._dict(
+				date=date,
+				status=row.get("status"),
+				late_entry=cint(row.get("late_entry")),
+				early_exit=cint(row.get("early_exit")),
+				leave_type=row.get("leave_type"),
+				shift=row.get("shift"),
+				checked_in_at=first_in.get(date),
+				holiday=holiday.get("description"),
+				weekly_off=cint(holiday.get("weekly_off")),
+			)
 		)
 		date = add_days(date, 1)
 	return days
+
+
+def count_attendance(days: list[dict]) -> dict:
+	"""Days up to today by kind, as the Attendance page colours them."""
+	today = getdate()
+	counts = {"on_time": 0, "late": 0, "on_leave": 0, "absent": 0, "no_checkin": 0}
+	for day in days:
+		if day.date > today:
+			continue
+		if day.status == "On Leave":
+			counts["on_leave"] += 1
+		elif day.status == "Absent":
+			counts["absent"] += 1
+		elif day.status == "Half Day" or (day.status and day.late_entry):
+			counts["late"] += 1
+		elif day.status or day.checked_in_at:
+			counts["on_time"] += 1
+		elif not day.holiday and day.date < today:
+			counts["no_checkin"] += 1
+	return counts
+
+
+# Team history: for supervisors (the leave approvers of departments)
+@frappe.whitelist()
+def get_team_attendance(from_date: str, to_date: str) -> list[dict]:
+	"""Each team member's days between the dates, counted by kind."""
+	from hrms.hr.supervisors import get_team
+
+	from_date, to_date = getdate(from_date), getdate(to_date)
+	if date_diff(to_date, from_date) > 62:
+		frappe.throw(_("Ask for at most two months at a time."))
+	return [
+		{
+			"employee": member.name,
+			"employee_name": member.employee_name,
+			"department": member.department,
+			"counts": count_attendance(get_attendance_days(member.name, from_date, to_date)),
+		}
+		for member in get_team(frappe.session.user)
+	]
+
+
+@frappe.whitelist()
+def get_team_leave_history(employee: str | None = None, status: str | None = None, limit: int = 100) -> dict:
+	"""The team's leave requests, newest first: waiting, approved, rejected and cancelled."""
+	from hrms.hr.doctype.leave_application.leave_calendar import get_leave_label
+	from hrms.hr.supervisors import get_team
+
+	team = get_team(frappe.session.user)
+	names = [member.name for member in team]
+	if employee:
+		names = [name for name in names if name == employee]
+
+	filters = {"employee": ("in", names or [""])}
+	if status == "Cancelled":
+		filters["docstatus"] = 2
+	elif status:
+		filters.update({"status": status, "docstatus": ("!=", 2)})
+	requests = frappe.get_all(
+		"Leave Application",
+		filters=filters,
+		fields=[
+			"name",
+			"employee",
+			"employee_name",
+			"department",
+			"leave_type",
+			"from_date",
+			"to_date",
+			"total_leave_days",
+			"status",
+			"docstatus",
+			"description",
+			"leave_approver_name",
+			"amended_from",
+		],
+		order_by="from_date desc, creation desc",
+		limit=min(cint(limit) or 100, 300),
+	)
+
+	approvers = {}
+	for row in frappe.get_all(
+		"Leave Application Approver",
+		filters={"parenttype": "Leave Application", "parent": ("in", [r.name for r in requests] or [""])},
+		fields=["parent", "approver_name", "approver", "approval_level", "decision"],
+		order_by="idx",
+	):
+		approvers.setdefault(row.parent, []).append(row)
+	for row in requests:
+		if row.docstatus == 2:
+			row.status = "Cancelled"
+		row.label = get_leave_label(row.employee, row.leave_type)
+		row.approvers = approvers.get(row.name, [])
+
+	return {
+		"employees": [
+			{"employee": m.name, "employee_name": m.employee_name, "department": m.department} for m in team
+		],
+		"requests": requests,
+	}
 
 
 def get_holidays_between(employee: str, from_date, to_date) -> dict:
@@ -356,3 +461,77 @@ def decide_cuti_pengganti(name: str, decision: str) -> str:
 	# lock the request so two supervisors deciding at the same time both count
 	frappe.db.get_value("Compensatory Leave Request", name, "name", for_update=True)
 	return record_decision(frappe.get_doc("Compensatory Leave Request", name), decision)
+
+
+# Changing or cancelling an approved leave: the employee asks after talking to HR; HR decides
+@frappe.whitelist(methods=["POST"])
+def request_leave_change(
+	leave_application: str,
+	change: str,
+	reason: str,
+	informed_hr: int = 0,
+	understands_waiting: int = 0,
+	new_from_date: str | None = None,
+	new_to_date: str | None = None,
+) -> str:
+	if frappe.db.get_value("Leave Application", leave_application, "employee") != get_current_employee():
+		frappe.throw(_("This is not your leave."), frappe.PermissionError)
+	if not (reason or "").strip():
+		frappe.throw(_("Say why the leave needs to change."))
+	doc = frappe.get_doc(
+		{
+			"doctype": "Leave Change Request",
+			"leave_application": leave_application,
+			"change": change,
+			"new_from_date": getdate(new_from_date) if new_from_date else None,
+			"new_to_date": getdate(new_to_date) if new_to_date else None,
+			"reason": reason.strip(),
+			"informed_hr": cint(informed_hr),
+			"understands_waiting": cint(understands_waiting),
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	return doc.name
+
+
+@frappe.whitelist()
+def get_my_leave_changes(leave_application: str | None = None) -> list[dict]:
+	"""The session employee's change requests, newest first; for one leave, also the one that made it."""
+	filters = {"employee": get_current_employee()}
+	or_filters = None
+	if leave_application:
+		or_filters = {"leave_application": leave_application, "new_leave_application": leave_application}
+	return frappe.get_all(
+		"Leave Change Request",
+		filters=filters,
+		or_filters=or_filters,
+		fields=[
+			"name",
+			"leave_application",
+			"leave_type",
+			"from_date",
+			"to_date",
+			"change",
+			"new_from_date",
+			"new_to_date",
+			"reason",
+			"status",
+			"hr_note",
+			"decided_on",
+			"new_leave_application",
+			"creation",
+		],
+		order_by="creation desc",
+		limit=20,
+	)
+
+
+@frappe.whitelist(methods=["POST"])
+def withdraw_leave_change(name: str) -> None:
+	"""The employee takes back a request HR hasn't decided on yet."""
+	doc = frappe.get_doc("Leave Change Request", name)
+	if doc.employee != get_current_employee():
+		frappe.throw(_("This is not your request."), frappe.PermissionError)
+	if doc.status != "Open":
+		frappe.throw(_("HR has already decided on this request."))
+	frappe.delete_doc("Leave Change Request", name, ignore_permissions=True)

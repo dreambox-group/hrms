@@ -104,6 +104,10 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		return _("{0}: From {0} of type {1}").format(self.employee_name, self.leave_type)
 
 	def after_insert(self):
+		# new dates for a leave already approved (Leave Change Request), or old HRIS history:
+		# nothing for approvers to do
+		if self.flags.leave_change_request or self.flags.old_hris_import:
+			return
 		if self.approvers:
 			for row in self.approvers:
 				self.notify_approver(row.approver)
@@ -130,7 +134,10 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		self.validate_for_self_approval()
 		self.validate_no_changes_after_request()
 		self.set_document_required()
-		if is_leave_approval_by_levels() and not frappe.flags.in_import:
+		if self.flags.leave_change_request:
+			# HR moved an approved leave: it keeps the old leave's approvers and their decisions
+			pass
+		elif is_leave_approval_by_levels() and not frappe.flags.in_import:
 			# the department's approvers decide, not one approver chosen on the application
 			self.leave_approver = None
 			self.set_leave_approvers()
@@ -148,20 +155,23 @@ class LeaveApplication(Document, PWANotificationsMixin):
 		share_doc_with_approver(self, self.leave_approver)
 		self.share_with_approvers()
 		self.publish_update()
-		self.notify_approval_status()
+		if not self.flags.old_hris_import:
+			self.notify_approval_status()
 
 	def on_submit(self):
 		if self.status in ["Open", "Cancelled"]:
 			frappe.throw(_("Only Leave Applications with status 'Approved' and 'Rejected' can be submitted"))
 
 		self.validate_back_dated_application()
-		self.update_attendance()
+		# old HRIS history: its attendance comes from the old sheets, and nobody is told again
+		if not self.flags.old_hris_import:
+			self.update_attendance()
 
-		# notify leave applier about approval
-		if frappe.db.get_single_value("HR Settings", "send_leave_notification"):
-			self.notify_employee()
+			# notify leave applier about approval
+			if frappe.db.get_single_value("HR Settings", "send_leave_notification"):
+				self.notify_employee()
 
-		if self.status == "Approved":
+		if self.status == "Approved" and not self.flags.skip_leave_calendar:
 			add_to_leave_calendar(self)
 
 		self.create_leave_ledger_entry()
