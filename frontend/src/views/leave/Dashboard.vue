@@ -57,70 +57,70 @@
 				</div>
 
 				<div class="flex flex-col items-start gap-5 lg:flex-row lg:gap-6">
-					<!-- requests -->
-					<section class="flex w-full min-w-0 flex-1 flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
-						<div class="flex flex-row flex-wrap items-center justify-between gap-3">
-							<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("My requests") }}</h2>
-							<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-1 overflow-x-auto rounded-xl bg-[#F1F3F0] p-1">
-								<button
-									v-for="tab in TABS"
-									:key="tab.value"
-									type="button"
-									role="tab"
-									:aria-selected="activeTab === tab.value"
-									:class="[
-										'min-h-[36px] whitespace-nowrap rounded-lg px-3.5 text-sm',
-										activeTab === tab.value ? 'bg-white font-semibold text-ink shadow-sm' : 'font-medium text-gray-700',
-									]"
-									@click="activeTab = tab.value"
-								>
-									{{ tab.label }}
-								</button>
+					<div class="flex w-full min-w-0 flex-1 flex-col gap-5 lg:gap-6">
+						<!-- requests -->
+						<section class="flex w-full flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
+							<div class="flex flex-row flex-wrap items-center justify-between gap-3">
+								<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("My requests") }}</h2>
+								<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-1 overflow-x-auto rounded-xl bg-[#F1F3F0] p-1">
+									<button
+										v-for="tab in TABS"
+										:key="tab.value"
+										type="button"
+										role="tab"
+										:aria-selected="activeTab === tab.value"
+										:class="[
+											'min-h-[36px] whitespace-nowrap rounded-lg px-3.5 text-sm',
+											activeTab === tab.value ? 'bg-white font-semibold text-ink shadow-sm' : 'font-medium text-gray-700',
+										]"
+										@click="activeTab = tab.value"
+									>
+										{{ tab.label }}
+									</button>
+								</div>
 							</div>
-						</div>
 
-						<button
-							v-for="row in rows"
-							:key="row.name"
-							type="button"
-							:aria-pressed="selected === row.name"
-							:class="[
-								'flex flex-row items-center gap-4 rounded-xl border p-3.5 text-left lg:p-4',
-								isDesktop && selected === row.name ? 'border-brand-600 bg-brand-50' : 'border-line bg-white hover:border-gray-400',
-							]"
-							@click="select(row.name)"
-						>
-							<span class="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-xl bg-page">
-								<span class="text-[11px] font-semibold uppercase text-gray-700">{{ dayjs(row.from_date).format("MMM") }}</span>
-								<span class="text-base font-bold leading-none text-ink">{{ dayjs(row.from_date).format("D") }}</span>
-							</span>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[15px] font-semibold text-ink">{{ row.leave_type }}</span>
-								<span class="text-[13px] text-gray-700">{{ row.dates }}</span>
-							</span>
-							<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[row.tone]]">
-								{{ row.label }}
-							</span>
-						</button>
-						<div
-							v-if="allLeaves.fetched && !rows.length"
-							class="rounded-xl border border-dashed border-[#D5DAD4] p-6 text-center text-sm text-gray-700"
-						>
-							{{ __("No requests here.") }}
-						</div>
-						<router-link
-							v-if="homeData.data?.team"
-							:to="{ name: 'LeaveApplicationListView' }"
-							class="self-start pt-1 text-sm font-medium text-brand-600"
-						>
-							{{ __("Team leave history") }}
-						</router-link>
-					</section>
+							<button
+								v-for="row in rows"
+								:key="row.name"
+								type="button"
+								:aria-pressed="selected === row.name"
+								:class="[
+									'flex flex-row items-center gap-4 rounded-xl border p-3.5 text-left lg:p-4',
+									isDesktop && selected === row.name ? 'border-brand-600 bg-brand-50' : 'border-line bg-white hover:border-gray-400',
+								]"
+								@click="select(row.name)"
+							>
+								<span class="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-xl bg-page">
+									<span class="text-[11px] font-semibold uppercase text-gray-700">{{ dayjs(row.from_date).format("MMM") }}</span>
+									<span class="text-base font-bold leading-none text-ink">{{ dayjs(row.from_date).format("D") }}</span>
+								</span>
+								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+									<span class="text-[15px] font-semibold text-ink">{{ row.leave_type }}</span>
+									<span class="text-[13px] text-gray-700">{{ row.dates }}</span>
+								</span>
+								<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[row.tone]]">
+									{{ row.label }}
+								</span>
+							</button>
+							<div
+								v-if="allLeaves.fetched && !rows.length"
+								class="rounded-xl border border-dashed border-[#D5DAD4] p-6 text-center text-sm text-gray-700"
+							>
+								{{ __("No requests here.") }}
+							</div>
+						</section>
+
+						<!-- supervisors: their team's leave -->
+						<TeamLeaveHistory v-if="homeData.data?.team" />
+					</div>
 
 					<aside class="flex w-full flex-col gap-5 lg:w-[360px] lg:flex-none lg:gap-6">
 						<section v-if="isDesktop && selected" class="rounded-2xl border border-line bg-white p-5 lg:p-6">
 							<LeaveDetail :name="selected" @changed="reloadAll" />
 						</section>
+
+						<LeaveChangesCard ref="changesCard" />
 
 						<CutiPenggantiCard v-if="endDate.fetched && !endDate.data?.applies" />
 
@@ -178,7 +178,9 @@ import BaseLayout from "@/components/BaseLayout.vue"
 import CutiPenggantiCard from "@/components/CutiPenggantiCard.vue"
 import EndDateCard from "@/components/EndDateCard.vue"
 import LeaveBar from "@/components/LeaveBar.vue"
+import LeaveChangesCard from "@/components/LeaveChangesCard.vue"
 import LeaveDetail from "@/components/LeaveDetail.vue"
+import TeamLeaveHistory from "@/components/TeamLeaveHistory.vue"
 import { useIsDesktop } from "@/composables/useIsDesktop"
 import { leaveRequestOpen, openLeaveRequest } from "@/composables/leaveRequest"
 import { homeData } from "@/data/home"
@@ -202,6 +204,7 @@ const activeTab = ref("All")
 const selected = ref(null)
 const sheetFor = ref(null)
 const showAllHolidays = ref(false)
+const changesCard = ref(null)
 
 const allLeaves = createResource({
 	url: "hrms.api.get_leave_applications",
@@ -219,6 +222,7 @@ const holidays = createResource({
 	auto: true,
 })
 leaveBalance.reload()
+if (!homeData.data) homeData.reload()
 
 const endDate = createResource({ url: "hrms.api.employee_app.get_end_date_details", auto: true })
 // Cuti Pengganti has its own card (each request's days expire on their own)
@@ -268,6 +272,7 @@ function select(name) {
 
 function reloadAll() {
 	allLeaves.reload()
+	changesCard.value?.reload()
 	endDate.reload()
 	leaveBalance.reload()
 	myLeaves.reload()

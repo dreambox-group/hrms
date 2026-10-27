@@ -59,3 +59,5 @@ hrms.patches.v16_0.show_salary_slips_in_employee_app
 hrms.patches.v16_0.leave_pushes_end_date
 hrms.patches.v16_0.leave_documents_setting
 hrms.patches.v16_0.cuti_pengganti_setting
+hrms.patches.v16_0.pay_period_setting
+hrms.patches.v16_0.indonesian_id_fields

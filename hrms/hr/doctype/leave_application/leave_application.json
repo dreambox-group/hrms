@@ -24,6 +24,7 @@
   "total_leave_days",
   "column_break1",
   "description",
+  "old_hris_id",
   "document_required",
   "leave_balance",
   "section_break_7",
@@ -150,6 +151,15 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Reason"
+  },
+  {
+   "depends_on": "eval:doc.old_hris_id",
+   "fieldname": "old_hris_id",
+   "fieldtype": "Data",
+   "label": "Old HRIS ID",
+   "no_copy": 1,
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "default": "0",
@@ -279,7 +289,7 @@
  "is_submittable": 1,
  "links": [],
  "max_attachments": 3,
- "modified": "2026-10-23 15:00:00.000000",
+ "modified": "2026-10-27 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "Leave Application",

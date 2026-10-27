@@ -21,6 +21,7 @@
   "latitude",
   "column_break_yqpi",
   "longitude",
+  "old_hris_photo_link",
   "section_break_ksbo",
   "fetch_geolocation",
   "geolocation",
@@ -177,6 +178,15 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.old_hris_photo_link",
+   "fieldname": "old_hris_photo_link",
+   "fieldtype": "Data",
+   "label": "Photo (Old HRIS)",
+   "no_copy": 1,
+   "options": "URL",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_yqpi",
    "fieldtype": "Column Break"
   },
@@ -240,7 +250,7 @@
  "icon": "fingerprint-pattern",
  "in_create": 1,
  "links": [],
- "modified": "2026-10-26 10:00:00.000000",
+ "modified": "2026-10-27 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "Employee Checkin",

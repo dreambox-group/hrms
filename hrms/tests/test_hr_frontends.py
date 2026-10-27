@@ -66,7 +66,7 @@ class TestHRFrontends(HRMSTestSuite):
 		self.assertEqual(statuses["fe.ontime@example.com"], "Checked in")
 		self.assertEqual(statuses["fe.late@example.com"], "Late")
 		self.assertEqual(statuses["fe.away@example.com"], "On leave")
-		self.assertEqual(statuses["fe.notin@example.com"], "Not yet in")
+		self.assertEqual(statuses["fe.notin@example.com"], "Not checked in")
 		self.assertEqual(statuses["fe.noshift@example.com"], "No shift")
 
 	def test_celebrations(self):

@@ -94,7 +94,7 @@ const TONE_TEXT = {
 
 // who still needs attention first, then who is away, then who is in
 const GROUPS = [
-	{ status: "Not yet in", label: __("Not in yet"), tone: "neutral" },
+	{ status: "Not checked in", label: __("Not checked in"), tone: "neutral" },
 	{ status: "Late", label: __("Late"), tone: "warn" },
 	{ status: "On leave", label: __("On leave"), tone: "info" },
 	{ status: "Checked in", label: __("Checked in"), tone: "ok" },
@@ -116,7 +116,7 @@ const summary = computed(() => {
 		__("{0} in", [count("Checked in") + count("Late")]),
 		count("Late") && __("{0} late", [count("Late")]),
 		count("On leave") && __("{0} on leave", [count("On leave")]),
-		__("{0} not in yet", [count("Not yet in")]),
+		__("{0} not checked in", [count("Not checked in")]),
 	]
 		.filter(Boolean)
 		.join(" · ")

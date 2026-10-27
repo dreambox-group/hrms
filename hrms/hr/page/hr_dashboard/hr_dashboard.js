@@ -17,7 +17,7 @@ frappe.pages["hr-dashboard"].on_page_show = function (wrapper) {
 const STATUS_STYLES = {
 	"Checked in": "green",
 	Late: "orange",
-	"Not yet in": "gray",
+	"Not checked in": "gray",
 	"On leave": "blue",
 };
 
@@ -110,6 +110,7 @@ class HRDashboard {
 				${this.headcount(d.headcount)}
 				${this.changes(d.changes)}
 				${this.requests(d.requests)}
+				${this.leaveChanges(d.leave_changes || [])}
 				${this.outsideOffice(d.outside_office || [])}
 				${this.missingDocuments(d.missing_documents || [])}
 			</div>
@@ -308,6 +309,32 @@ class HRDashboard {
 					.join("")
 			: `<div class="hrd-empty">${__("Nothing in the next 30 days.")}</div>`;
 		return card(__("Joining, leaving & contracts ending"), null, body);
+	}
+
+	leaveChanges(rows) {
+		const body = rows.length
+			? rows
+					.map(
+						(row) => `
+						<a class="hrd-row" href="#" data-route='${route(["Form", "Leave Change Request", row.name])}'>
+							<span>
+								<div class="hrd-strong">${esc(row.employee_name)} <span class="hrd-muted">· ${esc(row.leave_type)} ${dates(row.from_date, row.to_date)}</span></div>
+								<div class="hrd-muted">${esc(row.reason)}</div>
+							</span>
+							<span class="hrd-pill hrd-bg-orange">${
+								row.change === "Cancel the leave"
+									? __("Cancel")
+									: __("Move to {0}", [dates(row.new_from_date, row.new_to_date)])
+							}</span>
+						</a>`
+					)
+					.join("")
+			: `<div class="hrd-empty">${__("No requests to change or cancel approved leave.")}</div>`;
+		return card(
+			__("Leave changes waiting for HR"),
+			[__("All change requests"), ["List", "Leave Change Request"]],
+			body
+		);
 	}
 
 	outsideOffice(rows) {

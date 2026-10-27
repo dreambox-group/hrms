@@ -10,8 +10,20 @@
 		</template>
 		<template #body>
 			<div class="flex w-full flex-col gap-5 px-4 pb-24 pt-5 lg:gap-6 lg:px-6">
+				<!-- supervisors can look at someone on their team -->
+				<div
+					v-if="viewing"
+					role="status"
+					class="flex flex-row flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#E4ECFB] px-4 py-3 text-[#1E55B8]"
+				>
+					<span class="text-[15px]">{{ __("Showing {0}'s attendance", [viewing.employee_name]) }}</span>
+					<button type="button" class="min-h-[36px] rounded-lg bg-white px-3 text-sm font-semibold text-ink" @click="viewing = null">
+						{{ __("Back to mine") }}
+					</button>
+				</div>
+
 				<!-- the month in numbers -->
-				<div class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+				<div ref="totalsRow" class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
 					<div
 						v-for="total in totals"
 						:key="total.label"
@@ -97,7 +109,7 @@
 							</div>
 						</section>
 
-						<section class="flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4 lg:p-6">
+						<section v-if="!viewing" class="flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("Your schedule") }}</h2>
 							<div
 								v-for="shift in upcomingShifts"
@@ -119,7 +131,7 @@
 							</div>
 						</section>
 
-						<section v-if="showAttendanceRequests" class="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4 lg:p-6">
+						<section v-if="showAttendanceRequests && !viewing" class="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<router-link :to="{ name: 'AttendanceRequestFormView' }" class="text-sm font-semibold text-brand-600">
 								{{ __("Request attendance") }}
 							</router-link>
@@ -129,16 +141,20 @@
 						</section>
 					</aside>
 				</div>
+
+				<!-- supervisors: their team's month -->
+				<TeamAttendance v-if="homeData.data?.team" :month="month" :viewing="viewing?.employee || ''" @select="view" />
 			</div>
 		</template>
 	</BaseLayout>
 </template>
 
 <script setup>
-import { computed, inject, ref, watch } from "vue"
+import { computed, inject, nextTick, ref, watch } from "vue"
 import { createResource, FeatherIcon } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
+import TeamAttendance from "@/components/TeamAttendance.vue"
 import { getShiftDates, getShiftTiming } from "@/data/attendance"
 import { homeData } from "@/data/home"
 import { showAttendanceRequests } from "@/utils/navigation"
@@ -168,16 +184,26 @@ const month = ref(dayjs().startOf("month"))
 const selectedDate = ref(dayjs().format("YYYY-MM-DD"))
 const today = dayjs().format("YYYY-MM-DD")
 
+// a supervisor looking at a team member's month, or null for the user's own
+const viewing = ref(null)
+const totalsRow = ref(null)
+
 const monthDays = createResource({ url: "hrms.api.employee_app.get_attendance_month" })
 watch(
-	month,
-	(value) =>
+	[month, viewing],
+	([value, person]) =>
 		monthDays.submit({
 			from_date: value.format("YYYY-MM-DD"),
 			to_date: value.endOf("month").format("YYYY-MM-DD"),
+			employee: person?.employee || null,
 		}),
 	{ immediate: true }
 )
+
+function view(row) {
+	viewing.value = viewing.value?.employee === row.employee ? null : row
+	nextTick(() => totalsRow.value?.scrollIntoView({ behavior: "smooth", block: "center" }))
+}
 
 function changeMonth(step) {
 	month.value = month.value.add(step, "month")

@@ -15,7 +15,7 @@ from hrms.hr.doctype.shift_assignment.shift_assignment import get_employee_shift
 
 CHECKED_IN = "Checked in"
 LATE = "Late"
-NOT_IN = "Not yet in"
+NOT_IN = "Not checked in"
 ON_LEAVE = "On leave"
 HOLIDAY = "Holiday"
 NO_SHIFT = "No shift"

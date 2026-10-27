@@ -9,6 +9,7 @@ from frappe import _
 from frappe.utils import add_days, getdate, today
 
 from hrms.hr.doctype.leave_application.leave_calendar import get_leave_label
+from hrms.hr.doctype.leave_change_request.leave_change_request import get_open_requests
 from hrms.hr.doctype.leave_application.leave_documents import get_missing_documents
 from hrms.hr.office_range import get_outside_office_checkins
 from hrms.hr.workforce_today import (
@@ -68,6 +69,7 @@ def get_dashboard_data(company: str | None = None) -> dict:
 		"requests": get_other_requests(company),
 		"missing_documents": get_missing_documents({"company": company} if company else None),
 		"outside_office": get_outside_office_checkins(date, company=company or None),
+		"leave_changes": get_open_requests(company or None),
 	}
 
 

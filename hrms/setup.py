@@ -77,6 +77,61 @@ def get_leave_end_date_fields():
 	]
 
 
+def get_indonesian_id_fields():
+	"""Employee fields the old HRIS kept: Indonesian IDs, the bank account's name, the documents folder."""
+	return [
+		{
+			"fieldname": "bank_account_name",
+			"fieldtype": "Data",
+			"label": _("Bank Account Name"),
+			"insert_after": "bank_ac_no",
+		},
+		{
+			"collapsible": 1,
+			"fieldname": "indonesian_ids_section",
+			"fieldtype": "Section Break",
+			"label": _("Indonesian IDs"),
+			"insert_after": "health_insurance_no",
+		},
+		{
+			"fieldname": "ktp_number",
+			"fieldtype": "Data",
+			"label": _("NIK (KTP)"),
+			"insert_after": "indonesian_ids_section",
+		},
+		{
+			"fieldname": "npwp_number",
+			"fieldtype": "Data",
+			"label": _("NPWP"),
+			"insert_after": "ktp_number",
+		},
+		{
+			"fieldname": "personal_document_link",
+			"fieldtype": "Data",
+			"options": "URL",
+			"label": _("Personal Documents Link"),
+			"insert_after": "npwp_number",
+		},
+		{
+			"fieldname": "column_break_indonesian_ids",
+			"fieldtype": "Column Break",
+			"insert_after": "personal_document_link",
+		},
+		{
+			"fieldname": "bpjs_kesehatan_number",
+			"fieldtype": "Data",
+			"label": _("BPJS Kesehatan"),
+			"insert_after": "column_break_indonesian_ids",
+		},
+		{
+			"fieldname": "bpjs_ketenagakerjaan_number",
+			"fieldtype": "Data",
+			"label": _("BPJS Ketenagakerjaan"),
+			"insert_after": "bpjs_kesehatan_number",
+		},
+	]
+
+
 def get_custom_fields():
 	"""HR specific custom fields that need to be added to the masters in ERPNext"""
 	return {
@@ -326,6 +381,7 @@ def get_custom_fields():
 				"options": "Cost Center",
 				"insert_after": "salary_cb",
 			},
+			*get_indonesian_id_fields(),
 		],
 		"Project": [
 			{
