@@ -6,7 +6,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import format_date
+from frappe.utils import cint, format_date
 
 # Wether to proceed with frequency change
 PROCEED_WITH_FREQUENCY_CHANGE = False
@@ -18,7 +18,7 @@ class HRSettings(Document):
 		from hrms.hr.doctype.leave_application.leave_fixed_length import validate_settings
 
 		validate_settings(self)
-		if not 0 <= (self.pay_period_start_day or 0) <= 28:
+		if not 0 <= cint(self.pay_period_start_day) <= 28:
 			frappe.throw(_("The pay period can start on day 1 to 28 of the month."))
 
 		# Based on proceed flag
