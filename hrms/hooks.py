@@ -98,6 +98,7 @@ website_route_rules = [
 jinja = {
 	"methods": [
 		"hrms.utils.get_country",
+		"hrms.payroll.salary_slip_print.get_salary_slip_print_data",
 	],
 }
 
