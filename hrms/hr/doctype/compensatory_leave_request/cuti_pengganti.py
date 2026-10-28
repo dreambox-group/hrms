@@ -1,9 +1,9 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
-"""Cuti Pengganti: days off earned by working overtime or on a day off.
+"""Cuti Pengganti: days off earned by working on a holiday ("Overtime Submission" in the employee app).
 
-The employee names the day they worked (a Compensatory Leave Request of the leave type set in HR
-Settings). Their supervisors approve it the way they approve leave, and each approved day is added to
+The employee picks the holidays they worked, one Compensatory Leave Request per day, of the leave type
+set in HR Settings; days that aren't on their holiday list are refused. Their supervisors approve it the way they approve leave, and each approved day is added to
 that leave type. The days can be used until N months after the day worked (HR Settings, 3 by default):
 worked 1 Sep, approved 1 Oct, usable until 1 Dec. Unused days then expire.
 

@@ -5,7 +5,7 @@
 				<div class="mx-auto flex w-full max-w-[1200px] flex-row items-center gap-4 px-4 py-2.5 lg:gap-8 lg:px-6">
 					<router-link :to="{ name: 'Home' }" class="flex flex-row items-center gap-2.5 text-ink">
 						<DreaLogo class="h-8 w-8" />
-						<span class="text-lg font-bold tracking-tight">{{ __("Drea HRIS") }}</span>
+						<span class="text-lg font-bold tracking-tight">{{ __("Drea One") }}</span>
 					</router-link>
 					<nav class="hidden flex-row items-center gap-1 lg:flex" :aria-label="__('Main')">
 						<router-link
@@ -72,7 +72,7 @@ const route = useRoute()
 const sections = useMainSections(__)
 
 const props = defineProps({
-	// shown as the page's heading, under the bar; the bar always says Drea HRIS
+	// shown as the page's heading, under the bar; the bar always says Drea One
 	pageTitle: {
 		type: String,
 		required: false,

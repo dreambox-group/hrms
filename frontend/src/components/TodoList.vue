@@ -145,7 +145,7 @@ const items = computed(() => {
 			who: row.employee_name,
 			initials: initials(row.employee_name),
 			avatar: avatarColour(row.employee_name),
-			kind: __("Cuti Pengganti"),
+			kind: __("Overtime Submission"),
 			tone: "info",
 			title: __("Worked on {0} · asks for {1}", [
 				dates(row.work_from_date, row.work_end_date),

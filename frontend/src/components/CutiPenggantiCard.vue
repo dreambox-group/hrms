@@ -1,13 +1,13 @@
 <template>
 	<section
 		v-if="summary.data?.enabled"
-		:aria-label="__('Cuti Pengganti')"
+		:aria-label="__('Overtime Submission')"
 		class="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6"
 	>
 		<div class="flex flex-row items-start justify-between gap-3">
 			<div>
-				<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("Cuti Pengganti") }}</h2>
-				<p class="text-[13px] text-gray-700">{{ __("Days off for overtime") }}</p>
+				<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("Overtime Submission") }}</h2>
+				<p class="text-[13px] text-gray-700">{{ __("Days off for working on a holiday") }}</p>
 			</div>
 			<div class="text-right">
 				<div class="text-[32px] font-bold leading-none tracking-tight text-ink">{{ summary.data.available }}</div>
@@ -34,7 +34,7 @@
 			@click="formOpen = true"
 		>
 			<FeatherIcon name="plus" class="h-4 w-4" />
-			{{ __("I worked overtime") }}
+			{{ __("I worked on a holiday") }}
 		</button>
 
 		<div
@@ -84,7 +84,7 @@
 	>
 		<div class="flex max-h-[90vh] w-full flex-col overflow-y-auto bg-white">
 			<div class="flex flex-row items-center justify-between border-b border-[#EEF0EE] px-5 py-4">
-				<h1 class="text-xl font-bold text-ink">{{ __("Cuti Pengganti") }}</h1>
+				<h1 class="text-xl font-bold text-ink">{{ __("Overtime Submission") }}</h1>
 				<button
 					type="button"
 					class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-ink"

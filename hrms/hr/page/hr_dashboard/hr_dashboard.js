@@ -185,8 +185,9 @@ class HRDashboard {
 	leave(leave) {
 		const tabs = [
 			["waiting", __("Waiting ({0})", [leave.waiting.length])],
-			["approved", __("Approved")],
-			["rejected", __("Rejected")],
+			// decided in the last 14 days (RECENT_DAYS in hr_dashboard.py)
+			["approved", __("Approved, last {0} days", [14])],
+			["rejected", __("Rejected, last {0} days", [14])],
 		];
 		const rows = leave[this.state.leaveTab];
 		const body = rows.length
@@ -385,7 +386,7 @@ class HRDashboard {
 		const body = rows
 			.map(
 				(r) => `
-				<a class="hrd-row" href="#" data-route='${route(["List", r.doctype, { docstatus: 0 }])}'>
+				<a class="hrd-row" href="#" data-route='${route(["List", r.doctype, r.filters || { docstatus: 0 }])}'>
 					<span>${esc(r.label)}</span>
 					<span class="hrd-pill ${r.count ? "hrd-badge" : "hrd-bg-gray"}">${r.count}</span>
 				</a>`

@@ -29,9 +29,9 @@ def get_notifications(start: int = 0, limit: int = 20) -> list[dict]:
 		"PWA Notification",
 		filters={"to_user": frappe.session.user},
 		fields=NOTIFICATION_FIELDS,
-		order_by="creation desc",
+		order_by="creation desc, name desc",
 		start=cint(start),
-		page_length=min(cint(limit) or 20, 100),
+		page_length=min(cint(limit) or 20, 100),  # a page at a time: the app asks with start
 	)
 
 
@@ -89,6 +89,9 @@ def get_attendance_days(employee: str, from_date, to_date) -> list[dict]:
 	while date <= to_date:
 		row = attendance.get(date) or {}
 		holiday = holidays.get(date) or {}
+		if holiday and row.get("status") == "On Leave":
+			# leave types that count holidays mark them On Leave too; a holiday is shown as a holiday
+			row = {}
 		days.append(
 			frappe._dict(
 				date=date,
@@ -293,7 +296,7 @@ def get_my_checkin_location() -> dict | None:
 	}
 
 
-# Roster: everyone's shifts for a week, read-only for every employee (staff can't read others'
+# Employee Schedule: everyone's shifts for a week, read-only for every employee (staff can't read others'
 # Shift Assignments)
 @frappe.whitelist()
 def get_roster(start_date: str | None = None, days: int = 7) -> dict:
@@ -380,7 +383,8 @@ def get_roster(start_date: str | None = None, days: int = 7) -> dict:
 					"date": date,
 					"shift": shift,
 					"location": assignment.shift_location if assignment else None,
-					"on_leave": bool(leave),
+					# a holiday inside a leave is still a holiday, not a leave day
+					"on_leave": bool(leave) and not holiday,
 					"holiday": holiday.description if holiday and not holiday.weekly_off else None,
 					"day_off": bool(holiday and holiday.weekly_off),
 				}
@@ -418,27 +422,52 @@ def get_my_cuti_pengganti() -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
-def request_cuti_pengganti(work_date: str, reason: str, half_day: int = 0) -> str:
+def request_cuti_pengganti(
+	work_dates: list[str] | str | None = None, reason: str | None = None, work_date: str | None = None
+) -> list[str]:
+	"""Overtime Submission: one request per holiday worked, all sent or none."""
 	from hrms.hr.doctype.compensatory_leave_request.cuti_pengganti import get_leave_type
 
 	if not get_leave_type():
-		frappe.throw(_("Cuti Pengganti isn't set up yet. Ask HR."))
+		frappe.throw(_("Overtime Submission isn't set up yet. Ask HR."))
 	if not (reason or "").strip():
 		frappe.throw(_("Say what the overtime was for."))
-	doc = frappe.get_doc(
-		{
-			"doctype": "Compensatory Leave Request",
-			"employee": get_current_employee(),
-			"leave_type": get_leave_type(),
-			"work_from_date": getdate(work_date),
-			"work_end_date": getdate(work_date),
-			"half_day": cint(half_day),
-			"half_day_date": getdate(work_date) if cint(half_day) else None,
-			"reason": reason.strip(),
-		}
-	)
-	doc.insert()
-	return doc.name
+	dates = frappe.parse_json(work_dates) if isinstance(work_dates, str) else work_dates
+	dates = sorted({getdate(date) for date in (dates or ([work_date] if work_date else []))})
+	if not dates:
+		frappe.throw(_("Pick the holidays you worked."))
+	if len(dates) > 31:
+		frappe.throw(_("Send at most 31 days at a time."))
+
+	employee = get_current_employee()
+	names = []
+	for date in dates:
+		doc = frappe.get_doc(
+			{
+				"doctype": "Compensatory Leave Request",
+				"employee": employee,
+				"leave_type": get_leave_type(),
+				"work_from_date": date,
+				"work_end_date": date,
+				"reason": reason.strip(),
+			}
+		)
+		doc.insert()
+		names.append(doc.name)
+	return names
+
+
+@frappe.whitelist()
+def get_my_holidays(from_date: str, to_date: str) -> list[dict]:
+	"""The employee's holidays (public holidays and weekly days off) between the dates."""
+	from_date, to_date = getdate(from_date), getdate(to_date)
+	if date_diff(to_date, from_date) > 62:
+		frappe.throw(_("Ask for at most two months at a time."))
+	holidays = get_holidays_between(get_current_employee(), from_date, to_date)
+	return [
+		{"date": date, "description": row.description, "weekly_off": cint(row.weekly_off)}
+		for date, row in sorted(holidays.items())
+	]
 
 
 @frappe.whitelist(methods=["POST"])

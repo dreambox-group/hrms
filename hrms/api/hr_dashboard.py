@@ -219,28 +219,20 @@ def get_people_changes(company: str | None, date) -> list[dict]:
 
 
 def get_other_requests(company: str | None) -> list[dict]:
-	filters = {"company": company} if company else {}
+	"""Each count with the filters it used, so its link opens exactly those requests."""
+	company_filter = {"company": company} if company else {}
+	rows = [
+		("Expense Claim", _("Expense claims"), {"docstatus": 0, "approval_status": "Draft"}),
+		("Attendance Request", _("Attendance requests"), {"docstatus": 0}),
+		("Shift Request", _("Shift requests"), {"docstatus": 0, "status": "Draft"}),
+		("Employee Advance", _("Employee advances"), {"docstatus": 0}),
+	]
 	return [
 		{
-			"doctype": "Expense Claim",
-			"label": _("Expense claims"),
-			"count": frappe.db.count(
-				"Expense Claim", {**filters, "docstatus": 0, "approval_status": "Draft"}
-			),
-		},
-		{
-			"doctype": "Attendance Request",
-			"label": _("Attendance requests"),
-			"count": frappe.db.count("Attendance Request", {**filters, "docstatus": 0}),
-		},
-		{
-			"doctype": "Shift Request",
-			"label": _("Shift requests"),
-			"count": frappe.db.count("Shift Request", {**filters, "docstatus": 0, "status": "Draft"}),
-		},
-		{
-			"doctype": "Employee Advance",
-			"label": _("Employee advances"),
-			"count": frappe.db.count("Employee Advance", {**filters, "docstatus": 0}),
-		},
+			"doctype": doctype,
+			"label": label,
+			"filters": {**company_filter, **filters},
+			"count": frappe.db.count(doctype, {**company_filter, **filters}),
+		}
+		for doctype, label, filters in rows
 	]

@@ -103,7 +103,8 @@ def get_workforce_today(employees: list[dict], date=None) -> list[dict]:
 			leave_label=None,
 		)
 
-		if employee.name in on_leave:
+		# a holiday inside a leave is still a holiday, not a leave day
+		if employee.name in on_leave and not is_holiday(employee.name, date, raise_exception=False):
 			row.status = ON_LEAVE
 			row.leave_label = on_leave[employee.name].label
 		elif row.checked_in_at:

@@ -16,6 +16,7 @@
 						id="show-filter-modal"
 						icon="filter"
 						variant="subtle"
+						@click="resetDraftFilters"
 						:class="[
 							areFiltersApplied
 								? '!border !border-gray-800 !bg-white !text-gray-900 !font-semibold'
@@ -57,13 +58,11 @@
 					v-model="activeTab"
 				/>
 
-				<div
-					class="flex flex-col bg-white rounded mt-5"
-					v-if="!documents.loading && documents.data?.length"
-				>
+				<!-- kept on screen while the next page loads, so the scroll position stays -->
+				<div class="flex flex-col bg-white rounded mt-5" v-if="rows.length">
 					<div
 						class="p-3.5 items-center justify-between border-b cursor-pointer"
-						v-for="link in documents.data"
+						v-for="link in rows"
 						:key="link.name"
 					>
 						<component
@@ -91,11 +90,11 @@
 				</div>
 				<EmptyState
 					:message="__('No {0} found', [props.doctype?.toLowerCase()])"
-					v-else-if="!documents.loading"
+					v-else-if="!loading && fetched"
 				/>
 
 				<!-- Loading Indicator -->
-				<div v-if="documents.loading" class="flex mt-2 items-center justify-center">
+				<div v-if="loading" class="flex mt-2 items-center justify-center">
 					<LoadingIndicator class="w-8 h-8 text-gray-800" />
 				</div>
 			</div>
@@ -108,7 +107,7 @@
 					:filterConfig="filterConfig"
 					@applyFilters="applyFilters"
 					@clearFilters="clearFilters"
-					v-model:filters="filterMap"
+					v-model:filters="draftFilters"
 				/>
 			</template>
 		</CustomIonModal>
@@ -131,7 +130,7 @@
 
 <script setup>
 import { useRouter } from "vue-router"
-import { inject, ref, markRaw, watch, computed, reactive, onMounted } from "vue"
+import { inject, ref, markRaw, watch, computed, reactive, onMounted, onBeforeUnmount } from "vue"
 import {
 	modalController,
 	IonHeader,
@@ -141,7 +140,7 @@ import {
 	IonRefresherContent,
 } from "@ionic/vue"
 
-import { FeatherIcon, createResource, LoadingIndicator, debounce } from "frappe-ui"
+import { FeatherIcon, call, createResource, LoadingIndicator, debounce } from "frappe-ui"
 
 import TabButtons from "@/components/TabButtons.vue"
 import EmployeeCheckinItem from "@/components/EmployeeCheckinItem.vue"
@@ -185,6 +184,11 @@ const props = defineProps({
 		type: String,
 		required: true,
 	},
+	// newest first by default; `name` breaks ties so pages never repeat or skip a row
+	orderBy: {
+		type: String,
+		required: false,
+	},
 })
 
 const getButtonKey = (tab) => tab?.key ?? tab
@@ -204,6 +208,8 @@ const dayjs = inject("$dayjs")
 const socket = inject("$socket")
 const employee = inject("$employee")
 const filterMap = reactive({})
+// what the filter sheet edits; copied into filterMap only on Apply
+const draftFilters = reactive({})
 const activeTab = ref(props.tabButtons ? getButtonKey(props.tabButtons[0]) : undefined)
 const areFiltersApplied = ref(false)
 const appliedFilters = ref([])
@@ -214,13 +220,12 @@ const selectedRequest = ref(null)
 // infinite scroll
 const scrollContainer = ref(null)
 const hasNextPage = ref(true)
-const listOptions = ref({
-	doctype: props.doctype,
-	fields: props.fields,
-	group_by: props.groupBy,
-	order_by: `\`tab${props.doctype}\`.modified desc`,
-	page_length: 50,
-})
+const PAGE_LENGTH = 50
+const rows = ref([])
+const loading = ref(false)
+const fetched = ref(false)
+// each request gets a number; answers to an older request (another tab, filter or page) are dropped
+let requestId = 0
 
 // computed properties
 const isTeamRequest = computed(() => {
@@ -248,40 +253,6 @@ const defaultFilters = computed(() => {
 })
 
 // resources
-const documents = createResource({
-	url: "frappe.desk.reportview.get",
-	onSuccess: (data) => {
-		if (data.values?.length < listOptions.value.page_length) {
-			hasNextPage.value = false
-		}
-	},
-	transform(data) {
-		if (data.length === 0) {
-			return []
-		}
-
-		// convert keys and values arrays to docs object
-		const fields = data["keys"]
-		const values = data["values"]
-		const docs = values.map((value) => {
-			const doc = {}
-			fields.forEach((field, index) => {
-				doc[field] = value[index]
-			})
-			return doc
-		})
-
-		let pagedData
-		if (!documents.params.start || documents.params.start === 0) {
-			pagedData = docs
-		} else {
-			pagedData = documents.data.concat(docs)
-		}
-
-		return pagedData
-	},
-})
-
 const createPermission = createResource({
 	url: "frappe.client.has_permission",
 	params: { doctype: props.doctype, docname: "", perm_type: "create" },
@@ -304,14 +275,15 @@ const closeRequestModal = async () => {
 	selectedRequest.value = null
 }
 
-function initializeFilters() {
-	props.filterConfig.forEach((filter) => {
-		filterMap[filter.fieldname] = {
-			condition: "=",
-			value: null,
-		}
-	})
+function emptyFilters() {
+	return Object.fromEntries(
+		props.filterConfig.map((filter) => [filter.fieldname, { condition: "=", value: null }])
+	)
+}
 
+function initializeFilters() {
+	Object.assign(filterMap, emptyFilters())
+	Object.assign(draftFilters, emptyFilters())
 	appliedFilters.value = []
 }
 initializeFilters()
@@ -333,7 +305,17 @@ function prepareFilters() {
 	}
 }
 
+// the sheet opens on what is applied, not on edits that were closed without Apply
+function resetDraftFilters() {
+	for (const fieldname in filterMap) {
+		draftFilters[fieldname] = { ...filterMap[fieldname] }
+	}
+}
+
 function applyFilters() {
+	for (const fieldname in draftFilters) {
+		filterMap[fieldname] = { ...draftFilters[fieldname] }
+	}
 	prepareFilters()
 	fetchDocumentList()
 	modalController.dismiss()
@@ -347,36 +329,61 @@ function clearFilters() {
 	areFiltersApplied.value = false
 }
 
-function fetchDocumentList(start = 0) {
-	if (start === 0) {
-		hasNextPage.value = true
-	}
+const fields = computed(() =>
+	workflowStateField.value && !props.fields.includes(workflowStateField.value)
+		? [...props.fields, workflowStateField.value]
+		: props.fields
+)
+
+function toDocs(data) {
+	// an empty page comes back as [] instead of { keys, values } (and [] has .keys/.values methods)
+	if (!Array.isArray(data?.values)) return []
+	return data.values.map((value) => Object.fromEntries(data.keys.map((field, index) => [field, value[index]])))
+}
+
+async function fetchDocumentList(start = 0) {
+	const id = ++requestId
+	if (start === 0) hasNextPage.value = true
 
 	const filters = [[props.doctype, "docstatus", "!=", "2"]]
 	filters.push(...defaultFilters.value)
-
 	if (appliedFilters.value) filters.push(...appliedFilters.value)
 
-	if (workflowStateField.value) {
-		listOptions.value.fields.push(workflowStateField.value)
+	loading.value = true
+	try {
+		const data = await call("frappe.desk.reportview.get", {
+			doctype: props.doctype,
+			fields: fields.value,
+			group_by: props.groupBy,
+			order_by: props.orderBy || `\`tab${props.doctype}\`.modified desc, \`tab${props.doctype}\`.name desc`,
+			page_length: PAGE_LENGTH,
+			start,
+			filters,
+		})
+		if (id !== requestId) return
+		const docs = toDocs(data)
+		rows.value = start ? rows.value.concat(docs) : docs
+		if (docs.length < PAGE_LENGTH) hasNextPage.value = false
+	} catch (error) {
+		if (id !== requestId) return
+		hasNextPage.value = false
+		throw error
+	} finally {
+		if (id === requestId) {
+			loading.value = false
+			fetched.value = true
+		}
 	}
-
-	documents.submit({
-		...listOptions.value,
-		start: start || 0,
-		filters: filters,
-	})
 }
 
 const handleScroll = debounce(() => {
-	if (!hasNextPage.value) return
+	if (!hasNextPage.value || loading.value) return
 
 	const { scrollTop, scrollHeight, clientHeight } = scrollContainer.value
 	const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100
 
 	if (scrollPercentage >= 90) {
-		const start = documents.params.start + listOptions.value.page_length
-		fetchDocumentList(start)
+		fetchDocumentList(rows.value.length)
 	}
 }, 500)
 
@@ -394,12 +401,21 @@ watch(
 	}
 )
 
+let stopListUpdates = null
+onBeforeUnmount(() => stopListUpdates?.())
+
 onMounted(async () => {
 	const workflow = useWorkflow(props.doctype)
 	await workflow.workflowDoc.promise
 	workflowStateField.value = workflow.getWorkflowStateField()
 	fetchDocumentList()
 
-	useListUpdate(socket, props.doctype, () => fetchDocumentList())
+	// someone else's change reloads the first page only when it would show or the user is on it;
+	// otherwise the user would be thrown back to the top while scrolling
+	stopListUpdates = useListUpdate(socket, props.doctype, (name) => {
+		if (rows.value.length <= PAGE_LENGTH || rows.value.some((row) => row.name === name)) {
+			fetchDocumentList()
+		}
+	})
 })
 </script>

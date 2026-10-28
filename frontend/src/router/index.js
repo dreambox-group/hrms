@@ -56,6 +56,22 @@ const routes = [
 				name: "SalarySlipsDashboard",
 				component: () => import("@/views/salary_slip/Dashboard.vue"),
 			},
+			// Reimbursement: sent to and followed in Drea Finance
+			{
+				path: "/reimbursements",
+				name: "Reimbursements",
+				component: () => import("@/views/reimbursement/Dashboard.vue"),
+			},
+			{
+				path: "/reimbursements/new",
+				name: "ReimbursementNew",
+				component: () => import("@/views/reimbursement/Form.vue"),
+			},
+			{
+				path: "/reimbursements/:id",
+				name: "ReimbursementDetail",
+				component: () => import("@/views/reimbursement/Detail.vue"),
+			},
 		],
 	},
 	{

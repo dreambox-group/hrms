@@ -12,9 +12,11 @@
 </template>
 
 <script setup>
+import { inject } from "vue"
 import { IonPage } from "@ionic/vue"
 import ListView from "@/components/ListView.vue"
 
+const __ = inject("$translate")
 
 const TAB_BUTTONS = ["My Claims", "Team Claims"] // __("My Claims"), __("Team Claims")
 const EXPENSE_CLAIM_FIELDS = [
@@ -28,8 +30,9 @@ const EXPENSE_CLAIM_FIELDS = [
 	"`tabExpense Claim`.total_claimed_amount",
 	"`tabExpense Claim`.posting_date",
 	"`tabExpense Claim`.company",
-	"`tabExpense Claim Detail`.expense_type",
-	{"COUNT": "`tabExpense Claim Detail`.expense_type", "as":"total_expenses"}
+	// v16 reads child-table fields as <table field>.<field>, and allows only COUNT(*) here
+	"expenses.expense_type",
+	{ COUNT: "*", as: "total_expenses" },
 ]
 
 const FILTER_CONFIG = [
@@ -43,7 +46,7 @@ const FILTER_CONFIG = [
 		fieldname: "status",
 		fieldtype: "Select",
 		label: __("Status"),
-		options: ["Draft", "Paid", "Unpaid", "Rejected", "Submitted", "Cancelled"],
+		options: ["Draft", "Paid", "Partially Paid", "Unpaid", "Rejected", "Submitted", "Cancelled"],
 	},
 	{
 		fieldname: "employee",

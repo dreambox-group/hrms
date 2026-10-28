@@ -14,6 +14,7 @@ from hrms.hr.doctype.compensatory_leave_request.cuti_pengganti import (
 	expire_unused,
 	get_requests_waiting_for,
 )
+from hrms.hr.doctype.holiday_list_assignment.test_holiday_list_assignment import create_holiday_list_assignment
 from hrms.hr.doctype.leave_application.leave_application import get_leave_balance_on
 from hrms.hr.doctype.leave_application.test_leave_approval_levels import make_department
 from hrms.hr.utils import get_holiday_dates_for_employee
@@ -26,6 +27,7 @@ HEAD = "cp.head@example.com"
 LEAD = "cp.lead@example.com"
 LEAD2 = "cp.lead2@example.com"
 TODAY = "hrms.hr.doctype.compensatory_leave_request.cuti_pengganti.today"
+HOLIDAYS = "_Test CP Holidays"
 
 
 class TestCutiPengganti(HRMSTestSuite):
@@ -41,6 +43,24 @@ class TestCutiPengganti(HRMSTestSuite):
 		)
 		self.employee = make_employee(STAFF, COMPANY, department=department)
 		frappe.db.set_value("Employee", self.employee, "employment_type", None)
+		# an empty holiday list of the employee's own; requests add the holidays they need
+		frappe.db.delete("Holiday", {"parent": HOLIDAYS})
+		holiday_list = (
+			frappe.get_doc("Holiday List", HOLIDAYS)
+			if frappe.db.exists("Holiday List", HOLIDAYS)
+			else frappe.new_doc("Holiday List")
+		)
+		holiday_list.update(
+			{
+				"holiday_list_name": HOLIDAYS,
+				"from_date": add_days(getdate(), -400),
+				"to_date": add_days(getdate(), 400),
+				"holidays": [],
+			}
+		)
+		holiday_list.save()
+		frappe.db.delete("Holiday List Assignment", {"assigned_to": self.employee, "holiday_list": ("!=", HOLIDAYS)})
+		create_holiday_list_assignment("Employee", self.employee, HOLIDAYS, COMPANY)
 		requests = frappe.get_all("Compensatory Leave Request", filters={"employee": self.employee}, pluck="name")
 		frappe.db.delete("Leave Application Approver", {"parent": ("in", requests or [""])})
 		for doctype in ("Compensatory Leave Request", "Leave Application", "Leave Ledger Entry", "Leave Allocation"):
@@ -52,9 +72,17 @@ class TestCutiPengganti(HRMSTestSuite):
 		frappe.db.set_single_value("HR Settings", "leave_approval_by_levels", 0)
 
 	def request(self, days_ago, reason="Weekend event"):
+		"""A request for a holiday this many days ago (the day is made a holiday first)."""
+		return self.request_days([days_ago], reason)[0]
+
+	def request_days(self, days_ago, reason="Weekend event", holiday=True):
+		dates = [add_days(getdate(), -n) for n in days_ago]
+		if holiday:
+			for date in dates:
+				make_holiday(date)
 		frappe.set_user(STAFF)
 		try:
-			return request_cuti_pengganti(str(add_days(getdate(), -days_ago)), reason)
+			return request_cuti_pengganti([str(date) for date in dates], reason)
 		finally:
 			frappe.set_user("Administrator")
 
@@ -127,17 +155,26 @@ class TestCutiPengganti(HRMSTestSuite):
 		self.assertEqual(self.balance(), 1)
 
 	def test_rules_for_the_day(self):
-		frappe.set_user(STAFF)
-		try:
-			self.assertRaises(frappe.ValidationError, request_cuti_pengganti, str(add_days(getdate(), 1)), "Later")
-		finally:
-			frappe.set_user("Administrator")
-		# overtime on a working day counts too: no holiday or attendance needed
+		# not a day in the future, even a holiday
+		self.assertRaises(frappe.ValidationError, self.request_days, [-1], "Later")
+		# holidays only: a working day is refused
+		self.assertRaises(frappe.ValidationError, self.request_days, [0], "Overtime", holiday=False)
 		name = self.request(0)
 		self.assertTrue(name)
+		# the same day can't be sent twice
+		self.assertRaises(frappe.ValidationError, self.request_days, [0])
 		# a day whose days already expired can't be approved
 		old = self.request(100)
 		self.assertRaises(CutiPenggantiError, self.decide, old, HEAD, "Approved")
+
+	def test_several_holidays_at_once(self):
+		names = self.request_days([9, 8], "Two-day event")
+		self.assertEqual(len(names), 2)
+		docs = [frappe.get_doc("Compensatory Leave Request", name) for name in names]
+		self.assertEqual([getdate(d.work_from_date) for d in docs], [add_days(getdate(), -9), add_days(getdate(), -8)])
+		# each day is its own request with its own expiry
+		self.assertEqual([getdate(d.expires_on) for d in docs], [add_months(d.work_from_date, 3) for d in docs])
+		self.assertTrue(all(d.work_from_date == d.work_end_date and d.status == "Open" for d in docs))
 
 	def test_each_request_expires_on_its_own(self):
 		frappe.db.set_single_value("HR Settings", "leave_approval_by_levels", 0)
@@ -189,6 +226,13 @@ class TestCutiPengganti(HRMSTestSuite):
 		by_name = {r.name: r for r in summary["requests"]}
 		self.assertEqual(by_name[approved.name].left, 1)
 		self.assertEqual(by_name[open_request].status, "Open")
+
+
+def make_holiday(date):
+	if not frappe.db.exists("Holiday", {"parent": HOLIDAYS, "holiday_date": date}):
+		holiday_list = frappe.get_doc("Holiday List", HOLIDAYS)
+		holiday_list.append("holidays", {"holiday_date": date, "description": "Event day"})
+		holiday_list.save()
 
 
 def next_working_day(employee, date):

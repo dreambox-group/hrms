@@ -55,6 +55,7 @@
   "shift_and_attendance_tab",
   "shift_settings_section",
   "allow_multiple_shift_assignments",
+  "schedule_week_starts_on",
   "attendance_settings_section",
   "allow_employee_checkin_from_mobile_app",
   "allow_geolocation_tracking",
@@ -66,6 +67,10 @@
   "show_expenses_in_employee_app",
   "show_salary_in_employee_app",
   "show_attendance_requests_in_employee_app",
+  "drea_finance_section",
+  "drea_finance_url",
+  "column_break_drea_finance",
+  "drea_finance_api_key",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -308,6 +313,14 @@
    "label": "Allow Multiple Shift Assignments for Same Date"
   },
   {
+   "default": "Monday",
+   "description": "The first day of each week on the Employee Schedule page of the employee app.",
+   "fieldname": "schedule_week_starts_on",
+   "fieldtype": "Select",
+   "label": "Employee Schedule Week Starts On",
+   "options": "Monday\nSunday"
+  },
+  {
    "fieldname": "shift_settings_section",
    "fieldtype": "Section Break",
    "label": "Shift Settings"
@@ -366,6 +379,28 @@
    "fieldname": "show_attendance_requests_in_employee_app",
    "fieldtype": "Check",
    "label": "Show Attendance & Shift Requests in the Employee App"
+  },
+  {
+   "fieldname": "drea_finance_section",
+   "fieldtype": "Section Break",
+   "label": "Drea Finance (Reimbursement)"
+  },
+  {
+   "description": "Drea Finance's address, e.g. https://finance.dreambox.id. With the key below, the employee app shows Reimbursement: employees send claims to Drea Finance and follow their progress there.",
+   "fieldname": "drea_finance_url",
+   "fieldtype": "Data",
+   "label": "Drea Finance URL",
+   "options": "URL"
+  },
+  {
+   "fieldname": "column_break_drea_finance",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Drea Finance's HR_API_KEY. Claims are filed as the signed-in employee, by their login email; Drea Finance makes a Staff account on their first claim.",
+   "fieldname": "drea_finance_api_key",
+   "fieldtype": "Password",
+   "label": "Drea Finance API Key"
   },
   {
    "fieldname": "attendance_settings_section",
@@ -502,10 +537,10 @@
   {
    "fieldname": "cuti_pengganti_section",
    "fieldtype": "Section Break",
-   "label": "Cuti Pengganti (days off for overtime)"
+   "label": "Overtime Submission (Cuti Pengganti)"
   },
   {
-   "description": "Employees name a day they worked overtime or on a day off (Compensatory Leave Request in the desk, Leaves → Cuti Pengganti in the employee app). Once their supervisors approve, they get the same number of days of this leave type.",
+   "description": "Employees pick the holidays they worked (Compensatory Leave Request in the desk, Leaves → Overtime Submission in the employee app; only days on their holiday list). Once their supervisors approve, they get the same number of days of this leave type.",
    "fieldname": "compensatory_leave_type",
    "fieldtype": "Link",
    "label": "Cuti Pengganti Leave Type",
@@ -542,7 +577,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-27 10:00:00.000000",
+ "modified": "2026-10-28 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

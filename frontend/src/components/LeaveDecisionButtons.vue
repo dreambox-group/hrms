@@ -57,7 +57,7 @@ function decide(decision) {
 						status === "Open"
 							? __("Your decision was saved. The request is still waiting for other approvers.")
 							: props.cutiPengganti
-								? __("The Cuti Pengganti request is now {0}.", [__(status)])
+								? __("The overtime submission is now {0}.", [__(status)])
 								: __("The leave request is now {0}.", [__(status)]),
 					icon: "check-circle",
 					position: "bottom-center",

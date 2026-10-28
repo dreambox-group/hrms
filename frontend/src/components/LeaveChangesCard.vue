@@ -6,7 +6,7 @@
 	>
 		<h2 class="pb-2 text-base font-bold text-ink lg:text-lg">{{ __("Change requests") }}</h2>
 		<div
-			v-for="row in changes.data.slice(0, 5)"
+			v-for="row in showAll ? changes.data : changes.data.slice(0, 5)"
 			:key="row.name"
 			class="flex flex-col gap-1 border-t border-[#EEF0EE] py-2.5"
 		>
@@ -21,11 +21,19 @@
 			</span>
 			<span v-if="row.hr_note" class="text-[13px] text-gray-700">{{ __("HR: {0}", [row.hr_note]) }}</span>
 		</div>
+		<button
+			v-if="changes.data.length > 5"
+			type="button"
+			class="self-start pt-1 text-sm font-semibold text-brand-600"
+			@click="showAll = !showAll"
+		>
+			{{ showAll ? __("Show less") : __("Show all ({0})", [changes.data.length]) }}
+		</button>
 	</section>
 </template>
 
 <script setup>
-import { inject } from "vue"
+import { inject, ref } from "vue"
 import { onIonViewWillEnter } from "@ionic/vue"
 import { createResource } from "frappe-ui"
 
@@ -35,6 +43,7 @@ const __ = inject("$translate")
 const dayjs = inject("$dayjs")
 
 const TONE = { Open: "warn", Approved: "ok", Rejected: "bad" }
+const showAll = ref(false)
 
 const changes = createResource({ url: "hrms.api.employee_app.get_my_leave_changes", auto: true })
 onIonViewWillEnter(() => changes.reload())

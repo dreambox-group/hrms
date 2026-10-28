@@ -206,11 +206,17 @@ const sheetFor = ref(null)
 const showAllHolidays = ref(false)
 const changesCard = ref(null)
 
+// the status tab is filtered on the server, so older requests are found too
 const allLeaves = createResource({
 	url: "hrms.api.get_leave_applications",
-	params: { employee: employee.data.name, limit: 100 },
+	makeParams: () => ({
+		employee: employee.data.name,
+		limit: 100,
+		status: activeTab.value === "All" ? null : activeTab.value,
+	}),
 	auto: true,
 })
+watch(activeTab, () => allLeaves.reload())
 const leaveTypes = createResource({
 	url: "hrms.api.get_leave_types",
 	params: { employee: employee.data.name, date: dayjs().format("YYYY-MM-DD") },
