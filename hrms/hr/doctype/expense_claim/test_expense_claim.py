@@ -507,7 +507,7 @@ class TestExpenseClaim(HRMSTestSuite):
 
 		company_doc = frappe.get_doc("Company", "_Test Company")
 		# create employee and employee advance
-		employee_name = make_employee("_T@employee.advance", company_doc.name)
+		employee_name = make_employee("_t@employee.advance", company_doc.name)
 		advance = make_employee_advance(employee_name, {"repay_unclaimed_amount_from_salary": 1})
 		make_payment_entry(advance)
 		advance.reload()
@@ -813,6 +813,7 @@ class TestExpenseClaim(HRMSTestSuite):
 			"GL Entry",
 			filters={"voucher_no": expense_claim.name, "is_cancelled": 0},
 			fields=[{"SUM": "debit", "as": "total_debit"}, {"SUM": "credit", "as": "total_credit"}],
+			order_by=None,
 		)
 		self.assertEqual(ledger_balance, expected_data)
 
@@ -826,6 +827,7 @@ class TestExpenseClaim(HRMSTestSuite):
 			"GL Entry",
 			filters={"voucher_no": expense_claim.name, "is_cancelled": 0},
 			fields=[{"SUM": "debit", "as": "total_debit"}, {"SUM": "credit", "as": "total_credit"}],
+			order_by=None,
 		)
 		self.assertNotEqual(ledger_balance, expected_data)
 
@@ -840,6 +842,7 @@ class TestExpenseClaim(HRMSTestSuite):
 			"GL Entry",
 			filters={"voucher_no": expense_claim.name, "is_cancelled": 0},
 			fields=[{"SUM": "debit", "as": "total_debit"}, {"SUM": "credit", "as": "total_credit"}],
+			order_by=None,
 		)
 		self.assertEqual(ledger_balance, expected_data)
 

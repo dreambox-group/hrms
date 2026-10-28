@@ -3,7 +3,11 @@ import inspect
 
 import frappe
 
+from hrms import postgres
+
 __version__ = "16.50.0"
+
+postgres.register()
 
 
 def refetch_resource(cache_key: str | list, user=None):

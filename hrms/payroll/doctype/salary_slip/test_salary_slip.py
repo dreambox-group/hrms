@@ -976,7 +976,7 @@ class TestSalarySlip(HRMSTestSuite):
 		m = get_month_details(fiscal_year, month)
 
 		for payroll_frequency in ["Monthly", "Bimonthly", "Fortnightly", "Weekly", "Daily"]:
-			emp_id = make_employee(payroll_frequency + "_test_employee@salary.com", company="_Test Company")
+			emp_id = make_employee(payroll_frequency.lower() + "_test_employee@salary.com", company="_Test Company")
 			ss = make_employee_salary_slip(
 				emp_id,
 				payroll_frequency,

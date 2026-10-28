@@ -48,6 +48,7 @@ class TestEmployeeBirthday(HRMSTestSuite):
 			reports_to=employee_1,
 		)
 
+		self.addCleanup(frappe.set_user, "Administrator")
 		frappe.set_user("test_employee_birth_day1@example.com")
 		filters = frappe._dict(
 			{

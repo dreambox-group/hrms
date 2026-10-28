@@ -6,6 +6,7 @@ from datetime import timedelta
 import frappe
 from frappe import _
 from frappe.query_builder import Criterion
+from frappe.query_builder.functions import Max
 from frappe.utils import cint, flt, format_datetime, format_duration
 
 from erpnext.accounts.utils import build_qb_match_conditions
@@ -222,11 +223,12 @@ def get_attendance_with_checkins(filters):
 		get_base_attendance_query(filters)
 		.inner_join(checkin)
 		.on(checkin.attendance == attendance.name)
+		# one row per attendance; its check-ins share the shift's times
 		.select(
-			checkin.shift_start,
-			checkin.shift_end,
-			checkin.shift_actual_start,
-			checkin.shift_actual_end,
+			Max(checkin.shift_start).as_("shift_start"),
+			Max(checkin.shift_end).as_("shift_end"),
+			Max(checkin.shift_actual_start).as_("shift_actual_start"),
+			Max(checkin.shift_actual_end).as_("shift_actual_end"),
 			shift_type.enable_late_entry_marking,
 			shift_type.late_entry_grace_period,
 			shift_type.enable_early_exit_marking,
@@ -266,7 +268,7 @@ def get_base_attendance_query(filters):
 			attendance.company,
 		)
 		.where(attendance.docstatus == 1)
-		.groupby(attendance.name)
+		.groupby(attendance.name, shift_type.name)
 	)
 
 	for field in filters:

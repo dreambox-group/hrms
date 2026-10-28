@@ -7,7 +7,7 @@ from pypika.terms import ExistsCriterion
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import DATE_FORMAT, flt, formatdate, get_link_to_form, getdate, today
+from frappe.utils import flt, formatdate, get_link_to_form, getdate, today
 
 
 class InvalidLeaveLedgerEntry(frappe.ValidationError):
@@ -111,20 +111,19 @@ def get_previous_expiry_ledger_entry(ledger):
 		fieldname=["creation"],
 	)
 
-	creation_date = creation_date.strftime(DATE_FORMAT) if creation_date else ""
+	filters = [
+		["employee", "=", ledger.employee],
+		["leave_type", "=", ledger.leave_type],
+		["is_expired", "=", 1],
+		["docstatus", "=", 1],
+		["is_carry_forward", "=", 0],
+	]
+	# created the same day; a range, since LIKE on a timestamp only works in MariaDB
+	if creation_date:
+		day = getdate(creation_date)
+		filters += [["creation", ">=", day], ["creation", "<", day + datetime.timedelta(days=1)]]
 
-	return frappe.db.get_value(
-		"Leave Ledger Entry",
-		filters={
-			"creation": ("like", creation_date + "%"),
-			"employee": ledger.employee,
-			"leave_type": ledger.leave_type,
-			"is_expired": 1,
-			"docstatus": 1,
-			"is_carry_forward": 0,
-		},
-		fieldname=["name"],
-	)
+	return frappe.db.get_value("Leave Ledger Entry", filters=filters, fieldname=["name"])
 
 
 def process_expired_allocation():
@@ -204,6 +203,7 @@ def get_remaining_leaves(allocation):
 			"docstatus": 1,
 		},
 		fieldname=[{"SUM": "leaves"}],
+		order_by=None,
 	)
 
 

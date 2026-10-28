@@ -19,7 +19,7 @@ class TestEmployeeAnalytics(HRMSTestSuite):
 		make_employee("test_analytics1@example.com", company=self.company, branch="Test Branch 1")
 		make_employee("test_analytics2@example.com", company=self.company, branch="Test Branch 2")
 		make_employee("test_analytics3@example.com", company=self.company, branch="Test Branch 2")
-		make_employee("test_analytics4@Eexample.com", company=self.company_2)
+		make_employee("test_analytics4@eexample.com", company=self.company_2)
 
 		employees_with_no_branch = get_employees_without_set_parameter("branch", self.company)
 

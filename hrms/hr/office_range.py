@@ -29,7 +29,7 @@ def get_checkin_location(employee: str, shift: str | None, time) -> frappe._dict
 			"docstatus": 1,
 			"status": "Active",
 		},
-		or_filters=[["end_date", ">=", getdate(time)], ["end_date", "is", "not set"]],
+		or_filters=[["end_date", ">=", getdate(time)], ["end_date", "=", None]],
 		pluck="shift_location",
 		order_by="start_date desc",
 		limit=1,

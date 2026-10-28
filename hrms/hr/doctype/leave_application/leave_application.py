@@ -1441,6 +1441,7 @@ def get_leaves_pending_approval_for_period(
 			"to_date": ["between", (from_date, to_date)],
 		},
 		fields=[{"SUM": "total_leave_days", "as": "leaves"}],
+		order_by=None,
 	)[0]
 	return leaves["leaves"] if leaves["leaves"] else 0.0
 

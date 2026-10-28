@@ -129,6 +129,7 @@ class LeaveAllocation(Document):
 				"docstatus": 1,
 			},
 			fields=[{"SUM": "leaves", "as": "total_leaves"}],
+			order_by=None,
 		)
 
 		return ledger_entries[0].total_leaves if ledger_entries else 0
@@ -530,6 +531,7 @@ def get_unused_leaves(employee, leave_type, from_date, to_date):
 		},
 		or_filters={"is_expired": 0, "is_carry_forward": 1},
 		fields=[{"SUM": "leaves", "as": "leaves"}],
+		order_by=None,
 	)
 	return flt(leaves[0]["leaves"])
 
