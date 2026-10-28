@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { computed, inject, ref } from "vue"
+import { computed, inject, ref, watch } from "vue"
 import { onIonViewWillEnter } from "@ionic/vue"
 import { createResource } from "frappe-ui"
 
@@ -96,9 +96,19 @@ const status = ref("")
 const open = ref(null)
 const showAll = ref(false)
 
-const history = createResource({ url: "hrms.api.employee_app.get_team_leave_history", params: { limit: 300 }, auto: true })
+// the person and status are filtered on the server, so older requests are found too
+const history = createResource({
+	url: "hrms.api.employee_app.get_team_leave_history",
+	makeParams: () => ({ employee: person.value || null, status: status.value || null, limit: 300 }),
+	auto: true,
+})
 onIonViewWillEnter(() => history.reload())
+watch([person, status], () => {
+	showAll.value = false
+	history.reload()
+})
 
+// the answer for the current person and status only (an older, slower answer is ignored)
 const rows = computed(() =>
 	(history.data?.requests || []).filter(
 		(row) => (!person.value || row.employee === person.value) && (!status.value || row.status === status.value)

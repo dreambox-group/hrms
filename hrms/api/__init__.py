@@ -108,6 +108,9 @@ def get_hr_settings() -> dict:
 		show_expenses_in_employee_app=settings.show_expenses_in_employee_app,
 		show_salary_in_employee_app=settings.show_salary_in_employee_app,
 		show_attendance_requests_in_employee_app=settings.show_attendance_requests_in_employee_app,
+		schedule_week_starts_on=settings.get("schedule_week_starts_on") or "Monday",
+		# Reimbursement goes to Drea Finance once HR Settings has its address and key
+		show_reimbursements=bool(settings.get("drea_finance_url") and settings.get("drea_finance_api_key")),
 		prevent_self_leave_approval=settings.prevent_self_leave_approval,
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
 		leave_types_requiring_document=sorted(get_leave_types_requiring_document()),
@@ -380,8 +383,12 @@ def get_leave_applications(
 	approver_id: str | None = None,
 	for_approval: bool = False,
 	limit: int | None = None,
+	status: str | None = None,
 ) -> list[dict]:
 	filters = get_filters("Leave Application", employee, approver_id, for_approval)
+	if status and not for_approval:
+		# the app's status tabs: filtered here, so older requests beyond the limit are found too
+		filters.status = status
 	fields = [
 		"name",
 		"posting_date",
@@ -408,7 +415,7 @@ def get_leave_applications(
 		"Leave Application",
 		fields=fields,
 		filters=filters,
-		order_by="posting_date desc",
+		order_by="posting_date desc, creation desc",
 		limit=limit,
 	)
 

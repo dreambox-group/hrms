@@ -89,7 +89,7 @@
 
 <script setup>
 import { inject, watch } from "vue"
-import { createResource } from "frappe-ui"
+import { latestResource } from "@/composables/latestResource"
 
 import { useIsDesktop } from "@/composables/useIsDesktop"
 import { avatarColour, initials, TONE_CLASSES, TONE_DOTS } from "@/utils/status"
@@ -112,7 +112,7 @@ const KINDS = [
 	{ key: "no_checkin", label: __("No check-in"), tone: "neutral" },
 ]
 
-const team = createResource({ url: "hrms.api.employee_app.get_team_attendance" })
+const team = latestResource({ url: "hrms.api.employee_app.get_team_attendance" })
 watch(
 	() => props.month,
 	(month) =>

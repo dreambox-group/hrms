@@ -10,7 +10,7 @@
 					v-if="unreadNotificationsCount.data"
 					variant="outline"
 					:loading="markAllNotificationsAsRead.loading"
-					@click="markAllNotificationsAsRead.submit()"
+					@click="markAllRead"
 				>
 					<template #prefix><FeatherIcon name="check-circle" class="w-4" /></template>
 					{{ __("Mark all as read") }}
@@ -37,12 +37,12 @@
 							<span class="text-xs text-gray-600">{{ dayjs(item.creation).fromNow() }}</span>
 						</span>
 					</button>
-					<div v-if="notifications.fetched && !items.length" class="px-4 py-10 text-center text-sm text-gray-700">
+					<div v-if="fetched && !items.length" class="px-4 py-10 text-center text-sm text-gray-700">
 						{{ __("You have no notifications") }}
 					</div>
 				</div>
 				<div v-if="hasMore" class="mx-auto mt-3 flex w-full max-w-[720px]">
-					<Button variant="outline" class="ml-auto" :loading="notifications.loading" @click="loadMore">
+					<Button variant="outline" class="ml-auto" :loading="loading" @click="loadMore">
 						{{ __("Load more") }}
 					</Button>
 				</div>
@@ -53,7 +53,7 @@
 
 <script setup>
 import { useRouter } from "vue-router"
-import { FeatherIcon } from "frappe-ui"
+import { call, FeatherIcon } from "frappe-ui"
 import { computed, inject, onMounted, ref } from "vue"
 
 import BaseLayout from "@/components/BaseLayout.vue"
@@ -64,7 +64,6 @@ import {
 	markAllNotificationsAsRead,
 	markNotificationAsRead,
 	notificationRoute,
-	notifications,
 	unreadNotificationsCount,
 } from "@/data/notifications"
 
@@ -72,14 +71,16 @@ const dayjs = inject("$dayjs")
 const router = useRouter()
 const __ = inject("$translate")
 const PAGE = 20
-const limit = ref(PAGE)
+// this page keeps its own list, a page at a time; the bell's shorter list is separate
+const items = ref([])
+const hasMore = ref(false)
+const loading = ref(false)
+const fetched = ref(false)
 
 const allowPushNotifications = computed(
 	() => window.frappe?.boot.push_relay_server_url && arePushNotificationsEnabled.data
 )
 
-const items = computed(() => notifications.data || [])
-const hasMore = computed(() => items.value.length >= limit.value)
 
 function openItem(item) {
 	if (!item.read) {
@@ -90,10 +91,27 @@ function openItem(item) {
 	if (route) router.push(route)
 }
 
-function loadMore() {
-	limit.value += PAGE
-	notifications.submit({ start: 0, limit: limit.value })
+async function load(start) {
+	loading.value = true
+	try {
+		const page = await call("hrms.api.employee_app.get_notifications", { start, limit: PAGE })
+		items.value = start ? items.value.concat(page) : page
+		hasMore.value = page.length === PAGE
+		unreadNotificationsCount.reload()
+	} finally {
+		loading.value = false
+		fetched.value = true
+	}
+}
+const loadMore = () => load(items.value.length)
+
+function markAllRead() {
+	markAllNotificationsAsRead.submit(null, {
+		onSuccess() {
+			for (const item of items.value) item.read = 1
+		},
+	})
 }
 
-onMounted(() => notifications.submit({ start: 0, limit: limit.value }))
+onMounted(() => load(0))
 </script>

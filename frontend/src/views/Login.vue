@@ -35,7 +35,7 @@
 				<div class="flex flex-col mx-auto gap-3 items-center">
 					<DreaLogo class="h-12 w-12" />
 					<div class="text-3xl font-semibold text-gray-900 text-center">
-						{{ __("Login to Drea HRIS") }}
+						{{ __("Login to Drea One") }}
 					</div>
 				</div>
 

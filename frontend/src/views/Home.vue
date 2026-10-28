@@ -20,6 +20,8 @@
 						<PenaltiesCard />
 						<AroundOffice />
 						<MyRequestsCard />
+						<!-- last, as in the menu: the least frequent goal -->
+						<ReimbursementCard />
 						<QuickLinks v-if="extraLinks.length" :items="extraLinks" :title="__('More')" />
 					</aside>
 				</div>
@@ -40,6 +42,7 @@ import HomeLeaveCard from "@/components/HomeLeaveCard.vue"
 import PenaltiesCard from "@/components/PenaltiesCard.vue"
 import AroundOffice from "@/components/AroundOffice.vue"
 import MyRequestsCard from "@/components/MyRequestsCard.vue"
+import ReimbursementCard from "@/components/ReimbursementCard.vue"
 import QuickLinks from "@/components/QuickLinks.vue"
 import AttendanceIcon from "@/components/icons/AttendanceIcon.vue"
 import ShiftIcon from "@/components/icons/ShiftIcon.vue"
@@ -49,7 +52,7 @@ import EmployeeAdvanceIcon from "@/components/icons/EmployeeAdvanceIcon.vue"
 import { useIsDesktop } from "@/composables/useIsDesktop"
 import { homeData } from "@/data/home"
 import { leaveBalance, myLeaves } from "@/data/leaves"
-import { showAttendanceRequests, showExpenses } from "@/utils/navigation"
+import { showAttendanceRequests, showExpenses, showReimbursements } from "@/utils/navigation"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -76,7 +79,9 @@ const extraLinks = computed(() =>
 			title: __("Request a Shift"),
 			route: "ShiftRequestFormView",
 		},
-		showExpenses.value && { icon: markRaw(ExpenseIcon), title: __("Claim an Expense"), route: "ExpenseClaimFormView" },
+		// claims go to Drea Finance (the Reimbursement card) when it is connected
+		showExpenses.value &&
+			!showReimbursements.value && { icon: markRaw(ExpenseIcon), title: __("Claim an Expense"), route: "ExpenseClaimFormView" },
 		showExpenses.value && {
 			icon: markRaw(EmployeeAdvanceIcon),
 			title: __("Request an Advance"),

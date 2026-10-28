@@ -29,7 +29,7 @@ body {
 	scrollbar-width: none; /* Firefox */
 }
 
-/* Drea HRIS: soft grey page behind white cards */
+/* Drea One: soft grey page behind white cards */
 ion-content.drea-page {
 	--background: #f4f5f3;
 }

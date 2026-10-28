@@ -159,6 +159,7 @@ import { getShiftDates, getShiftTiming } from "@/data/attendance"
 import { homeData } from "@/data/home"
 import { showAttendanceRequests } from "@/utils/navigation"
 import { TONE_CLASSES, TONE_DOTS } from "@/utils/status"
+import { latestResource } from "@/composables/latestResource"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
@@ -188,7 +189,7 @@ const today = dayjs().format("YYYY-MM-DD")
 const viewing = ref(null)
 const totalsRow = ref(null)
 
-const monthDays = createResource({ url: "hrms.api.employee_app.get_attendance_month" })
+const monthDays = latestResource({ url: "hrms.api.employee_app.get_attendance_month" })
 watch(
 	[month, viewing],
 	([value, person]) =>

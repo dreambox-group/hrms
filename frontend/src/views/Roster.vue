@@ -1,5 +1,5 @@
 <template>
-	<BaseLayout :pageTitle="__('Roster')">
+	<BaseLayout :pageTitle="__('Employee Schedule')">
 		<template #actions>
 			<div class="flex flex-row items-center gap-2">
 				<button
@@ -51,7 +51,7 @@
 				</div>
 
 				<div v-if="roster.error" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-					{{ __("The roster could not be loaded.") }}
+					{{ __("The schedule could not be loaded.") }}
 				</div>
 
 				<!-- wide screens: everyone × the week -->
@@ -180,27 +180,31 @@
 <script setup>
 import { computed, inject, ref, watch } from "vue"
 import { onIonViewWillEnter } from "@ionic/vue"
-import { createResource, FeatherIcon } from "frappe-ui"
+import { FeatherIcon } from "frappe-ui"
 
 import BaseLayout from "@/components/BaseLayout.vue"
 import { useIsDesktop } from "@/composables/useIsDesktop"
+import { settings } from "@/data/settings"
+import { latestResource } from "@/composables/latestResource"
 import { avatarColour, initials } from "@/utils/status"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
 const isDesktop = useIsDesktop()
 
-// weeks start on Monday
-const thisMonday = () => {
-	const today = dayjs()
-	return today.subtract((today.day() + 6) % 7, "day").format("YYYY-MM-DD")
+// weeks start on Monday or Sunday (HR Settings)
+const startsOnSunday = computed(() => settings.data?.schedule_week_starts_on === "Sunday")
+const weekStartOf = (date) => {
+	const day = dayjs(date)
+	return day.subtract(startsOnSunday.value ? day.day() : (day.day() + 6) % 7, "day").format("YYYY-MM-DD")
 }
-const weekStart = ref(thisMonday())
+const thisWeekStart = () => weekStartOf(dayjs())
+const weekStart = ref(thisWeekStart())
 const selectedDate = ref(dayjs().format("YYYY-MM-DD"))
 const search = ref("")
 const department = ref("")
 
-const roster = createResource({
+const roster = latestResource({
 	url: "hrms.api.employee_app.get_roster",
 	makeParams: () => ({ start_date: weekStart.value, days: 7 }),
 	auto: true,
@@ -210,7 +214,11 @@ watch(weekStart, () => roster.reload())
 
 const dates = computed(() => roster.data?.dates || [])
 const isToday = (date) => dayjs(date).isSame(dayjs(), "day")
-const isThisWeek = computed(() => weekStart.value === thisMonday())
+const isThisWeek = computed(() => weekStart.value === thisWeekStart())
+// the settings can arrive after the page: line the shown week up with the start day
+watch(startsOnSunday, () => {
+	weekStart.value = weekStartOf(selectedDate.value)
+})
 const weekLabel = computed(() => {
 	const start = dayjs(weekStart.value)
 	const end = start.add(6, "day")
@@ -224,7 +232,7 @@ function moveWeek(step) {
 	selectedDate.value = weekStart.value
 }
 function goToThisWeek() {
-	weekStart.value = thisMonday()
+	weekStart.value = thisWeekStart()
 	selectedDate.value = dayjs().format("YYYY-MM-DD")
 }
 

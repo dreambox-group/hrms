@@ -91,8 +91,9 @@ const slips = createListResource({
 	doctype: "Salary Slip",
 	fields: ["name", "start_date", "end_date", "posting_date", "currency", "gross_pay", "total_deduction", "net_pay"],
 	filters: { employee: employee.data?.name, docstatus: 1 },
-	orderBy: "end_date desc",
-	pageLength: 100,
+	orderBy: "end_date desc, name desc",
+	// every year's slips for the year tabs (a monthly slip is 12 a year)
+	pageLength: 500,
 	auto: true,
 })
 onIonViewWillEnter(() => slips.reload())

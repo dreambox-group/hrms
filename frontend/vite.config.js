@@ -24,8 +24,8 @@ export default defineConfig({
 			},
 			manifest: {
 				display: "standalone",
-				name: "Drea HRIS",
-				short_name: "Drea HRIS",
+				name: "Drea One",
+				short_name: "Drea One",
 				// /hr is the everyday address; the scope is a prefix, so /hrms stays inside the app too
 				start_url: "/hr",
 				scope: "/hr",

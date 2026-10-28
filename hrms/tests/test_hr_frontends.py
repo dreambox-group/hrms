@@ -170,6 +170,47 @@ class TestHRFrontends(HRMSTestSuite):
 		# a week has its weekly days off from the holiday list
 		self.assertTrue(any(day["day_off"] or day["holiday"] for day in rows["fe.ontime@example.com"]["days"]))
 
+	def test_a_holiday_inside_a_leave_is_not_a_leave_day(self):
+		employee = self.employee("fe.away")
+		holiday_list = frappe.get_doc("Holiday List", get_holiday_list_for_employee(employee))
+		taken = {getdate(row.holiday_date) for row in holiday_list.holidays}
+		# a working day followed by a day made a holiday for this test
+		working_day = next(
+			(
+				d
+				for d in (add_days(getdate(), n) for n in range(3, 60))
+				if d not in taken and add_days(d, 1) not in taken and add_days(d, 1) <= getdate(holiday_list.to_date)
+			),
+			None,
+		)
+		if not working_day:
+			self.skipTest("the test holiday list ends too soon")
+		holiday = add_days(working_day, 1)
+		holiday_list.append("holidays", {"holiday_date": holiday, "description": "FE leave holiday"})
+		holiday_list.save()
+		try:
+			application = apply_for_leave(employee, working_day)
+			application.to_date = holiday
+			application.status = "Approved"
+			application.save()
+			application.submit()
+
+			frappe.set_user("fe.notin@example.com")
+			roster = get_roster(str(working_day), 2)
+			days = {row["employee_name"]: row for row in roster["employees"]}["fe.away@example.com"]["days"]
+			self.assertTrue(days[0]["on_leave"])
+			self.assertFalse(days[1]["on_leave"])
+			self.assertEqual(days[1]["holiday"], "FE leave holiday")
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.delete("Holiday", {"parent": holiday_list.name, "description": "FE leave holiday"})
+
+	def test_schedule_week_start_setting(self):
+		frappe.db.set_single_value("HR Settings", "schedule_week_starts_on", "Sunday")
+		self.assertEqual(get_hr_settings()["schedule_week_starts_on"], "Sunday")
+		frappe.db.set_single_value("HR Settings", "schedule_week_starts_on", "Monday")
+		self.assertEqual(get_hr_settings()["schedule_week_starts_on"], "Monday")
+
 	def test_attendance_month_is_the_users_own(self):
 		date = getdate()
 		make_checkin(self.employee("fe.ontime"), datetime.combine(date, time(8, 10)))

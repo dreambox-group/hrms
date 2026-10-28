@@ -35,7 +35,8 @@ class CompensatoryLeaveRequest(Document):
 		if not self.leave_type:
 			frappe.throw(_("Leave Type is mandatory"))
 		if self.is_cuti_pengganti():
-			# overtime counts too, not only holidays; the supervisors confirm the day was worked
+			# holidays only (Overtime Submission in the employee app); the supervisors confirm the day was worked
+			self.validate_holidays()
 			cuti_pengganti.validate_request(self)
 		else:
 			self.validate_holidays()

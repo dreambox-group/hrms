@@ -5,6 +5,7 @@
 			:pageTitle="__('Check-in history')"
 			:fields="EMPLOYEE_CHECKIN_FIELDS"
 			:filterConfig="FILTER_CONFIG"
+			orderBy="`tabEmployee Checkin`.time desc, `tabEmployee Checkin`.name desc"
 		/>
 	</ion-page>
 </template>
