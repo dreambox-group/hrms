@@ -14,6 +14,12 @@ MariaDB, so it changes nothing there.
   (smallint) column. Frappe's Postgres schema has no boolean columns. Query builder values
   other than strings are written into the SQL by pypika, not passed as parameters, so both
   paths are covered.
+- Isolation level: Frappe opens Postgres connections in REPEATABLE READ, where two requests
+  updating the same row at the same time make the second one fail with "could not serialize
+  access due to concurrent update" (seen on the desk's session update the day the site went
+  live). MariaDB's REPEATABLE READ makes the second update wait instead. READ COMMITTED on
+  Postgres gives that waiting behaviour, so the connection is switched to it after Frappe
+  opens it.
 """
 
 from datetime import timedelta
@@ -56,3 +62,23 @@ def register():
 	)
 	psycopg2.extensions.register_type(psycopg2.extensions.new_type((114, 3802), "JSON_AS_TEXT", keep_text))
 	psycopg2.extensions.register_adapter(bool, lambda value: psycopg2.extensions.AsIs(int(value)))
+	use_read_committed()
+
+
+def use_read_committed():
+	"""Open Frappe's Postgres connections in READ COMMITTED instead of REPEATABLE READ."""
+	try:
+		from frappe.database.postgres.database import PostgresDatabase
+	except ImportError:  # Frappe without the Postgres driver
+		return
+	if getattr(PostgresDatabase, "_dreambox_read_committed", False):
+		return
+	original = PostgresDatabase.get_connection
+
+	def get_connection(self):
+		conn = original(self)
+		conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED)
+		return conn
+
+	PostgresDatabase.get_connection = get_connection
+	PostgresDatabase._dreambox_read_committed = True
