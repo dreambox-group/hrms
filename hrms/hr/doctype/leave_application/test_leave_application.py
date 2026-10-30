@@ -156,7 +156,7 @@ class TestLeaveApplication(HRMSTestSuite):
 		self.assertRaises(InsufficientLeaveBalanceError, leave_application.insert)
 
 		# CASE 2: Allows creating application with a warning message when allow negative is enabled
-		frappe.db.set_value("Leave Type", "Test Leave Validation", "allow_negative", True)
+		frappe.db.set_value("Leave Type", "Test Leave Validation", "allow_negative", 1)
 		make_leave_application(
 			employee.name, add_days(first_sunday, 1), add_days(first_sunday, 3), leave_type.name
 		)

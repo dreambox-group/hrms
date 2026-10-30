@@ -206,7 +206,7 @@ def get_shift_assignments(start: str, end: str, filters: str | list | None = Non
 
 	filters.extend([["start_date", "<=", end], ["docstatus", "=", 1]])
 
-	or_filters = [["end_date", ">=", start], ["end_date", "is", "not set"]]
+	or_filters = [["end_date", ">=", start], ["end_date", "=", None]]
 
 	return frappe.get_list(
 		"Shift Assignment",

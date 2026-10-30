@@ -60,7 +60,7 @@ class TestEmployeeCTCBreakup(HRMSTestSuite):
 		}
 
 		for payroll_frequency, data in test_data.items():
-			employee = make_employee(f"test_ctc{payroll_frequency}@example.com", company="_Test Company")
+			employee = make_employee(f"test_ctc{payroll_frequency.lower()}@example.com", company="_Test Company")
 			salary_structure = make_salary_structure(
 				"Test CTC Breakup", payroll_frequency=payroll_frequency, currency=data.get("currency")
 			)

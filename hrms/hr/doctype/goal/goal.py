@@ -159,7 +159,7 @@ def get_children(doctype: str, parent: str, is_root: bool = False, **filters) ->
 		query_filters.append(["start_date", "between", [from_date, to_date]])
 
 		# or_filters
-		query_or_filters.append(["end_date", "is", "not set"])
+		query_or_filters.append(["end_date", "=", None])
 		query_or_filters.append(["end_date", "between", [from_date, to_date]])
 
 	goals = frappe.get_list(

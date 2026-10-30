@@ -7,7 +7,7 @@ import datetime
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.query_builder.functions import Avg
+from frappe.query_builder.functions import Avg, Min
 from frappe.utils import cint, cstr, get_datetime, get_link_to_form, getdate, nowtime
 
 
@@ -216,7 +216,7 @@ def get_skill_wise_average_rating(interview: str) -> list[dict]:
 		.on(skill_assessment.parent == interview_feedback.name)
 		.where((interview_feedback.interview == interview) & (interview_feedback.docstatus == 1))
 		.groupby(skill_assessment.skill)
-		.orderby(skill_assessment.idx)
+		.orderby(Min(skill_assessment.idx))
 	).run(as_dict=True)
 
 

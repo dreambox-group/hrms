@@ -36,7 +36,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		frappe.db.set_value("Account", "Payroll Payable - _TC", "account_type", "Payable")
 
 	def test_paid_amount_and_status(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name)
 
 		journal_entry = manual_journal_entry_for_advance(advance)
@@ -52,7 +52,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		self.assertRaises(EmployeeAdvanceOverPayment, journal_entry1.submit)
 
 	def test_paid_amount_on_pe_cancellation(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name)
 		payment_entry = make_payment_entry(advance)
 		advance.reload()
@@ -161,7 +161,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		self.assertTrue(advance.name in advances)
 
 	def test_additional_salary_based_advance_repayment_flow(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name, {"repay_unclaimed_amount_from_salary": 1})
 		make_payment_entry(advance)
 
@@ -274,7 +274,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		self.assertEqual(advance.status, "Returned")
 
 	def test_payment_entry_against_advance(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name)
 
 		pe = make_payment_entry(advance, 700)
@@ -293,7 +293,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		self.assertEqual(advance.paid_amount, 700)
 
 	def test_expense_claim_against_partially_paid_advance(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name)
 		make_payment_entry(advance, 700)
 		advance.reload()
@@ -337,7 +337,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		self.assertEqual(advance.status, "Claimed")
 
 	def test_precision(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name)
 		make_payment_entry(advance)
 
@@ -374,7 +374,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		self.assertEqual(advance.status, "Partly Claimed and Returned")
 
 	def test_pending_amount(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 
 		advance1 = make_employee_advance(employee_name)
 		make_payment_entry(advance1, 500)
@@ -394,7 +394,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		"HR Settings", {"unlink_payment_on_cancellation_of_employee_advance": True}
 	)
 	def test_unlink_payment_entries(self):
-		employee_name = make_employee("_T@employee.advance", "_Test Company")
+		employee_name = make_employee("_t@employee.advance", "_Test Company")
 		self.assertTrue(frappe.db.exists("Employee", employee_name))
 
 		advance = make_employee_advance(employee_name)
@@ -482,7 +482,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 		frappe.db.set_value("Company", "_Test Company", "exchange_gain_loss_account", None)
 
 		try:
-			employee_name = make_employee("_T@employee.advance", "_Test Company")
+			employee_name = make_employee("_t@employee.advance", "_Test Company")
 			advance = make_employee_advance(employee_name)
 
 			# should not raise error even without exchange_gain_loss_account set at time of payment
@@ -495,7 +495,7 @@ class TestEmployeeAdvance(HRMSTestSuite):
 			frappe.db.set_value("Company", "_Test Company", "exchange_gain_loss_account", gain_loss_account)
 
 	def test_status_on_discard(self):
-		employee_name = make_employee("Test_status@employee.advance", "_Test Company")
+		employee_name = make_employee("test_status@employee.advance", "_Test Company")
 		advance = make_employee_advance(employee_name, do_not_submit=True)
 		advance.insert()
 		advance.reload()

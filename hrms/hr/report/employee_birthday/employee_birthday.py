@@ -54,6 +54,8 @@ def get_employees(filters):
 		.where(employee.status == "Active")
 		.where(Extract("month", employee.date_of_birth) == month)
 		.where(Criterion.all(build_qb_match_conditions("Employee")))
+		.orderby(Extract("day", employee.date_of_birth))
+		.orderby(employee.name)
 	).run()
 
 	return employees

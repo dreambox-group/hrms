@@ -370,7 +370,12 @@ BootStrapTestData()
 class HRMSTestSuite(ERPNextTestSuite):
 	"""Class for creating HRMS test records"""
 
-	pass
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		# a test in an earlier class that switched user and did not switch back
+		# must not leave every later class running as that user
+		frappe.set_user("Administrator")
 
 
 def make_user(email: str, role: str = "HR Manager") -> str:

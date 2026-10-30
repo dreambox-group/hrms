@@ -146,7 +146,7 @@ def get_shift_locations(employees: list[str], date=None) -> dict[str, str]:
 			"start_date": ("<=", date),
 			"shift_location": ("is", "set"),
 		},
-		or_filters=[["end_date", ">=", date], ["end_date", "is", "not set"]],
+		or_filters=[["end_date", ">=", date], ["end_date", "=", None]],
 		fields=["employee", "shift_location"],
 	)
 	return {row.employee: row.shift_location for row in assignments}

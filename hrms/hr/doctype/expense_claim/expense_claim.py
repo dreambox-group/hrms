@@ -633,6 +633,7 @@ def get_total_reimbursed_amount(doc):
 			Sum(
 				JournalEntryAccount.debit_in_account_currency - JournalEntryAccount.credit_in_account_currency
 			),
+			order_by=None,
 		)
 
 		amount_via_payment_entry = frappe.db.get_value(
@@ -643,6 +644,7 @@ def get_total_reimbursed_amount(doc):
 				"docstatus": 1,
 			},
 			[{"SUM": "allocated_amount"}],
+			order_by=None,
 		)
 
 		return flt(amount_via_jv) + flt(amount_via_payment_entry)

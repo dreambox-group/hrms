@@ -235,7 +235,7 @@ class IncomeTaxComputationReport:
 			frappe.qb.from_(ss)
 			.inner_join(ss_comps)
 			.on(ss.name == ss_comps.parent)
-			.select(ss.name, ss.employee, ss_comps.salary_component, Sum(ss_comps.amount).as_("amount"))
+			.select(ss.employee, ss_comps.salary_component, Sum(ss_comps.amount).as_("amount"))
 			.where(ss.docstatus == 1)
 			.where(ss.employee.isin(list(self.employees.keys())))
 			.where(ss_comps.do_not_include_in_total == 0)
@@ -438,6 +438,7 @@ class IncomeTaxComputationReport:
 						"docstatus": 1,
 					},
 					fields=[{"SUM": "amount", "as": "total_amount"}],
+					order_by=None,
 				)[0].total_amount
 				or 0.0
 			)

@@ -2163,6 +2163,7 @@ class SalarySlip(TransactionBase):
 					"docstatus": 1,
 				},
 				fields=[{"SUM": "amount", "as": "total_amount"}],
+				order_by=None,
 			)[0].total_amount
 			or 0.0
 		)
@@ -2315,6 +2316,7 @@ class SalarySlip(TransactionBase):
 		salary_slip_sum = frappe.get_list(
 			"Salary Slip",
 			fields=[{"SUM": "net_pay", "as": "net_sum"}, {"SUM": "gross_pay", "as": "gross_sum"}],
+			order_by=None,
 			filters={
 				"employee": self.employee,
 				"start_date": [">=", period_start_date],
@@ -2338,6 +2340,7 @@ class SalarySlip(TransactionBase):
 		salary_slip_sum = frappe.get_list(
 			"Salary Slip",
 			fields=[{"SUM": "net_pay", "as": "sum"}],
+			order_by=None,
 			filters={
 				"employee": self.employee,
 				"start_date": [">=", first_day_of_the_month],

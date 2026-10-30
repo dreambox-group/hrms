@@ -484,6 +484,7 @@ class TestPayrollEntry(HRMSTestSuite):
 			}
 		).insert(ignore_if_duplicate=True)
 		hr_user.add_roles("HR Manager")
+		self.addCleanup(frappe.set_user, "Administrator")
 		frappe.set_user(hr_user.name)
 
 		payroll_entry.submit()

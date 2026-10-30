@@ -324,7 +324,7 @@ def get_roster(start_date: str | None = None, days: int = 7) -> dict:
 			"status": "Active",
 			"start_date": ("<=", end),
 		},
-		or_filters=[["end_date", ">=", start], ["end_date", "is", "not set"]],
+		or_filters=[["end_date", ">=", start], ["end_date", "=", None]],
 		fields=["employee", "shift_type", "shift_location", "start_date", "end_date"],
 		order_by="start_date desc",
 	):
