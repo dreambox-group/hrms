@@ -7,7 +7,8 @@ app_license = "GNU General Public License (v3)"
 required_apps = ["frappe/erpnext"]
 source_link = "http://github.com/frappe/hrms"
 app_logo_url = "/assets/hrms/images/frappe-hr-logo.svg"
-app_home = "/desk/hr-setup"
+# Drea One (the employee app) is where a sign-in lands by default; HR staff get the desk via their own Default App
+app_home = "/hr"
 
 add_to_apps_screen = [
 	{

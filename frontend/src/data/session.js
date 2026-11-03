@@ -2,6 +2,7 @@ import { computed, reactive } from "vue"
 import { createResource, call } from "frappe-ui"
 import { userResource } from "./user"
 import { employeeResource } from "./employee"
+import { settings } from "./settings"
 import router from "@/router"
 
 export function sessionUser() {
@@ -17,6 +18,9 @@ function handleLogin(response) {
 	if (response.message === "Logged In") {
 		userResource.reload()
 		employeeResource.reload()
+		// HR Settings were fetched at app start, as a guest when the app opened logged out;
+		// fetch them again as the user so the menu and Home cards match their settings
+		settings.reload()
 
 		session.user = sessionUser()
 		router.replace({ path: "/" })
