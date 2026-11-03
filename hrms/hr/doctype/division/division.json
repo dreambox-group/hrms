@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{division_code}",
+ "creation": "2026-11-03 10:30:00.000000",
+ "description": "A Drea Finance division. Finance books project cost per division; HR links each Department to one. The code is the record name and never changes.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "division_code",
+  "division_name",
+  "column_break_1",
+  "is_active",
+  "display_order"
+ ],
+ "fields": [
+  {
+   "description": "Drea Finance's fixed code: DV-00001, DV-00002, ... Leave empty for the next free number. SHARED is the support-staff division (cost booked to the company, not to a division).",
+   "fieldname": "division_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Division Code",
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "division_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Division Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "A division in use (a Department or a user points at it) cannot be deactivated; divisions are never deleted.",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active"
+  },
+  {
+   "fieldname": "display_order",
+   "fieldtype": "Int",
+   "label": "Display Order"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [
+  {
+   "link_doctype": "Department",
+   "link_fieldname": "drea_finance_division"
+  }
+ ],
+ "modified": "2026-11-03 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "HR",
+ "name": "Division",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Finance Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager"
+  },
+  {
+   "read": 1,
+   "role": "HR User"
+  },
+  {
+   "role": "Employee",
+   "select": 1
+  }
+ ],
+ "search_fields": "division_name",
+ "show_title_field_in_link": 1,
+ "sort_field": "display_order",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "division_name",
+ "track_changes": 1
+}

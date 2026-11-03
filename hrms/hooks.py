@@ -19,7 +19,17 @@ add_to_apps_screen = [
 		"setup_wizard_text": "Let's build a workplace your team will love.",
 		"has_permission": "hrms.hr.utils.check_app_permission",
 		"sequence_id": 2,
-	}
+	},
+	# Drea Finance shares this database (decision of 2 Nov 2026); the desk's way in (handbook 7.6).
+	# /drea-finance sends the browser to the URL kept in HR Settings, for users with a Finance role.
+	{
+		"name": "drea_finance",
+		"logo": "/assets/hrms/images/drea-hris-logo.png",
+		"title": "Drea Finance",
+		"route": "/drea-finance",
+		"has_permission": "hrms.finance.has_finance_access",
+		"sequence_id": 3,
+	},
 ]
 
 # Includes in <head>
@@ -108,7 +118,7 @@ jinja = {
 
 # before_install = "hrms.install.before_install"
 after_install = "hrms.install.after_install"
-after_migrate = "hrms.setup.update_select_perm_after_install"
+after_migrate = ["hrms.setup.update_select_perm_after_install", "hrms.setup.setup_drea_finance"]
 
 setup_wizard_requires = "assets/hrms/js/setup_wizard.js"
 setup_wizard_stages = "hrms.setup_wizard.get_setup_stages"
@@ -191,7 +201,10 @@ doc_events = {
 		"validate": [
 			"erpnext.setup.doctype.employee.employee.validate_employee_role",
 			"hrms.overrides.employee_master.update_approver_user_roles",
+			"hrms.finance.validate_user_finance_fields",
 		],
+		# Drea Finance's books point at users by name (handbook 7.7): refuse the delete plainly
+		"on_trash": "hrms.finance.refuse_delete",
 	},
 	"Company": {
 		"validate": "hrms.overrides.company.validate_default_accounts",
@@ -200,7 +213,7 @@ doc_events = {
 			"hrms.overrides.company.set_default_hr_accounts",
 			"hrms.overrides.company.set_expense_claim_type_accounts",
 		],
-		"on_trash": "hrms.overrides.company.handle_linked_docs",
+		"on_trash": ["hrms.finance.refuse_delete", "hrms.overrides.company.handle_linked_docs"],
 	},
 	"Holiday List": {
 		"on_update": "hrms.utils.holiday_list.invalidate_cache",
@@ -232,7 +245,8 @@ doc_events = {
 	},
 	"Loan": {"validate": "hrms.hr.utils.validate_loan_repay_from_salary"},
 	"Department": {
-		"on_update": "hrms.hr.doctype.leave_application.leave_application.update_open_leave_approvers"
+		"validate": "hrms.finance.validate_department_division",
+		"on_update": "hrms.hr.doctype.leave_application.leave_application.update_open_leave_approvers",
 	},
 	"Employee": {
 		"validate": [

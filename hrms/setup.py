@@ -24,6 +24,7 @@ def after_install():
 	create_default_role_profiles()
 	run_post_install_patches()
 	add_default_hr_permissions()
+	setup_drea_finance()
 	set_hrms_as_default_app()
 
 
@@ -133,6 +134,201 @@ def get_indonesian_id_fields():
 
 
 def get_custom_fields():
+	"""HR specific custom fields that need to be added to the masters in ERPNext,
+	plus the Drea Finance fields (one database, decision of 2 Nov 2026)."""
+	fields = get_hrms_custom_fields()
+	for doctype, extra in get_drea_finance_custom_fields().items():
+		fields.setdefault(doctype, []).extend(extra)
+	return fields
+
+
+# --- Drea Finance (hrms.finance) -----------------------------------------------------------------
+
+DREA_FINANCE_ROLE_OPTIONS = "\nadmin\nstaff\nfinance\ndirector\ndept_head\nvendor"
+
+
+def get_drea_finance_custom_fields():
+	"""What Finance keeps on people and companies that Frappe lacks, as custom fields on User and
+	Company, the way HRMS adds its own fields to ERPNext. Finance reads tabUser / tabCompany /
+	tabDivision directly. Fields at permlevel 1 are written by Finance Admin and System Manager
+	only (setup_drea_finance). Names and emails stay Frappe's own fields."""
+	return {
+		"Company": [
+			{
+				"fieldname": "drea_finance_tab",
+				"fieldtype": "Tab Break",
+				"label": _("Drea Finance"),
+				"insert_after": "default_payroll_payable_account",
+			},
+			{
+				"fieldname": "drea_finance_section",
+				"fieldtype": "Section Break",
+				"label": _("Drea Finance"),
+				"insert_after": "drea_finance_tab",
+			},
+			{
+				"fieldname": "drea_finance_code",
+				"fieldtype": "Data",
+				"label": _("Drea Finance Code"),
+				"description": _("Finance's code for this legal entity, LE-00001 style. Set once."),
+				"unique": 1,
+				"permlevel": 1,
+				"insert_after": "drea_finance_section",
+			},
+			{
+				"fieldname": "drea_finance_display_name",
+				"fieldtype": "Data",
+				"label": _("Display Name in Drea Finance"),
+				"permlevel": 1,
+				"insert_after": "drea_finance_code",
+			},
+			{
+				"fieldname": "drea_finance_active",
+				"fieldtype": "Check",
+				"label": _("Active in Drea Finance"),
+				"default": "1",
+				"permlevel": 1,
+				"insert_after": "drea_finance_display_name",
+			},
+			{
+				"fieldname": "books_start_date",
+				"fieldtype": "Date",
+				"label": _("Books Start Date"),
+				"description": _(
+					"The date this entity's books begin in Drea Finance. Empty: no earlier books."
+				),
+				"permlevel": 1,
+				"insert_after": "drea_finance_active",
+			},
+			{
+				"fieldname": "drea_finance_column_break",
+				"fieldtype": "Column Break",
+				"insert_after": "books_start_date",
+			},
+			{
+				"fieldname": "is_pkp",
+				"fieldtype": "Check",
+				"label": _("PKP (registered for PPN)"),
+				"permlevel": 1,
+				"insert_after": "drea_finance_column_break",
+			},
+			{
+				"fieldname": "pkp_since",
+				"fieldtype": "Date",
+				"label": _("PKP Since"),
+				"depends_on": "eval:doc.is_pkp",
+				"permlevel": 1,
+				"insert_after": "is_pkp",
+			},
+			{
+				"fieldname": "withholding_tax_percent",
+				"fieldtype": "Percent",
+				"label": _("Withholding Tax Percent"),
+				"permlevel": 1,
+				"insert_after": "pkp_since",
+			},
+			{
+				"fieldname": "withholding_kind",
+				"fieldtype": "Select",
+				"label": _("Withholding Kind"),
+				"options": "\npph23\npph_final",
+				"depends_on": "eval:doc.withholding_tax_percent",
+				"permlevel": 1,
+				"insert_after": "withholding_tax_percent",
+			},
+		],
+		"Department": [
+			{
+				"fieldname": "drea_finance_division",
+				"fieldtype": "Link",
+				"label": _("Division (Drea Finance)"),
+				"options": "Division",
+				"description": _(
+					"The Drea Finance division this department's people work for. SHARED for support staff."
+				),
+				"insert_after": "department_name",
+			},
+		],
+		"User": [
+			{
+				"fieldname": "drea_finance_section",
+				"fieldtype": "Section Break",
+				"label": _("Drea Finance"),
+				"collapsible": 1,
+				"insert_after": "onboarding_status",
+			},
+			{
+				"fieldname": "drea_finance_role",
+				"fieldtype": "Select",
+				"label": _("Drea Finance Role"),
+				"options": DREA_FINANCE_ROLE_OPTIONS,
+				"description": _("Empty: no access to Drea Finance. Giving a role gives access."),
+				"permlevel": 1,
+				"insert_after": "drea_finance_section",
+			},
+			{
+				"fieldname": "drea_finance_active",
+				"fieldtype": "Check",
+				"label": _("Active in Drea Finance"),
+				"default": "1",
+				"description": _("Finance-only switch: someone who keeps Drea One but loses Finance."),
+				"permlevel": 1,
+				"insert_after": "drea_finance_role",
+			},
+			{
+				"fieldname": "drea_finance_column_break",
+				"fieldtype": "Column Break",
+				"insert_after": "drea_finance_active",
+			},
+			{
+				"fieldname": "telegram_id",
+				"fieldtype": "Data",
+				"label": _("Telegram ID"),
+				"permlevel": 1,
+				"insert_after": "drea_finance_column_break",
+			},
+			{
+				"fieldname": "drea_finance_divisions",
+				"fieldtype": "Table MultiSelect",
+				"label": _("Drea Finance Divisions"),
+				"options": "User Division",
+				"permlevel": 1,
+				"insert_after": "telegram_id",
+			},
+		],
+	}
+
+
+DREA_FINANCE_PERMLEVEL_PERMS = {
+	# doctype: [(role, can_write)]
+	"User": [("Finance Admin", True), ("HR Manager", False)],
+	"Company": [
+		("System Manager", True),
+		("Finance Admin", True),
+		("HR Manager", False),
+		("Accounts Manager", False),
+	],
+}
+
+
+def setup_drea_finance():
+	"""Idempotent: the Finance Admin role, the Finance custom fields and the permlevel-1 rights.
+	Runs on install, on every migrate and from the patch."""
+	if not frappe.db.exists("Role", "Finance Admin"):
+		frappe.get_doc({"doctype": "Role", "role_name": "Finance Admin", "desk_access": 1}).insert(
+			ignore_permissions=True
+		)
+	create_custom_fields(get_drea_finance_custom_fields(), ignore_validate=True)
+	for doctype, roles in DREA_FINANCE_PERMLEVEL_PERMS.items():
+		for role, can_write in roles:
+			add_permission(doctype, role, permlevel=1)
+			update_permission_property(doctype, role, 1, "read", 1)
+			update_permission_property(doctype, role, 1, "write", 1 if can_write else 0)
+	frappe.clear_cache(doctype="User")
+	frappe.clear_cache(doctype="Company")
+
+
+def get_hrms_custom_fields():
 	"""HR specific custom fields that need to be added to the masters in ERPNext"""
 	return {
 		"Company": [
