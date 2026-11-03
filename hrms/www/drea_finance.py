@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
 
-"""/drea-finance: the desk's way into Drea Finance (handbook 7.6).
+"""/drea-finance (template drea-finance.html; Frappe maps the hyphen to this underscore module): the desk's way into Drea Finance (handbook 7.6).
 
 The apps-screen entry points here, and this page sends the browser on to the Finance URL kept in
 HR Settings. Keeping the URL in settings means the icon works the moment the URL is saved."""
