@@ -5,9 +5,9 @@
 
 The app talks to these methods only; they call Drea Finance's HR endpoints
 (/api/v2/integrations/hr/reimbursements) with the key from HR Settings, as the signed-in
-employee (their login email). The key never reaches the browser. Drea Finance makes a Staff
-account for an employee on their first claim, files it with no project for Finance to place,
-and keeps the approvals and payment; this side only sends and reads.
+employee (their login email). The key never reaches the browser. The employee's Frappe user gets
+the Finance role "staff" on their first call (ensure_finance_access); Drea Finance files the claim
+with no project for Finance to place and keeps the approvals and payment; this side only sends and reads.
 """
 
 import mimetypes
@@ -51,11 +51,30 @@ def headers(key: str) -> dict:
 	}
 
 
+def ensure_finance_access():
+	"""Drea Finance in the same database (3 Nov 2026): Finance no longer opens an account on an
+	employee's first claim and answers 403 to an email it has no row for. The Frappe user gets the
+	Finance role "staff" here when it has none; Finance's trigger on tabUser then makes its row. An
+	existing role is never changed. Committed before the call so Finance's connection can see it."""
+	user = frappe.session.user
+	if not user or user == "Guest" or not frappe.db.has_column("User", "drea_finance_role"):
+		return
+	if frappe.db.get_value("User", user, "drea_finance_role"):
+		return
+	frappe.db.set_value(
+		"User", user, {"drea_finance_role": "staff", "drea_finance_active": 1}, update_modified=False
+	)
+	frappe.db.commit()
+
+
 def call(method: str, path: str, **kwargs) -> dict:
 	"""One call to Drea Finance as the signed-in employee; its refusal is shown as it says it."""
 	url, key = connection()
+	ensure_finance_access()
 	try:
-		response = requests.request(method, f"{url}{BASE_PATH}{path}", headers=headers(key), timeout=TIMEOUT, **kwargs)
+		response = requests.request(
+			method, f"{url}{BASE_PATH}{path}", headers=headers(key), timeout=TIMEOUT, **kwargs
+		)
 	except requests.RequestException:
 		frappe.log_error("Drea Finance unreachable", reference_doctype="HR Settings")
 		frappe.throw(_("Drea Finance can't be reached right now. Try again in a moment."), DreaFinanceError)
@@ -69,8 +88,14 @@ def call(method: str, path: str, **kwargs) -> dict:
 
 	if response.status_code in (401, 503):
 		# the key or the setup, which the employee can do nothing about
-		frappe.log_error(f"Drea Finance refused the key ({response.status_code}): {body.get('error')}", reference_doctype="HR Settings")
-		frappe.throw(_("Drea Finance refused the connection. Ask HR to check the Drea Finance settings."), DreaFinanceError)
+		frappe.log_error(
+			f"Drea Finance refused the key ({response.status_code}): {body.get('error')}",
+			reference_doctype="HR Settings",
+		)
+		frappe.throw(
+			_("Drea Finance refused the connection. Ask HR to check the Drea Finance settings."),
+			DreaFinanceError,
+		)
 	problems = [*body.get("missing", []), *body.get("errors", [])]
 	message = body.get("error") or _("Drea Finance could not do that.")
 	if body.get("missing"):
@@ -87,16 +112,22 @@ def get_reimbursement_options() -> dict:
 	"""The form's choices and words from Drea Finance, and bank details to start from."""
 	employee = get_current_employee()
 	options = call("GET", "/options")
-	bank = frappe.db.get_value(
-		"Employee",
-		employee,
-		["employee_name", "bank_name", "bank_ac_no", "bank_account_name", "npwp_number", "ktp_number"],
-		as_dict=True,
-	) if employee else None
+	bank = (
+		frappe.db.get_value(
+			"Employee",
+			employee,
+			["employee_name", "bank_name", "bank_ac_no", "bank_account_name", "npwp_number", "ktp_number"],
+			as_dict=True,
+		)
+		if employee
+		else None
+	)
 	last = options.get("last_payee") or {}
 	# their last claim's account first (as in Drea Finance), then what HR has on file
 	options["prefill"] = {
-		"payee_account_name": last.get("payee_account_name") or (bank and (bank.bank_account_name or bank.employee_name)) or "",
+		"payee_account_name": last.get("payee_account_name")
+		or (bank and (bank.bank_account_name or bank.employee_name))
+		or "",
 		"account_provider": last.get("account_provider") or (bank and bank.bank_name) or "",
 		"account_number": last.get("account_number") or (bank and bank.bank_ac_no) or "",
 		"payee_tax_id": last.get("payee_tax_id") or (bank and (bank.npwp_number or bank.ktp_number)) or "",

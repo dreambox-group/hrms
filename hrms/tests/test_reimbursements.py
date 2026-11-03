@@ -43,12 +43,19 @@ def answer(status=200, body=None):
 class TestReimbursements(HRMSTestSuite):
 	def setUp(self):
 		frappe.set_user("Administrator")
-		self.employee = frappe.db.get_value("Employee", {"user_id": USER}) or make_employee(USER, "_Test Company")
+		self.employee = frappe.db.get_value("Employee", {"user_id": USER}) or make_employee(
+			USER, "_Test Company"
+		)
 		frappe.db.set_value("Employee", self.employee, "employee_name", "Rani Contoh")
 		frappe.db.set_value(
 			"Employee",
 			self.employee,
-			{"bank_name": "BCA", "bank_ac_no": "1234567890", "bank_account_name": "Rani Contoh", "npwp_number": "0"},
+			{
+				"bank_name": "BCA",
+				"bank_ac_no": "1234567890",
+				"bank_account_name": "Rani Contoh",
+				"npwp_number": "0",
+			},
 		)
 		settings = frappe.get_single("HR Settings")
 		settings.drea_finance_url = URL + "/"
@@ -84,10 +91,20 @@ class TestReimbursements(HRMSTestSuite):
 			options = get_reimbursement_options()
 		self.assertEqual(
 			options["prefill"],
-			{"payee_account_name": "Rani Contoh", "account_provider": "BCA", "account_number": "1234567890", "payee_tax_id": "0"},
+			{
+				"payee_account_name": "Rani Contoh",
+				"account_provider": "BCA",
+				"account_number": "1234567890",
+				"payee_tax_id": "0",
+			},
 		)
 		# their last claim's account wins, as in Drea Finance
-		body["last_payee"] = {"payee_account_name": "Rani C", "account_provider": "Mandiri", "account_number": "999", "payee_tax_id": "12"}
+		body["last_payee"] = {
+			"payee_account_name": "Rani C",
+			"account_provider": "Mandiri",
+			"account_number": "999",
+			"payee_tax_id": "12",
+		}
 		with patch(REQUEST, return_value=answer(body=body)):
 			self.assertEqual(get_reimbursement_options()["prefill"]["account_provider"], "Mandiri")
 
@@ -114,7 +131,9 @@ class TestReimbursements(HRMSTestSuite):
 		refusal = answer(422, {"error": "This cannot be sent yet.", "missing": ["NPWP/NIK"], "errors": []})
 		with patch(REQUEST, return_value=refusal):
 			with self.assertRaises(DreaFinanceError) as raised:
-				submit_reimbursement({"description": "Taxi"}, [{"file_url": file_doc.file_url, "category": "receipt"}])
+				submit_reimbursement(
+					{"description": "Taxi"}, [{"file_url": file_doc.file_url, "category": "receipt"}]
+				)
 		self.assertIn("NPWP/NIK", str(raised.exception))
 		self.assertTrue(frappe.db.exists("File", file_doc.name))
 
@@ -138,3 +157,33 @@ class TestReimbursements(HRMSTestSuite):
 			with self.assertRaises(DreaFinanceError) as raised:
 				cancel_reimbursement("abc", "wrong amount")
 		self.assertIn("Ask HR", str(raised.exception))
+
+
+class TestFinanceAccessOnFirstCall(HRMSTestSuite):
+	"""Finance no longer opens an account on the first claim: the Frappe user gets the Finance role here."""
+
+	def setUp(self):
+		frappe.set_user("Administrator")
+		if not frappe.db.get_value("Employee", {"user_id": USER}):
+			make_employee(USER, "_Test Company")
+		settings = frappe.get_single("HR Settings")
+		settings.drea_finance_url = URL
+		settings.drea_finance_api_key = "test-key"
+		settings.save()
+		frappe.db.set_value("User", USER, {"drea_finance_role": None, "drea_finance_active": 1})
+		frappe.set_user(USER)
+
+	def tearDown(self):
+		frappe.set_user("Administrator")
+
+	def test_first_call_gives_the_staff_role(self):
+		with patch(REQUEST, return_value=answer(body={"items": [], "has_more": False})):
+			get_my_reimbursements()
+		self.assertEqual(frappe.db.get_value("User", USER, "drea_finance_role"), "staff")
+		self.assertEqual(frappe.db.get_value("User", USER, "drea_finance_active"), 1)
+
+	def test_an_existing_role_is_kept(self):
+		frappe.db.set_value("User", USER, "drea_finance_role", "dept_head")
+		with patch(REQUEST, return_value=answer(body={"items": [], "has_more": False})):
+			get_my_reimbursements()
+		self.assertEqual(frappe.db.get_value("User", USER, "drea_finance_role"), "dept_head")
