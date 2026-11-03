@@ -5,6 +5,7 @@ no_cache = 1
 
 
 def get_context(context):
+	redirect_desk_user_without_employee()
 	csrf_token = frappe.sessions.get_csrf_token()
 	frappe.db.commit()  # nosempgrep
 	context = frappe._dict()
@@ -40,3 +41,20 @@ def get_boot():
 def get_default_route():
 	path = frappe.request.path if frappe.request else ""
 	return "/hr" if path == "/hr" or path.startswith("/hr/") else "/hrms"
+
+
+def redirect_desk_user_without_employee():
+	"""Drea One is for employees. Since Drea One became the site's default app, a desk account with no
+	employee record (Administrator, an HR or Finance admin) lands here after sign-in and the app can
+	only show "no active employee found" and sign them out again. Send such accounts to the desk
+	instead. Guests see the login page as before; a website user without an employee still gets
+	the app's own message."""
+	user = frappe.session.user
+	if not user or user == "Guest":
+		return
+	if frappe.db.exists("Employee", {"user_id": user, "status": "Active"}):
+		return
+	if frappe.db.get_value("User", user, "user_type") != "System User":
+		return
+	frappe.local.flags.redirect_location = "/desk"
+	raise frappe.Redirect

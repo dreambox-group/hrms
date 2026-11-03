@@ -250,12 +250,13 @@ def get_drea_finance_custom_fields():
 			},
 		],
 		"User": [
+			# its own tab at the end of the User form (after the last field of the Sessions tab); a
+			# section after the Settings tab's last field ended up under Sessions
 			{
 				"fieldname": "drea_finance_section",
-				"fieldtype": "Section Break",
+				"fieldtype": "Tab Break",
 				"label": _("Drea Finance"),
-				"collapsible": 1,
-				"insert_after": "onboarding_status",
+				"insert_after": "active_sessions",
 			},
 			{
 				"fieldname": "drea_finance_role",
@@ -281,23 +282,21 @@ def get_drea_finance_custom_fields():
 				"insert_after": "drea_finance_active",
 			},
 			{
-				"fieldname": "telegram_id",
-				"fieldtype": "Data",
-				"label": _("Telegram ID"),
-				"permlevel": 1,
-				"insert_after": "drea_finance_column_break",
-			},
-			{
 				"fieldname": "drea_finance_divisions",
 				"fieldtype": "Table MultiSelect",
 				"label": _("Drea Finance Divisions"),
 				"options": "User Division",
 				"permlevel": 1,
-				"insert_after": "telegram_id",
+				"insert_after": "drea_finance_column_break",
 			},
 		],
 	}
 
+
+# fields once shipped and since dropped; removed from existing sites on migrate
+DREA_FINANCE_RETIRED_FIELDS = [
+	("User", "telegram_id"),  # Finance v3 never reads it (owner, 3 Nov 2026)
+]
 
 DREA_FINANCE_PERMLEVEL_PERMS = {
 	# doctype: [(role, can_write)]
@@ -319,6 +318,9 @@ def setup_drea_finance():
 			ignore_permissions=True
 		)
 	create_custom_fields(get_drea_finance_custom_fields(), ignore_validate=True)
+	for doctype, fieldname in DREA_FINANCE_RETIRED_FIELDS:
+		if name := frappe.db.get_value("Custom Field", {"dt": doctype, "fieldname": fieldname}):
+			frappe.delete_doc("Custom Field", name, ignore_permissions=True, force=True)
 	for doctype, roles in DREA_FINANCE_PERMLEVEL_PERMS.items():
 		for role, can_write in roles:
 			add_permission(doctype, role, permlevel=1)

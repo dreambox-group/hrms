@@ -7,7 +7,12 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from hrms.finance import finance_tables_using, has_finance_access, referencing_foreign_keys
-from hrms.setup import DREA_FINANCE_PERMLEVEL_PERMS, get_drea_finance_custom_fields, setup_drea_finance
+from hrms.setup import (
+	DREA_FINANCE_PERMLEVEL_PERMS,
+	DREA_FINANCE_RETIRED_FIELDS,
+	get_drea_finance_custom_fields,
+	setup_drea_finance,
+)
 
 TEST_USER = "_test_finance_user@example.com"
 
@@ -28,6 +33,16 @@ class TestDreaFinanceSetup(IntegrationTestCase):
 		meta = frappe.get_meta("User")
 		self.assertEqual(meta.get_field("drea_finance_role").permlevel, 1)
 		self.assertEqual(meta.get_field("drea_finance_divisions").options, "User Division")
+		# the Finance fields form their own tab at the end of the User form
+		self.assertEqual(meta.get_field("drea_finance_section").fieldtype, "Tab Break")
+		order = [f.fieldname for f in meta.fields]
+		self.assertGreater(order.index("drea_finance_section"), order.index("active_sessions"))
+		for doctype, fieldname in DREA_FINANCE_RETIRED_FIELDS:
+			self.assertFalse(
+				frappe.db.exists("Custom Field", {"dt": doctype, "fieldname": fieldname}),
+				f"{doctype}.{fieldname} should be gone",
+			)
+			self.assertIsNone(frappe.get_meta(doctype).get_field(fieldname))
 		self.assertTrue(frappe.get_meta("Company").get_field("drea_finance_code").unique)
 		self.assertEqual(frappe.get_meta("Department").get_field("drea_finance_division").options, "Division")
 
