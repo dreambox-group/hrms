@@ -189,6 +189,13 @@ class TestFields(IntegrationTestCase):
 		for field in ("drea_finance_send_payroll", "drea_finance_payroll_test_only"):
 			self.assertTrue(frappe.get_meta("HR Settings").has_field(field), field)
 
+	def test_drea_settings_does_not_claim_a_workspace(self):
+		# A sidebar claims every workspace of its module, and the desk opens a workspace in the first
+		# sidebar that claims it. Filed under HR Setup, Drea Settings took over /desk/hr-setup.
+		module = frappe.db.get_value("Sidebar", "Drea Settings", "module")
+		self.assertEqual(module, "HR")
+		self.assertFalse(frappe.get_all("Workspace", filters={"module": module}, limit=1))
+
 
 def response(status, body):
 	r = MagicMock()
