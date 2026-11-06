@@ -167,6 +167,7 @@ frappe.ui.form.on("Payroll Entry", {
 			(frm.doc.__onload && frm.doc.__onload.submitted_ss)
 		) {
 			frm.events.add_bank_entry_button(frm);
+			frm.events.add_drea_finance_buttons(frm);
 		} else if (frm.doc.salary_slips_created && frm.doc.status !== "Queued") {
 			frm.add_custom_button(__("Submit Salary Slip"), function () {
 				submit_salary_slip(frm);
@@ -176,6 +177,31 @@ frappe.ui.form.on("Payroll Entry", {
 				frm.trigger("create_salary_slip");
 			}).addClass("btn-primary");
 		}
+	},
+
+	// Drea: send this entry's totals (never a person's pay) to Drea Finance, or test it
+	add_drea_finance_buttons: function (frm) {
+		if (frm.doc.docstatus !== 1) return;
+		const send = (test) =>
+			frappe.call({
+				method: "hrms.payroll.drea_finance.send_to_drea_finance",
+				args: { payroll_entry: frm.doc.name, test: test ? 1 : 0 },
+				freeze: true,
+				freeze_message: __("Sending totals to Drea Finance..."),
+				callback: (r) => {
+					frm.reload_doc();
+					if (r.message) {
+						frappe.msgprint({
+							title: r.message.ok ? __("Drea Finance") : __("Drea Finance refused it"),
+							indicator: r.message.ok ? "green" : "red",
+							message: frappe.utils.escape_html(r.message.message || "").replace(/
+/g, "<br>"),
+						});
+					}
+				},
+			});
+		frm.add_custom_button(__("Send Totals"), () => send(false), __("Drea Finance"));
+		frm.add_custom_button(__("Test (nothing saved)"), () => send(true), __("Drea Finance"));
 	},
 
 	add_bank_entry_button: function (frm) {

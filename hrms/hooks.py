@@ -290,6 +290,7 @@ doc_events = {
 	"Shift Request": {"on_submit": "hrms.telemetry.on_shift_request_submit"},
 	"Employee Checkin": {"after_insert": "hrms.telemetry.on_employee_checkin"},
 	"Payroll Entry": {"on_submit": "hrms.telemetry.on_payroll_entry_submit"},
+	"Salary Component": {"validate": "hrms.payroll.drea_finance.validate_component"},
 	"Job Offer": {"on_submit": "hrms.telemetry.on_job_offer_submit"},
 	"Appraisal": {"on_submit": "hrms.telemetry.on_appraisal_submit"},
 	"Interview": {"on_submit": "hrms.telemetry.on_interview_submit"},

@@ -71,6 +71,8 @@
   "drea_finance_url",
   "column_break_drea_finance",
   "drea_finance_api_key",
+  "drea_finance_send_payroll",
+  "drea_finance_payroll_test_only",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -383,7 +385,7 @@
   {
    "fieldname": "drea_finance_section",
    "fieldtype": "Section Break",
-   "label": "Drea Finance (Reimbursement)"
+   "label": "Drea Finance"
   },
   {
    "description": "Drea Finance's address, e.g. https://finance.dreambox.id. With the key below, the employee app shows Reimbursement: employees send claims to Drea Finance and follow their progress there.",
@@ -401,6 +403,21 @@
    "fieldname": "drea_finance_api_key",
    "fieldtype": "Password",
    "label": "Drea Finance API Key"
+  },
+  {
+   "default": "0",
+   "description": "When HR submits a Payroll Entry's salary slips, send Drea Finance the totals per company and division: headcount, amount per pay code, take-home. Never a name or a person's pay.",
+   "fieldname": "drea_finance_send_payroll",
+   "fieldtype": "Check",
+   "label": "Send Payroll Totals to Drea Finance"
+  },
+  {
+   "default": "1",
+   "depends_on": "drea_finance_send_payroll",
+   "description": "While on, every send is a test: Drea Finance checks it and saves nothing. Turn off for the first real month.",
+   "fieldname": "drea_finance_payroll_test_only",
+   "fieldtype": "Check",
+   "label": "Payroll Sends Are Tests Only"
   },
   {
    "fieldname": "attendance_settings_section",
@@ -577,7 +594,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-10-28 14:00:00.000000",
+ "modified": "2026-11-06 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

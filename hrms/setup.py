@@ -151,8 +151,92 @@ def get_drea_finance_custom_fields():
 	"""What Finance keeps on people and companies that Frappe lacks, as custom fields on User and
 	Company, the way HRMS adds its own fields to ERPNext. Finance reads tabUser / tabCompany /
 	tabDivision directly. Fields at permlevel 1 are written by Finance Admin and System Manager
-	only (setup_drea_finance). Names and emails stay Frappe's own fields."""
+	only (setup_drea_finance). Names and emails stay Frappe's own fields.
+
+	Salary Component and Payroll Entry carry what the payroll send needs (hrms.payroll.drea_finance):
+	the pay code per component, and per entry the kind and the last send. The Payroll Entry fields
+	are no_copy, so a duplicate starts a new run while an amendment continues it (run_history)."""
+	from hrms.payroll.drea_finance import COMPONENT_OPTIONS
+
 	return {
+		"Salary Component": [
+			{
+				"fieldname": "drea_finance_component",
+				"fieldtype": "Select",
+				"label": _("Drea Finance Code"),
+				"options": COMPONENT_OPTIONS,
+				"description": _(
+					"The pay code Drea Finance books this on. Earnings: SALARY or INCENTIVE. A cut the "
+					"company keeps (late penalty, unpaid leave): the earning it reduces, usually SALARY. "
+					"Tax and BPJS taken from pay: their own code. Employer contributions: a _COMPANY code, "
+					"or empty to leave them out."
+				),
+				"insert_after": "type",
+			},
+		],
+		"Payroll Entry": [
+			{
+				"fieldname": "drea_finance_section",
+				"fieldtype": "Section Break",
+				"label": _("Drea Finance"),
+				"collapsible": 1,
+				"insert_after": "salary_slips_submitted",
+			},
+			{
+				"fieldname": "drea_finance_kind",
+				"fieldtype": "Select",
+				"label": _("Kind (Drea Finance)"),
+				"options": "Salary\nTHR\nBonus",
+				"default": "Salary",
+				"allow_on_submit": 1,
+				"description": _(
+					"Sent to Drea Finance with the totals. Only totals are sent, never a person's pay."
+				),
+				"insert_after": "drea_finance_section",
+			},
+			{
+				"fieldname": "drea_finance_status",
+				"fieldtype": "Small Text",
+				"label": _("Drea Finance's Answer"),
+				"read_only": 1,
+				"allow_on_submit": 1,
+				"no_copy": 1,
+				"insert_after": "drea_finance_kind",
+			},
+			{
+				"fieldname": "drea_finance_column_break",
+				"fieldtype": "Column Break",
+				"insert_after": "drea_finance_status",
+			},
+			{
+				"fieldname": "drea_finance_run_id",
+				"fieldtype": "Data",
+				"label": _("Drea Finance Run"),
+				"read_only": 1,
+				"allow_on_submit": 1,
+				"no_copy": 1,
+				"insert_after": "drea_finance_column_break",
+			},
+			{
+				"fieldname": "drea_finance_version",
+				"fieldtype": "Int",
+				"label": _("Version Sent"),
+				"read_only": 1,
+				"allow_on_submit": 1,
+				"no_copy": 1,
+				"insert_after": "drea_finance_run_id",
+			},
+			{
+				"fieldname": "drea_finance_hash",
+				"fieldtype": "Data",
+				"label": _("Figures Sent (hash)"),
+				"hidden": 1,
+				"read_only": 1,
+				"allow_on_submit": 1,
+				"no_copy": 1,
+				"insert_after": "drea_finance_version",
+			},
+		],
 		"Company": [
 			{
 				"fieldname": "drea_finance_tab",
@@ -328,6 +412,8 @@ def setup_drea_finance():
 			update_permission_property(doctype, role, 1, "write", 1 if can_write else 0)
 	frappe.clear_cache(doctype="User")
 	frappe.clear_cache(doctype="Company")
+	frappe.clear_cache(doctype="Salary Component")
+	frappe.clear_cache(doctype="Payroll Entry")
 
 
 def get_hrms_custom_fields():

@@ -1823,6 +1823,10 @@ def submit_salary_slips_for_employees(payroll_entry, salary_slips, publish_progr
 			payroll_entry.make_accrual_jv_entry(submitted)
 			payroll_entry.email_salary_slip(submitted)
 			payroll_entry.db_set({"salary_slips_submitted": 1, "status": "Submitted", "error_message": ""})
+			# Drea: totals (never a person's pay) to Drea Finance, after this commits
+			from hrms.payroll.drea_finance import queue_after_submission
+
+			queue_after_submission(payroll_entry.name)
 
 		show_payroll_submission_status(submitted, unsubmitted, payroll_entry)
 
