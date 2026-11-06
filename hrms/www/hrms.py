@@ -43,11 +43,15 @@ def get_default_route():
 	return "/hr" if path == "/hr" or path.startswith("/hr/") else "/hrms"
 
 
+HR_DESK_ROUTE = "/desk/hr-setup"
+
+
 def redirect_desk_user_without_employee():
 	"""Drea One is for employees. Since Drea One became the site's default app, a desk account with no
 	employee record (Administrator, an HR or Finance admin) lands here after sign-in and the app can
 	only show "no active employee found" and sign them out again. Send such accounts to the desk
-	instead. Guests see the login page as before; a website user without an employee still gets
+	instead: the HR desk for HR staff and admins (the desk's "Frappe HR" tile also points here), the
+	plain desk for anyone else. Guests see the login page as before; a website user without an employee still gets
 	the app's own message."""
 	user = frappe.session.user
 	if not user or user == "Guest":
@@ -56,5 +60,7 @@ def redirect_desk_user_without_employee():
 		return
 	if frappe.db.get_value("User", user, "user_type") != "System User":
 		return
-	frappe.local.flags.redirect_location = "/desk"
+	# HR staff and admins come here from the desk's "Frappe HR" tile: open the HR desk, not the app list
+	hr_desk = {"HR Manager", "HR User", "System Manager"} & set(frappe.get_roles(user))
+	frappe.local.flags.redirect_location = HR_DESK_ROUTE if hr_desk else "/desk"
 	raise frappe.Redirect

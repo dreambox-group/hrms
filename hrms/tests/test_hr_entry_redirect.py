@@ -8,10 +8,11 @@ from frappe.tests import IntegrationTestCase
 
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
-from hrms.www.hrms import redirect_desk_user_without_employee
+from hrms.www.hrms import HR_DESK_ROUTE, redirect_desk_user_without_employee
 
 DESK_ONLY = "_test_desk_only_user@example.com"
 EMPLOYEE_USER = "_test_hr_entry_employee@example.com"
+OTHER_DESK = "_test_other_desk_user@example.com"
 
 
 class TestHrEntryRedirect(IntegrationTestCase):
@@ -35,12 +36,28 @@ class TestHrEntryRedirect(IntegrationTestCase):
 		frappe.set_user("Guest")
 		redirect_desk_user_without_employee()
 
-	def test_desk_account_without_employee_goes_to_desk(self):
+	def test_hr_desk_account_without_employee_goes_to_hr_desk(self):
 		for user in ("Administrator", DESK_ONLY):
 			frappe.set_user(user)
 			with self.assertRaises(frappe.Redirect):
 				redirect_desk_user_without_employee()
-			self.assertEqual(frappe.local.flags.redirect_location, "/desk")
+			self.assertEqual(frappe.local.flags.redirect_location, HR_DESK_ROUTE)
+
+	def test_other_desk_account_without_employee_goes_to_desk(self):
+		if not frappe.db.exists("User", OTHER_DESK):
+			frappe.get_doc(
+				{
+					"doctype": "User",
+					"email": OTHER_DESK,
+					"first_name": "Other Desk",
+					"send_welcome_email": 0,
+					"roles": [{"role": "Accounts User"}],
+				}
+			).insert(ignore_permissions=True)
+		frappe.set_user(OTHER_DESK)
+		with self.assertRaises(frappe.Redirect):
+			redirect_desk_user_without_employee()
+		self.assertEqual(frappe.local.flags.redirect_location, "/desk")
 
 	def test_employee_stays_in_the_app(self):
 		frappe.set_user(EMPLOYEE_USER)
