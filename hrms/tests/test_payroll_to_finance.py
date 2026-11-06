@@ -189,12 +189,17 @@ class TestFields(IntegrationTestCase):
 		for field in ("drea_finance_send_payroll", "drea_finance_payroll_test_only"):
 			self.assertTrue(frappe.get_meta("HR Settings").has_field(field), field)
 
-	def test_drea_settings_does_not_claim_a_workspace(self):
+	def test_drea_settings_has_its_own_module(self):
 		# A sidebar claims every workspace of its module, and the desk opens a workspace in the first
-		# sidebar that claims it. Filed under HR Setup, Drea Settings took over /desk/hr-setup.
+		# sidebar that claims it: filed under HR Setup, Drea Settings took over /desk/hr-setup. Filed
+		# under HR it vanished from the dock, because hooks.py makes HR a code-only module.
+		from frappe.desk.doctype.sidebar.sidebar import get_navigable_modules
+
 		module = frappe.db.get_value("Sidebar", "Drea Settings", "module")
-		self.assertEqual(module, "HR")
+		self.assertEqual(module, "Drea Settings")
+		self.assertEqual(frappe.db.get_value("Module Def", module, "app_name"), "hrms")
 		self.assertFalse(frappe.get_all("Workspace", filters={"module": module}, limit=1))
+		self.assertIn(module, get_navigable_modules())
 
 
 def response(status, body):
