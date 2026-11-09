@@ -19,6 +19,7 @@ from hrms.api.reimbursements import (
 	get_reimbursement_options,
 	submit_reimbursement,
 )
+from hrms.tests.test_drea_finance import FinanceStandIns
 from hrms.tests.utils import HRMSTestSuite
 
 USER = "reimburse.staff@example.com"
@@ -187,3 +188,44 @@ class TestFinanceAccessOnFirstCall(HRMSTestSuite):
 		with patch(REQUEST, return_value=answer(body={"items": [], "has_more": False})):
 			get_my_reimbursements()
 		self.assertEqual(frappe.db.get_value("User", USER, "drea_finance_role"), "dept_head")
+
+
+class TestFirstCallOnlyOnce(FinanceStandIns, HRMSTestSuite):
+	"""Audit H1: the first-claim grant never brings back a role someone cleared or switched off."""
+
+	def setUp(self):
+		frappe.set_user("Administrator")
+		if not frappe.db.get_value("Employee", {"user_id": USER}):
+			make_employee(USER, "_Test Company")
+		settings = frappe.get_single("HR Settings")
+		settings.drea_finance_url = URL
+		settings.drea_finance_api_key = "test-key"
+		settings.save()
+
+	def tearDown(self):
+		frappe.set_user("Administrator")
+
+	def first_call(self, role, active):
+		frappe.set_user("Administrator")
+		frappe.db.set_value("User", USER, {"drea_finance_role": role, "drea_finance_active": active})
+		frappe.set_user(USER)
+		with patch(REQUEST, return_value=answer(body={"items": [], "has_more": False})):
+			get_my_reimbursements()
+		return frappe.db.get_value("User", USER, ["drea_finance_role", "drea_finance_active"])
+
+	def test_switched_off_is_not_switched_back_on(self):
+		role, active = self.first_call("", 0)
+		self.assertFalse(role)
+		self.assertEqual(active, 0)
+
+	def test_a_cleared_role_stays_cleared_once_finance_has_the_account(self):
+		self.make_finance_tables()
+		self.finance_user(USER)
+		for cleared in ("", None):
+			role, _active = self.first_call(cleared, 1)
+			self.assertFalse(role)
+
+	def test_never_had_an_account_still_gets_staff(self):
+		self.make_finance_tables()
+		role, active = self.first_call("", 1)
+		self.assertEqual((role, active), ("staff", 1))

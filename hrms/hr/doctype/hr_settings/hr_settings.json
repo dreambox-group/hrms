@@ -73,6 +73,7 @@
   "drea_finance_api_key",
   "drea_finance_send_payroll",
   "drea_finance_payroll_test_only",
+  "drea_finance_no_password_users",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -420,6 +421,13 @@
    "label": "Payroll Sends Are Tests Only"
   },
   {
+   "description": "Service accounts that never get a password: Forgot password, Reset Password and Set New Password are refused for them, so nobody reading their mailbox can sign in. One email per line. Everyone else keeps the usual password reset.",
+   "fieldname": "drea_finance_no_password_users",
+   "fieldtype": "Small Text",
+   "label": "Accounts That Never Get a Password",
+   "permlevel": 1
+  },
+  {
    "fieldname": "attendance_settings_section",
    "fieldtype": "Section Break",
    "label": "Attendance Settings"
@@ -594,7 +602,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-06 10:00:00.000000",
+ "modified": "2026-11-09 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",
@@ -627,6 +635,17 @@
   {
    "read": 1,
    "role": "Employee"
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "HR Manager"
   }
  ],
  "row_format": "Dynamic",

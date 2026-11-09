@@ -202,12 +202,19 @@ doc_events = {
 			"erpnext.setup.doctype.employee.employee.validate_employee_role",
 			"hrms.overrides.employee_master.update_approver_user_roles",
 			"hrms.finance.validate_user_finance_fields",
+			"hrms.finance.validate_user_finance_guards",
 		],
+		# service accounts never get a password (HR Settings > Drea Finance)
+		"before_validate": "hrms.finance.refuse_service_account_password",
+		"validate_reset_password": "hrms.finance.refuse_service_account_reset",
 		# Drea Finance's books point at users by name (handbook 7.7): refuse the delete plainly
 		"on_trash": "hrms.finance.refuse_delete",
 	},
 	"Company": {
-		"validate": "hrms.overrides.company.validate_default_accounts",
+		"validate": [
+			"hrms.overrides.company.validate_default_accounts",
+			"hrms.finance.validate_company_finance_fields",
+		],
 		"on_update": [
 			"hrms.overrides.company.make_company_fixtures",
 			"hrms.overrides.company.set_default_hr_accounts",
@@ -392,9 +399,10 @@ global_search_doctypes = {
 	],
 }
 
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "hrms.event.get_events"
-# }
+override_whitelisted_methods = {
+	# refuses a service account's password even from a link already sent (hrms.finance)
+	"frappe.core.doctype.user.user.update_password": "hrms.finance.update_password",
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,

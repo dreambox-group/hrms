@@ -55,16 +55,40 @@ def ensure_finance_access():
 	"""Drea Finance in the same database (3 Nov 2026): Finance no longer opens an account on an
 	employee's first claim and answers 403 to an email it has no row for. The Frappe user gets the
 	Finance role "staff" here when it has none; Finance's trigger on tabUser then makes its row. An
-	existing role is never changed. Committed before the call so Finance's connection can see it."""
+	existing role is never changed. Committed before the call so Finance's connection can see it.
+
+	Only on a first claim (Finance audit H1, 9 Nov 2026). Not when "Drea Finance Active" is off,
+	and not for anyone Finance already has an account for: clearing the role in the desk keeps
+	Finance's row, switched off, so a cleared role is a decision and stays cleared."""
 	user = frappe.session.user
 	if not user or user == "Guest" or not frappe.db.has_column("User", "drea_finance_role"):
 		return
-	if frappe.db.get_value("User", user, "drea_finance_role"):
+	role, active = frappe.db.get_value("User", user, ["drea_finance_role", "drea_finance_active"]) or (
+		None,
+		None,
+	)
+	# Frappe stores a cleared Select as '' and older rows as NULL: both mean no role
+	if (role or "").strip():
+		return
+	if active is not None and not cint(active):
+		return
+	if had_finance_account(user):
 		return
 	frappe.db.set_value(
 		"User", user, {"drea_finance_role": "staff", "drea_finance_active": 1}, update_modified=False
 	)
 	frappe.db.commit()
+
+
+def had_finance_account(user: str) -> bool:
+	"""Whether Drea Finance has an account for this user, switched on or off. Only where Finance's
+	tables are in this database (Postgres, from the cutover); elsewhere False, which keeps the
+	first-claim grant as it was."""
+	if frappe.db.db_type != "postgres":
+		return False
+	if not frappe.db.sql("select to_regclass('finance.users')")[0][0]:
+		return False
+	return bool(frappe.db.sql("select 1 from finance.users where frappe_user = %s limit 1", (user,)))
 
 
 def call(method: str, path: str, **kwargs) -> dict:

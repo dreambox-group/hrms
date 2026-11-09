@@ -410,10 +410,29 @@ def setup_drea_finance():
 			add_permission(doctype, role, permlevel=1)
 			update_permission_property(doctype, role, 1, "read", 1)
 			update_permission_property(doctype, role, 1, "write", 1 if can_write else 0)
+	fill_no_password_users()
 	frappe.clear_cache(doctype="User")
 	frappe.clear_cache(doctype="Company")
 	frappe.clear_cache(doctype="Salary Component")
 	frappe.clear_cache(doctype="Payroll Entry")
+
+
+def fill_no_password_users():
+	"""Put the three service accounts in HR Settings' "Accounts That Never Get a Password" the
+	first time only: once the setting exists, even emptied by a System Manager, it is theirs."""
+	from hrms.finance import NO_PASSWORD_DEFAULT, NO_PASSWORD_FIELD
+
+	if not frappe.db.has_column("User", "drea_finance_role"):
+		return
+	Singles = frappe.qb.DocType("Singles")
+	exists = (
+		frappe.qb.from_(Singles)
+		.select(Singles.field)
+		.where((Singles.doctype == "HR Settings") & (Singles.field == NO_PASSWORD_FIELD))
+		.run()
+	)
+	if not exists:
+		frappe.db.set_single_value("HR Settings", NO_PASSWORD_FIELD, chr(10).join(NO_PASSWORD_DEFAULT))
 
 
 def get_hrms_custom_fields():

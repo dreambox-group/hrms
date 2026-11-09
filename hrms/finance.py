@@ -15,8 +15,11 @@ Frappe never writes to Finance's tables and never names them: the delete guard r
 foreign keys from the database catalog, so Finance can add tables without touching this app.
 """
 
+import re
+
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 FINANCE_ROLES = ("admin", "staff", "finance", "director", "dept_head", "vendor")
 FINANCE_ADMIN_ROLE = "Finance Admin"
@@ -114,3 +117,202 @@ def validate_user_finance_fields(doc, method=None):
 		frappe.throw(_("Drea Finance Role must be one of: {0}").format(", ".join(FINANCE_ROLES)))
 	if not role and doc.get("drea_finance_divisions"):
 		frappe.throw(_("Give the user a Drea Finance Role before assigning divisions."))
+
+
+# --- checks Drea Finance made in its own admin screens (Finance audit H2, 9 Nov 2026) -------------
+#
+# Editing people and companies moved to this desk on 4 Nov 2026; these are the refusals Finance's
+# user and company screens made, so the desk makes them now. The two that read Finance's tables
+# run only where those tables are in this database (Postgres, from the cutover) and are skipped,
+# never fatal, if a table is missing or a query fails: a Finance change must not block HR's saves.
+
+
+def finance_sql(query: str, values: tuple, tables: tuple[str, ...]):
+	"""Run a read on Finance's tables, or return None when it cannot run here."""
+	if frappe.db.db_type != "postgres":
+		return None
+	for table in tables:
+		if not frappe.db.sql("select to_regclass(%s)", (f"finance.{table}",))[0][0]:
+			return None
+	frappe.db.savepoint("drea_finance_check")
+	try:
+		rows = frappe.db.sql(query, values)
+	except Exception:
+		# A failed statement spoils a Postgres transaction: undo it, note it, let the save go on.
+		frappe.db.rollback(save_point="drea_finance_check")
+		frappe.log_error("Drea Finance check skipped", reference_doctype="HR Settings")
+		return None
+	frappe.db.release_savepoint("drea_finance_check")
+	return rows
+
+
+def finance_on(enabled, active, role) -> bool:
+	"""What Finance's trigger reads: enabled, the Finance switch on, and a Finance role."""
+	return bool(cint(enabled) and cint(active) and (role or "").strip() in FINANCE_ROLES)
+
+
+def rupiah(amount: float) -> str:
+	return "Rp " + f"{round(amount):,}".replace(",", ".")
+
+
+def validate_user_finance_guards(doc, method=None):
+	"""User.validate: never leave Drea Finance without an active admin, and never switch off (or
+	make finance, admin or vendor, who may not hold an advance) someone holding cash-advance money."""
+	before = doc.get_doc_before_save()
+	if not before or not frappe.db.has_column("User", "drea_finance_role"):
+		return
+	role_before = (before.get("drea_finance_role") or "").strip()
+	role_now = (doc.get("drea_finance_role") or "").strip()
+	on_before = finance_on(before.enabled, before.get("drea_finance_active"), role_before)
+	on_now = finance_on(doc.enabled, doc.get("drea_finance_active"), role_now)
+
+	if on_before and role_before == "admin" and not (on_now and role_now == "admin"):
+		others = [
+			name
+			for name in frappe.get_all(
+				"User",
+				filters={
+					"name": ["!=", doc.name],
+					"enabled": 1,
+					"drea_finance_role": "admin",
+					"drea_finance_active": 1,
+				},
+				pluck="name",
+			)
+			if not never_gets_password(name)
+		]
+		if not others:
+			frappe.throw(
+				_("{0} is the last active Drea Finance admin. Make someone else admin first.").format(
+					frappe.bold(doc.name)
+				),
+				title=_("Drea Finance needs an admin"),
+			)
+
+	leaves_wallet = on_before and (
+		not on_now or (role_now != role_before and role_now in ("finance", "admin", "vendor"))
+	)
+	if leaves_wallet:
+		rows = finance_sql(
+			"""
+			select coalesce(sum(w.amount), 0)
+			from finance.wallet_entries w join finance.users u on u.id = w.holder_id
+			where u.frappe_user = %s
+			""",
+			(doc.name,),
+			("wallet_entries", "users"),
+		)
+		held = round(float(rows[0][0])) if rows else 0
+		if held:
+			frappe.throw(
+				_(
+					"{0} is holding {1} of cash advance. Record the return in Drea Finance (Cash advances, "
+					"Monthly review) first."
+				).format(frappe.bold(doc.full_name or doc.name), rupiah(held)),
+				title=_("Cash advance still held"),
+			)
+
+
+def validate_company_finance_fields(doc, method=None):
+	"""Company.validate: the withholding rate as Finance's company screen checked it, and no
+	switching off a company whose bank accounts are still on in Drea Finance."""
+	if not frappe.db.has_column("Company", "drea_finance_active"):
+		return
+	percent = doc.get("withholding_tax_percent")
+	if percent is not None and percent != "":
+		percent = float(percent)
+		if percent < 0 or percent > 100:
+			frappe.throw(_("The withholding rate is a percent between 0 and 100."))
+		if percent > 0 and not doc.get("withholding_kind"):
+			frappe.throw(_("Say which tax the clients withhold: PPh 23 or PPh Final."))
+
+	before = doc.get_doc_before_save()
+	if before and cint(before.get("drea_finance_active")) and not cint(doc.get("drea_finance_active")):
+		rows = finance_sql(
+			"""
+			select count(*)
+			from finance.legal_entity_accounts a join finance.legal_entities e on e.id = a.legal_entity_id
+			where e.company = %s and a.is_active
+			""",
+			(doc.name,),
+			("legal_entity_accounts", "legal_entities"),
+		)
+		if rows and rows[0][0]:
+			frappe.throw(
+				_(
+					"{0} still has {1} bank account(s) switched on in Drea Finance. Switch them off "
+					"there first: payments can still be recorded from them."
+				).format(frappe.bold(doc.name), rows[0][0]),
+				title=_("Bank accounts still on"),
+			)
+
+
+# --- service accounts never get a password (owner, 9 Nov 2026; Finance audit F7) ------------------
+#
+# hr-system@, appsheet@ and ai.assistant@ stay enabled users (their Finance rows and authorship
+# need them), and every @dreambox.id mailbox receives mail, so "Forgot password" would hand
+# whoever reads it a password. The list is HR Settings > Drea Finance, editable by a System
+# Manager; everyone else keeps Forgot password and the admin reset.
+
+NO_PASSWORD_FIELD = "drea_finance_no_password_users"
+NO_PASSWORD_DEFAULT = ("hr-system@dreambox.id", "appsheet@dreambox.id", "ai.assistant@dreambox.id")
+
+
+def no_password_users() -> set[str]:
+	"""The listed accounts, lower-case. Until the setting has ever been saved, the three defaults."""
+	Singles = frappe.qb.DocType("Singles")
+	rows = (
+		frappe.qb.from_(Singles)
+		.select(Singles.value)
+		.where((Singles.doctype == "HR Settings") & (Singles.field == NO_PASSWORD_FIELD))
+		.run()
+	)
+	text = rows[0][0] if rows else "\n".join(NO_PASSWORD_DEFAULT)
+	return {part.strip().lower() for part in re.split(r"[\s,;]+", text or "") if part.strip()}
+
+
+def never_gets_password(user: str | None, email: str | None = None) -> bool:
+	listed = no_password_users()
+	return any((value or "").strip().lower() in listed for value in (user, email))
+
+
+def refusal(user: str):
+	frappe.throw(
+		_("{0} is a service account and never gets a password (HR Settings, Drea Finance).").format(
+			frappe.bold(user)
+		),
+		title=_("No password for service accounts"),
+	)
+
+
+def refuse_service_account_password(doc, method=None):
+	"""User.before_validate: the desk's "Set New Password" and change_password."""
+	if doc.get("new_password") and never_gets_password(doc.name, doc.get("email")):
+		refusal(doc.name)
+
+
+def refuse_service_account_reset(doc, method=None):
+	"""User.validate_reset_password: Forgot password and the desk's Reset Password. No link is made."""
+	if never_gets_password(doc.name, doc.get("email")):
+		refusal(doc.name)
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+def update_password(
+	new_password: str, logout_all_sessions: int = 0, key: str | None = None, old_password: str | None = None
+):
+	"""/update-password, in place of Frappe's: a reset or welcome link made before the list (or by a
+	path that skips the reset hook) still cannot set a service account's password."""
+	from frappe.core.doctype.user.user import update_password as frappe_update_password
+	from frappe.utils.data import sha256_hash
+
+	user = None
+	if key:
+		user = frappe.db.get_value("User", {"reset_password_key": sha256_hash(key)}, "name")
+	elif old_password:
+		user = frappe.session.user
+	if user and never_gets_password(user, frappe.db.get_value("User", user, "email")):
+		refusal(user)
+	return frappe_update_password(
+		new_password=new_password, logout_all_sessions=logout_all_sessions, key=key, old_password=old_password
+	)
