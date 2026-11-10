@@ -71,6 +71,7 @@
   "drea_finance_url",
   "column_break_drea_finance",
   "drea_finance_api_key",
+  "drea_finance_paused",
   "drea_finance_send_payroll",
   "drea_finance_payroll_test_only",
   "drea_finance_no_password_users",
@@ -393,7 +394,8 @@
    "fieldname": "drea_finance_url",
    "fieldtype": "Data",
    "label": "Drea Finance URL",
-   "options": "URL"
+   "options": "URL",
+   "permlevel": 1
   },
   {
    "fieldname": "column_break_drea_finance",
@@ -403,7 +405,16 @@
    "description": "Drea Finance's HR_API_KEY. Claims are filed as the signed-in employee, by their login email; Drea Finance makes a Staff account on their first claim.",
    "fieldname": "drea_finance_api_key",
    "fieldtype": "Password",
-   "label": "Drea Finance API Key"
+   "label": "Drea Finance API Key",
+   "permlevel": 1
+  },
+  {
+   "default": "0",
+   "description": "Tick for the hour Drea Finance moves to its new database: every reimbursement action in the employee app (the form, the list, Send, Cancel) then says reimbursements are paused, without calling Drea Finance, and nothing is sent. Untick when the move is done. Payroll sends are not affected.",
+   "fieldname": "drea_finance_paused",
+   "fieldtype": "Check",
+   "label": "Pause Reimbursements (Drea Finance Is Moving)",
+   "permlevel": 1
   },
   {
    "default": "0",
@@ -602,7 +613,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-09 12:00:00.000000",
+ "modified": "2026-11-09 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

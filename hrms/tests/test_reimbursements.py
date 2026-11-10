@@ -16,6 +16,7 @@ from hrms.api.reimbursements import (
 	DreaFinanceError,
 	cancel_reimbursement,
 	get_my_reimbursements,
+	get_reimbursement,
 	get_reimbursement_options,
 	submit_reimbursement,
 )
@@ -158,6 +159,46 @@ class TestReimbursements(HRMSTestSuite):
 			with self.assertRaises(DreaFinanceError) as raised:
 				cancel_reimbursement("abc", "wrong amount")
 		self.assertIn("Ask HR", str(raised.exception))
+
+	def test_paused_says_so_calls_nobody_and_keeps_the_files(self):
+		"""HR Settings "Pause Reimbursements" (owner, 9 Nov 2026): the cutover window."""
+		file_doc = frappe.get_doc(
+			{"doctype": "File", "file_name": "struk.png", "content": png(), "is_private": 1}
+		).insert()
+		frappe.set_user("Administrator")
+		frappe.db.set_single_value("HR Settings", "drea_finance_paused", 1)
+		role_before = frappe.db.get_value("User", USER, ["drea_finance_role", "drea_finance_active"])
+		frappe.set_user(USER)
+		try:
+			actions = [
+				get_reimbursement_options,
+				get_my_reimbursements,
+				lambda: get_reimbursement("abc"),
+				lambda: cancel_reimbursement("abc", "wrong amount"),
+				lambda: submit_reimbursement(
+					{"description": "Taxi", "amount": "150000"},
+					[{"file_url": file_doc.file_url, "category": "receipt"}],
+				),
+			]
+			with patch(REQUEST) as request:
+				for action in actions:
+					with self.assertRaises(DreaFinanceError) as raised:
+						action()
+					self.assertIn("Drea Finance is moving", str(raised.exception))
+			request.assert_not_called()
+			self.assertTrue(frappe.db.exists("File", file_doc.name))
+			self.assertEqual(
+				frappe.db.get_value("User", USER, ["drea_finance_role", "drea_finance_active"]), role_before
+			)
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.set_single_value("HR Settings", "drea_finance_paused", 0)
+			frappe.set_user(USER)
+
+		# Unticked: back to normal from the next call.
+		with patch(REQUEST, return_value=answer(body={"items": [], "has_more": False})) as request:
+			get_my_reimbursements()
+		request.assert_called_once()
 
 
 class TestFinanceAccessOnFirstCall(HRMSTestSuite):

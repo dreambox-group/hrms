@@ -399,6 +399,9 @@ global_search_doctypes = {
 	],
 }
 
+# the service accounts never sign in, however they try (hrms.finance)
+on_login = "hrms.finance.refuse_service_account_login"
+
 override_whitelisted_methods = {
 	# refuses a service account's password even from a link already sent (hrms.finance)
 	"frappe.core.doctype.user.user.update_password": "hrms.finance.update_password",

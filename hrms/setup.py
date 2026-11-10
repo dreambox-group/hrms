@@ -407,6 +407,10 @@ def setup_drea_finance():
 			frappe.delete_doc("Custom Field", name, ignore_permissions=True, force=True)
 	for doctype, roles in DREA_FINANCE_PERMLEVEL_PERMS.items():
 		for role, can_write in roles:
+			# Only when the rule is first made: a later change in Role Permission Manager stays
+			# (second audit, 9 Nov 2026; before, every migrate put the flags back).
+			if frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": role, "permlevel": 1}):
+				continue
 			add_permission(doctype, role, permlevel=1)
 			update_permission_property(doctype, role, 1, "read", 1)
 			update_permission_property(doctype, role, 1, "write", 1 if can_write else 0)

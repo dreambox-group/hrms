@@ -131,11 +131,13 @@ def finance_sql(query: str, values: tuple, tables: tuple[str, ...]):
 	"""Run a read on Finance's tables, or return None when it cannot run here."""
 	if frappe.db.db_type != "postgres":
 		return None
-	for table in tables:
-		if not frappe.db.sql("select to_regclass(%s)", (f"finance.{table}",))[0][0]:
-			return None
 	frappe.db.savepoint("drea_finance_check")
 	try:
+		# Inside the savepoint too: without read access to schema finance even the lookup fails.
+		for table in tables:
+			if not frappe.db.sql("select to_regclass(%s)", (f"finance.{table}",))[0][0]:
+				frappe.db.release_savepoint("drea_finance_check")
+				return None
 		rows = frappe.db.sql(query, values)
 	except Exception:
 		# A failed statement spoils a Postgres transaction: undo it, note it, let the save go on.
@@ -218,6 +220,8 @@ def validate_company_finance_fields(doc, method=None):
 	switching off a company whose bank accounts are still on in Drea Finance."""
 	if not frappe.db.has_column("Company", "drea_finance_active"):
 		return
+	before = doc.get_doc_before_save()
+	validate_company_finance_code(doc, before)
 	percent = doc.get("withholding_tax_percent")
 	if percent is not None and percent != "":
 		percent = float(percent)
@@ -226,7 +230,6 @@ def validate_company_finance_fields(doc, method=None):
 		if percent > 0 and not doc.get("withholding_kind"):
 			frappe.throw(_("Say which tax the clients withhold: PPh 23 or PPh Final."))
 
-	before = doc.get_doc_before_save()
 	if before and cint(before.get("drea_finance_active")) and not cint(doc.get("drea_finance_active")):
 		rows = finance_sql(
 			"""
@@ -244,6 +247,44 @@ def validate_company_finance_fields(doc, method=None):
 					"there first: payments can still be recorded from them."
 				).format(frappe.bold(doc.name), rows[0][0]),
 				title=_("Bank accounts still on"),
+			)
+
+
+def validate_company_finance_code(doc, before):
+	"""Second audit (9 Nov 2026): Finance files a company's books under its code, and the copy
+	matches companies by code. So once Drea Finance has books under this company its code
+	stays, and a code Finance files under another company is not given to this one. Before
+	the cutover (no finance schema) and for a company Finance has nothing under, it is free."""
+	code_before = ((before.get("drea_finance_code") if before else "") or "").strip()
+	code_now = (doc.get("drea_finance_code") or "").strip()
+	if code_now == code_before:
+		return
+	if code_before:
+		rows = finance_sql(
+			"select count(*) from finance.legal_entities where company = %s",
+			(doc.name,),
+			("legal_entities",),
+		)
+		if rows and rows[0][0]:
+			frappe.throw(
+				_(
+					"The Drea Finance code of {0} stays {1}: Drea Finance files this company's books "
+					"under it. Ask the Finance admin if it really must change."
+				).format(frappe.bold(doc.name), frappe.bold(code_before)),
+				title=_("Drea Finance code"),
+			)
+	if code_now:
+		rows = finance_sql(
+			"select company from finance.legal_entities where entity_code = %s and company is distinct from %s",
+			(code_now, doc.name),
+			("legal_entities",),
+		)
+		if rows:
+			frappe.throw(
+				_("{0} is already the Drea Finance code of {1}.").format(
+					frappe.bold(code_now), frappe.bold(rows[0][0] or _("a company Drea Finance has"))
+				),
+				title=_("Drea Finance code"),
 			)
 
 
@@ -274,6 +315,19 @@ def no_password_users() -> set[str]:
 def never_gets_password(user: str | None, email: str | None = None) -> bool:
 	listed = no_password_users()
 	return any((value or "").strip().lower() in listed for value in (user, email))
+
+
+def refuse_service_account_login(login_manager):
+	"""on_login, before any session is made (second audit, 9 Nov 2026): the listed service
+	accounts never sign in, whatever the way: a password set before the list existed, a login
+	link by email, Google, or "Login as". Calls with an API key make no session and still work."""
+	if never_gets_password(login_manager.user):
+		frappe.throw(
+			_("{0} is a service account and does not sign in (HR Settings, Drea Finance).").format(
+				frappe.bold(login_manager.user)
+			),
+			frappe.AuthenticationError,
+		)
 
 
 def refusal(user: str):

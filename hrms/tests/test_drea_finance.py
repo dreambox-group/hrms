@@ -3,6 +3,8 @@
 
 """The Frappe side of Drea Finance in the same database (hrms.finance, hrms.setup.setup_drea_finance)."""
 
+from types import SimpleNamespace
+
 import frappe
 from frappe.tests import IntegrationTestCase
 
@@ -13,6 +15,7 @@ from hrms.finance import (
 	has_finance_access,
 	no_password_users,
 	referencing_foreign_keys,
+	refuse_service_account_login,
 )
 from hrms.setup import (
 	DREA_FINANCE_PERMLEVEL_PERMS,
@@ -77,6 +80,16 @@ class TestDreaFinanceSetup(IntegrationTestCase):
 			frappe.db.count("Custom DocPerm", {"parent": "Company", "permlevel": 1, "role": "Finance Admin"}),
 			1,
 		)
+
+	def test_a_change_made_in_role_permission_manager_survives_migrate(self):
+		setup_drea_finance()
+		row = {"parent": "Company", "permlevel": 1, "role": "HR Manager"}
+		frappe.db.set_value("Custom DocPerm", row, "write", 1)
+		try:
+			setup_drea_finance()  # what bench migrate runs
+			self.assertEqual(frappe.db.get_value("Custom DocPerm", row, "write"), 1)
+		finally:
+			frappe.db.set_value("Custom DocPerm", row, "write", 0)
 
 
 class TestFinanceAccess(IntegrationTestCase):
@@ -184,7 +197,9 @@ class FinanceStandIns:
 		frappe.db.sql("create schema finance")
 		frappe.db.sql("create table finance.users (id uuid primary key, frappe_user varchar(140))")
 		frappe.db.sql("create table finance.wallet_entries (id uuid primary key, holder_id uuid, amount numeric(15,2))")
-		frappe.db.sql("create table finance.legal_entities (id uuid primary key, company varchar(140))")
+		frappe.db.sql(
+			"create table finance.legal_entities (id uuid primary key, company varchar(140), entity_code varchar(40))"
+		)
 		frappe.db.sql(
 			"create table finance.legal_entity_accounts (id uuid primary key, legal_entity_id uuid, is_active boolean)"
 		)
@@ -317,6 +332,28 @@ class TestCompanyFinanceGuards(FinanceStandIns, IntegrationTestCase):
 		self.save(drea_finance_active=0)
 		self.assertEqual(frappe.db.get_value("Company", self.COMPANY, "drea_finance_active"), 0)
 
+	def test_the_finance_code_stays_once_finance_has_books_under_it(self):
+		frappe.db.set_value("Company", self.COMPANY, "drea_finance_code", "LE-T1")
+		self.save(drea_finance_code="LE-T2")  # no Finance tables here (before the cutover): free
+		self.make_finance_tables()
+		self.save(drea_finance_code="LE-T3")  # Finance has nothing under this company: free
+		frappe.db.sql(
+			"insert into finance.legal_entities values (gen_random_uuid(), %s, 'LE-T3')", (self.COMPANY,)
+		)
+		with self.assertRaisesRegex(frappe.ValidationError, "stays .*LE-T3"):
+			self.save(drea_finance_code="LE-T4")
+		with self.assertRaisesRegex(frappe.ValidationError, "stays .*LE-T3"):
+			self.save(drea_finance_code="")
+		self.save(drea_finance_code="LE-T3", withholding_tax_percent=0)  # other edits still save
+
+	def test_a_code_finance_files_under_another_company_is_refused(self):
+		frappe.db.set_value("Company", self.COMPANY, "drea_finance_code", "")
+		self.make_finance_tables()
+		frappe.db.sql("insert into finance.legal_entities values (gen_random_uuid(), 'Another Co', 'LE-T9')")
+		with self.assertRaisesRegex(frappe.ValidationError, "already the Drea Finance code of"):
+			self.save(drea_finance_code="LE-T9")
+		self.save(drea_finance_code="LE-T8")
+
 
 SERVICE = "_test_service_account@example.com"
 STRONG = "Zx9!quartz-Lantern-2026"
@@ -342,6 +379,17 @@ class TestServiceAccountPasswords(IntegrationTestCase):
 		self.assertEqual(meta.get_field(NO_PASSWORD_FIELD).permlevel, 1)
 		writers = {p.role for p in meta.permissions if p.permlevel == 1 and p.write}
 		self.assertEqual(writers, {"System Manager"})
+
+	def test_they_never_sign_in_and_everyone_else_does(self):
+		self.assertIn("hrms.finance.refuse_service_account_login", frappe.get_hooks("on_login"))
+		with self.assertRaisesRegex(frappe.AuthenticationError, "does not sign in"):
+			refuse_service_account_login(SimpleNamespace(user=SERVICE))
+		refuse_service_account_login(SimpleNamespace(user=TEST_USER))
+
+	def test_the_finance_address_and_key_are_the_system_managers(self):
+		meta = frappe.get_meta("HR Settings")
+		for field in ("drea_finance_url", "drea_finance_api_key", "drea_finance_paused"):
+			self.assertEqual(meta.get_field(field).permlevel, 1, field)
 
 	def test_setting_a_password_is_refused_for_them_only(self):
 		user = frappe.get_doc("User", SERVICE)

@@ -30,7 +30,25 @@ class DreaFinanceError(frappe.ValidationError):
 	pass
 
 
+def reimbursements_paused() -> bool:
+	# The field arrives with bench migrate; until then (an image switched, not yet migrated) nothing is paused.
+	if not frappe.get_meta("HR Settings").has_field("drea_finance_paused"):
+		return False
+	return bool(cint(frappe.db.get_single_value("HR Settings", "drea_finance_paused")))
+
+
 def connection() -> tuple[str, str]:
+	# HR Settings "Pause Reimbursements": the cutover window (owner, 9 Nov 2026). Checked before
+	# anything else, so nothing reaches Drea Finance and no Finance role is given meanwhile.
+	if reimbursements_paused():
+		frappe.throw(
+			_(
+				"Drea Finance is moving. Reimbursements are paused for about an hour; please try again then. "
+				"Claims you sent before are safe."
+			),
+			DreaFinanceError,
+			title=_("Paused"),
+		)
 	url = (frappe.db.get_single_value("HR Settings", "drea_finance_url") or "").strip().rstrip("/")
 	key = get_decrypted_password("HR Settings", "HR Settings", "drea_finance_api_key", raise_exception=False)
 	if not url or not key:
@@ -86,9 +104,18 @@ def had_finance_account(user: str) -> bool:
 	first-claim grant as it was."""
 	if frappe.db.db_type != "postgres":
 		return False
-	if not frappe.db.sql("select to_regclass('finance.users')")[0][0]:
-		return False
-	return bool(frappe.db.sql("select 1 from finance.users where frappe_user = %s limit 1", (user,)))
+	frappe.db.savepoint("drea_finance_had")
+	try:
+		found = bool(frappe.db.sql("select to_regclass('finance.users')")[0][0]) and bool(
+			frappe.db.sql("select 1 from finance.users where frappe_user = %s limit 1", (user,))
+		)
+	except Exception:
+		# Finance is there but cannot be read (second audit): give no role rather than guess.
+		frappe.db.rollback(save_point="drea_finance_had")
+		frappe.log_error("Drea Finance account check failed", reference_doctype="HR Settings")
+		return True
+	frappe.db.release_savepoint("drea_finance_had")
+	return found
 
 
 def call(method: str, path: str, **kwargs) -> dict:
