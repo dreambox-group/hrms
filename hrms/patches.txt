@@ -62,3 +62,4 @@ hrms.patches.v16_0.cuti_pengganti_setting
 hrms.patches.v16_0.pay_period_setting
 hrms.patches.v16_0.indonesian_id_fields
 hrms.patches.v16_0.drea_finance_fields
+hrms.patches.v16_0.hr_start_home_page

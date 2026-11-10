@@ -99,6 +99,8 @@ def get_current_employee() -> str:
 # HR Settings
 @frappe.whitelist()
 def get_hr_settings() -> dict:
+	from hrms.api.reimbursements import reimbursements_shown  # here: reimbursements imports this module
+
 	settings = frappe.db.get_singles_dict("HR Settings", cast=True)
 	return frappe._dict(
 		allow_employee_checkin_from_mobile_app=settings.allow_employee_checkin_from_mobile_app,
@@ -109,8 +111,11 @@ def get_hr_settings() -> dict:
 		show_salary_in_employee_app=settings.show_salary_in_employee_app,
 		show_attendance_requests_in_employee_app=settings.show_attendance_requests_in_employee_app,
 		schedule_week_starts_on=settings.get("schedule_week_starts_on") or "Monday",
-		# Reimbursement goes to Drea Finance once HR Settings has its address and key
-		show_reimbursements=bool(settings.get("drea_finance_url") and settings.get("drea_finance_api_key")),
+		# Reimbursement goes to Drea Finance once HR Settings has its address and key, and only
+		# where "Show Reimbursements in Drea One" is ticked (off on production HRIS, 10 Nov 2026)
+		show_reimbursements=bool(
+			settings.get("drea_finance_url") and settings.get("drea_finance_api_key") and reimbursements_shown()
+		),
 		prevent_self_leave_approval=settings.prevent_self_leave_approval,
 		enable_multi_currency_expense_claim=settings.enable_multi_currency_expense_claim,
 		leave_types_requiring_document=sorted(get_leave_types_requiring_document()),

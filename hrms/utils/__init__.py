@@ -64,3 +64,46 @@ def get_employee_email(employee_id: str) -> str | None:
 
 def extend_bootinfo(bootinfo):
 	bootinfo.hr_only_setup = bool(frappe.conf.sk_hrms)
+	hide_erpnext_tile_from_hr(bootinfo)
+
+
+# Roles that do real work in ERPNext's own modules. Whoever holds none of them has nothing to do
+# behind ERPNext's tile, which ERPNext shows to every desk user.
+ERPNEXT_ROLES = {
+	"System Manager",
+	"Accounts Manager",
+	"Accounts User",
+	"Auditor",
+	"Sales User",
+	"Sales Manager",
+	"Sales Master Manager",
+	"Purchase User",
+	"Purchase Manager",
+	"Purchase Master Manager",
+	"Stock User",
+	"Stock Manager",
+	"Item Manager",
+	"Manufacturing User",
+	"Manufacturing Manager",
+	"Projects User",
+	"Projects Manager",
+	"Quality Manager",
+	"Maintenance User",
+	"Maintenance Manager",
+	"Delivery User",
+	"Delivery Manager",
+	"Fulfillment User",
+	"Analytics",
+}
+
+
+def hide_erpnext_tile_from_hr(bootinfo):
+	"""HR works in Frappe HR only (owner, 10 Nov 2026): the desk's apps screen and the app
+	switcher leave out ERPNext for anyone without an ERPNext role. Only the tile goes: the pages HR
+	needs that ERPNext owns (Employee, Company, Department) stay in Frappe HR's own menus and open
+	as before. Framework is already hidden from them by Frappe itself (System Manager only)."""
+	if frappe.session.user == "Administrator" or ERPNEXT_ROLES & set(frappe.get_roles()):
+		return
+	for app in bootinfo.get("app_data") or []:
+		if app.get("app_name") == "erpnext":
+			app["on_apps_screen"] = False

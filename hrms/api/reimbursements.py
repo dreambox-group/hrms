@@ -37,9 +37,26 @@ def reimbursements_paused() -> bool:
 	return bool(cint(frappe.db.get_single_value("HR Settings", "drea_finance_paused")))
 
 
+def reimbursements_shown() -> bool:
+	# HR Settings "Show Reimbursements in Drea One" (owner, 10 Nov 2026): off on production HRIS,
+	# where only the salary link to Drea Finance runs; on in staging. Until bench migrate brings
+	# the field (an image switched, not yet migrated), Drea One keeps working as before.
+	if not frappe.get_meta("HR Settings").has_field("show_reimbursements_in_employee_app"):
+		return True
+	return bool(cint(frappe.db.get_single_value("HR Settings", "show_reimbursements_in_employee_app")))
+
+
 def connection() -> tuple[str, str]:
+	# Switched off for this site: refused before anything else, so nothing reaches Drea Finance
+	# and no Finance role is given. A page left open in Drea One gets the same answer.
+	if not reimbursements_shown():
+		frappe.throw(
+			_("Reimbursements aren't available in Drea One. Send your claim in Drea Finance."),
+			DreaFinanceError,
+			title=_("Not Available"),
+		)
 	# HR Settings "Pause Reimbursements": the cutover window (owner, 9 Nov 2026). Checked before
-	# anything else, so nothing reaches Drea Finance and no Finance role is given meanwhile.
+	# anything else that calls out, so nothing reaches Drea Finance and no Finance role is given meanwhile.
 	if reimbursements_paused():
 		frappe.throw(
 			_(

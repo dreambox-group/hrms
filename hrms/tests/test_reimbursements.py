@@ -62,6 +62,7 @@ class TestReimbursements(HRMSTestSuite):
 		settings = frappe.get_single("HR Settings")
 		settings.drea_finance_url = URL + "/"
 		settings.drea_finance_api_key = "test-key"
+		settings.show_reimbursements_in_employee_app = 1
 		settings.save()
 		frappe.set_user(USER)
 
@@ -160,6 +161,48 @@ class TestReimbursements(HRMSTestSuite):
 				cancel_reimbursement("abc", "wrong amount")
 		self.assertIn("Ask HR", str(raised.exception))
 
+	def test_switched_off_hides_it_refuses_every_call_and_keeps_the_files(self):
+		"""HR Settings "Show Reimbursements in Drea One" off (production HRIS, owner 10 Nov 2026)."""
+		file_doc = frappe.get_doc(
+			{"doctype": "File", "file_name": "struk.png", "content": png(), "is_private": 1}
+		).insert()
+		frappe.set_user("Administrator")
+		frappe.db.set_single_value("HR Settings", "show_reimbursements_in_employee_app", 0)
+		role_before = frappe.db.get_value("User", USER, ["drea_finance_role", "drea_finance_active"])
+		frappe.set_user(USER)
+		try:
+			self.assertFalse(get_hr_settings()["show_reimbursements"])
+			actions = [
+				get_reimbursement_options,
+				get_my_reimbursements,
+				lambda: get_reimbursement("abc"),
+				lambda: cancel_reimbursement("abc", "wrong amount"),
+				lambda: submit_reimbursement(
+					{"description": "Taxi", "amount": "150000"},
+					[{"file_url": file_doc.file_url, "category": "receipt"}],
+				),
+			]
+			with patch(REQUEST) as request:
+				for action in actions:
+					with self.assertRaises(DreaFinanceError) as raised:
+						action()
+					self.assertIn("aren't available in Drea One", str(raised.exception))
+			request.assert_not_called()
+			self.assertTrue(frappe.db.exists("File", file_doc.name))
+			self.assertEqual(
+				frappe.db.get_value("User", USER, ["drea_finance_role", "drea_finance_active"]), role_before
+			)
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.set_single_value("HR Settings", "show_reimbursements_in_employee_app", 1)
+			frappe.set_user(USER)
+
+		# Ticked again: shown, and calls go through from the next one.
+		self.assertTrue(get_hr_settings()["show_reimbursements"])
+		with patch(REQUEST, return_value=answer(body={"items": [], "has_more": False})) as request:
+			get_my_reimbursements()
+		request.assert_called_once()
+
 	def test_paused_says_so_calls_nobody_and_keeps_the_files(self):
 		"""HR Settings "Pause Reimbursements" (owner, 9 Nov 2026): the cutover window."""
 		file_doc = frappe.get_doc(
@@ -211,6 +254,7 @@ class TestFinanceAccessOnFirstCall(HRMSTestSuite):
 		settings = frappe.get_single("HR Settings")
 		settings.drea_finance_url = URL
 		settings.drea_finance_api_key = "test-key"
+		settings.show_reimbursements_in_employee_app = 1
 		settings.save()
 		frappe.db.set_value("User", USER, {"drea_finance_role": None, "drea_finance_active": 1})
 		frappe.set_user(USER)
@@ -241,6 +285,7 @@ class TestFirstCallOnlyOnce(FinanceStandIns, HRMSTestSuite):
 		settings = frappe.get_single("HR Settings")
 		settings.drea_finance_url = URL
 		settings.drea_finance_api_key = "test-key"
+		settings.show_reimbursements_in_employee_app = 1
 		settings.save()
 
 	def tearDown(self):

@@ -67,14 +67,6 @@
   "show_expenses_in_employee_app",
   "show_salary_in_employee_app",
   "show_attendance_requests_in_employee_app",
-  "drea_finance_section",
-  "drea_finance_url",
-  "column_break_drea_finance",
-  "drea_finance_api_key",
-  "drea_finance_paused",
-  "drea_finance_send_payroll",
-  "drea_finance_payroll_test_only",
-  "drea_finance_no_password_users",
   "tenure_tab",
   "employee_exit_settings_section",
   "exit_questionnaire_web_form",
@@ -89,7 +81,17 @@
   "feedback_reminder_notification_template",
   "column_break_4",
   "hiring_sender",
-  "hiring_sender_email"
+  "hiring_sender_email",
+  "drea_finance_tab",
+  "drea_finance_section",
+  "drea_finance_url",
+  "drea_finance_api_key",
+  "drea_finance_send_payroll",
+  "drea_finance_payroll_test_only",
+  "column_break_drea_finance",
+  "show_reimbursements_in_employee_app",
+  "drea_finance_paused",
+  "drea_finance_no_password_users"
  ],
  "fields": [
   {
@@ -385,6 +387,11 @@
    "label": "Show Attendance & Shift Requests in the Employee App"
   },
   {
+   "fieldname": "drea_finance_tab",
+   "fieldtype": "Tab Break",
+   "label": "Drea Finance"
+  },
+  {
    "fieldname": "drea_finance_section",
    "fieldtype": "Section Break",
    "label": "Drea Finance"
@@ -400,6 +407,14 @@
   {
    "fieldname": "column_break_drea_finance",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Ticked: Drea One shows Reimbursement, and claims go to Drea Finance at the address on the left. Unticked: Reimbursement is hidden in Drea One and any call is refused; the payroll link keeps working. Off on production HRIS, on in staging (owner, 10 Nov 2026).",
+   "fieldname": "show_reimbursements_in_employee_app",
+   "fieldtype": "Check",
+   "label": "Show Reimbursements in Drea One",
+   "permlevel": 1
   },
   {
    "description": "Drea Finance's HR_API_KEY. Claims are filed as the signed-in employee, by their login email; Drea Finance makes a Staff account on their first claim.",
@@ -613,7 +628,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-09 17:00:00.000000",
+ "modified": "2026-11-10 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",
