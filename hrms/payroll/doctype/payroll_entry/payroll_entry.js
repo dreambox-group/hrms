@@ -194,8 +194,7 @@ frappe.ui.form.on("Payroll Entry", {
 						frappe.msgprint({
 							title: r.message.ok ? __("Drea Finance") : __("Drea Finance refused it"),
 							indicator: r.message.ok ? "green" : "red",
-							message: frappe.utils.escape_html(r.message.message || "").replace(/
-/g, "<br>"),
+							message: frappe.utils.escape_html(r.message.message || "").replace(/\n/g, "<br>"),
 						});
 					}
 				},

@@ -399,8 +399,10 @@ global_search_doctypes = {
 	],
 }
 
-# the service accounts never sign in, however they try (hrms.finance)
-on_login = "hrms.finance.refuse_service_account_login"
+# the service accounts never sign in, however they try (hrms.finance); on the HR address
+# (hris.dreambox.id) only HR signs in, and a non-HR session there ends (hrms.utils.drea_doors)
+on_login = ["hrms.finance.refuse_service_account_login", "hrms.utils.drea_doors.refuse_non_hr_sign_in"]
+before_request = ["hrms.utils.drea_doors.end_non_hr_session"]
 
 override_whitelisted_methods = {
 	# refuses a service account's password even from a link already sent (hrms.finance)

@@ -180,7 +180,11 @@ def get_drea_finance_custom_fields():
 				"fieldtype": "Section Break",
 				"label": _("Drea Finance"),
 				"collapsible": 1,
-				"insert_after": "salary_slips_submitted",
+				# open once Finance has answered, so HR sees the answer without looking for it
+				"collapsible_depends_on": "drea_finance_status",
+				# on the Overview tab, under Status: after salary_slips_submitted it fell into the
+				# "Failure Details" tab, which shows only when a payroll fails (11 Nov 2026)
+				"insert_after": "status",
 			},
 			{
 				"fieldname": "drea_finance_kind",
