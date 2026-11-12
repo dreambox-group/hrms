@@ -44,8 +44,11 @@ app_include_js = [
 	"hrms.bundle.js",
 	# not bundled, so an image can change it without rebuilding the desk assets
 	"/assets/hrms/js/dreambox_brand.js",
+	# payroll tutorial (12 Nov 2026): driver.js 1.3.6, MIT, vendored as is, then the tours
+	"/assets/hrms/js/vendor/driver.js.iife.js",
+	"/assets/hrms/js/payroll_tour.js",
 ]
-app_include_css = "hrms.bundle.css"
+app_include_css = ["hrms.bundle.css", "/assets/hrms/css/vendor/driver.css"]
 code_only_modules = {"HR": ["HR Setup"]}
 app_include_icons = ["/assets/hrms/icons/module-icons.svg"]
 

@@ -924,3 +924,14 @@ def get_allowed_states_for_workflow(workflow: dict, user_id: str) -> list[str]:
 @frappe.whitelist()
 def get_permitted_fields_for_write(doctype: str) -> list[str]:
 	return get_permitted_fields(doctype, permission_type="write")
+
+# Tutorials (owner, 12 Nov 2026): a tour starts by itself the first time an HR person opens that
+# screen; this remembers it on their account (a user default), so it holds on every device.
+TOURS = ("payroll_list", "payroll_form")
+
+
+@frappe.whitelist()
+def mark_tour_seen(tour: str) -> None:
+	if tour not in TOURS:
+		frappe.throw(_("Unknown tutorial."))
+	frappe.defaults.set_user_default(f"hrms_tour_{tour}", "1")

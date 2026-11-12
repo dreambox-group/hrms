@@ -108,6 +108,8 @@ frappe.ui.form.on("Payroll Entry", {
 			if (frm.custom_buttons) frm.clear_custom_buttons();
 			frm.events.add_context_buttons(frm);
 		}
+		// the payroll tutorial (public/js/payroll_tour.js), after the buttons above are rebuilt
+		if (window.hrms_payroll_tour) window.hrms_payroll_tour.add_button(frm);
 
 		if (frm.doc.status == "Failed" && frm.doc.error_message) {
 			const issue = `<a id="jump_to_error" style="text-decoration: underline;">issue</a>`;
