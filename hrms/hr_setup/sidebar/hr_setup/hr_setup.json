@@ -16,7 +16,8 @@
    "link_to": "HR Setup",
    "link_type": "Workspace",
    "show_arrow": 0,
-   "type": "Link"
+   "type": "Link",
+   "hidden": 1
   },
   {
    "child": 0,
@@ -40,7 +41,8 @@
    "link_to": "Human Resource",
    "link_type": "Dashboard",
    "show_arrow": 0,
-   "type": "Link"
+   "type": "Link",
+   "hidden": 1
   },
   {
    "child": 0,
@@ -160,7 +162,7 @@
    "url": "/desk/hr-settings#employee_tab"
   }
  ],
- "modified": "2026-10-21 14:00:00.000000",
+ "modified": "2026-11-11 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR Setup",
  "name": "HR Setup",

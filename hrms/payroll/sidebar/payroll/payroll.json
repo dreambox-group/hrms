@@ -10,7 +10,7 @@
    "added": 0,
    "child": 0,
    "collapsible": 1,
-   "hidden": 0,
+   "hidden": 1,
    "icon": "house",
    "indent": 0,
    "is_default_module": 0,
@@ -26,7 +26,7 @@
    "added": 0,
    "child": 0,
    "collapsible": 1,
-   "hidden": 0,
+   "hidden": 1,
    "icon": "layout-dashboard",
    "indent": 0,
    "is_default_module": 0,
@@ -260,7 +260,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-02 13:00:00.000000",
+ "modified": "2026-11-11 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Payroll",
  "name": "Payroll",

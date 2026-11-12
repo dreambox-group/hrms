@@ -6,14 +6,17 @@ app_email = "contact@frappe.io"
 app_license = "GNU General Public License (v3)"
 required_apps = ["frappe/erpnext"]
 source_link = "http://github.com/frappe/hrms"
-app_logo_url = "/assets/hrms/images/frappe-hr-logo.svg"
-# Drea One (the employee app) is where a sign-in lands by default; HR staff get the desk via their own Default App
-app_home = "/hr"
+# Dreambox branding (owner, 11 Nov 2026): the logo on the desk's rail, the apps screen, the
+# sign-in page (patch dreambox_branding) and the loading screen, and the favicon
+app_logo_url = "/assets/hrms/images/dreambox-logo.png"
+# The Frappe HR app's own page is HR Dashboard (owner, 11 Nov 2026: hris.dreambox.id is HR's, and
+# HR Dashboard is its home). Drea One stays at /hr, on one.dreambox.id.
+app_home = "/desk/hr-dashboard"
 
 add_to_apps_screen = [
 	{
 		"name": "hrms",
-		"logo": "/assets/hrms/images/frappe-hr-logo.svg",
+		"logo": "/assets/hrms/images/dreambox-logo.png",
 		"title": "Frappe HR",
 		"route": app_home,
 		"setup_wizard_text": "Let's build a workplace your team will love.",
@@ -39,12 +42,21 @@ add_to_apps_screen = [
 # app_include_css = "/assets/hrms/css/hrms.css"
 app_include_js = [
 	"hrms.bundle.js",
+	# not bundled, so an image can change it without rebuilding the desk assets
+	"/assets/hrms/js/dreambox_brand.js",
 ]
 app_include_css = "hrms.bundle.css"
 code_only_modules = {"HR": ["HR Setup"]}
 app_include_icons = ["/assets/hrms/icons/module-icons.svg"]
 
 # website
+
+# Dreambox favicon and loading-screen logo (owner, 11 Nov 2026); the last app's value wins, so
+# these replace ERPNext's
+website_context = {
+	"favicon": "/assets/hrms/images/dreambox-favicon.png",
+	"splash_image": "/assets/hrms/images/dreambox-logo.png",
+}
 
 # include js, css files in header of web template
 # web_include_css = "/assets/hrms/css/hrms.css"
@@ -322,6 +334,8 @@ scheduler_events = {
 		"hrms.hr.doctype.daily_work_summary_group.daily_work_summary_group.trigger_emails",
 	],
 	"hourly_long": [
+		# keep the HR desk quick to open: rebuild expired per-user desk caches (hrms.utils.warm_desk)
+		"hrms.utils.warm_desk.warm_cold_hr_desks",
 		"hrms.hr.doctype.shift_type.shift_type.update_last_sync_of_checkin",
 		"hrms.hr.doctype.shift_type.shift_type.process_auto_attendance_for_all_shifts",
 		"hrms.hr.doctype.shift_schedule_assignment.shift_schedule_assignment.process_auto_shift_creation",

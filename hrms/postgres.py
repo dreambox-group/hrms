@@ -63,6 +63,40 @@ def register():
 	psycopg2.extensions.register_type(psycopg2.extensions.new_type((114, 3802), "JSON_AS_TEXT", keep_text))
 	psycopg2.extensions.register_adapter(bool, lambda value: psycopg2.extensions.AsIs(int(value)))
 	use_read_committed()
+	end_transaction_before_close()
+
+
+def end_transaction_before_close():
+	"""End the open transaction before a Postgres connection is closed (11 Nov 2026, HRIS speed).
+
+	Frappe ends every request with commit/rollback "and chain", which opens a new, empty
+	transaction, then closes the connection. A connection pooler (PgBouncer, next to the site so
+	a request need not open a new connection to Neon in Singapore, ~160 ms) cannot hand on a
+	connection whose client left mid-transaction, so it throws it away and the pooling gains
+	nothing. Rolling back that transaction first changes no data: anything still in it would be
+	rolled back by the database at close anyway. One round trip, then the connection is reusable.
+	"""
+	try:
+		from frappe.database.postgres.database import PostgresDatabase
+	except ImportError:
+		return
+	if getattr(PostgresDatabase, "_dreambox_clean_close", False):
+		return
+	original = PostgresDatabase.close
+	idle = psycopg2.extensions.TRANSACTION_STATUS_IDLE
+
+	def close(self):
+		conn = getattr(self, "_conn", None)
+		if conn is not None and not conn.closed:
+			try:
+				if conn.info.transaction_status != idle:
+					conn.rollback()
+			except Exception:
+				pass  # a broken connection is closed below, as before
+		return original(self)
+
+	PostgresDatabase.close = close
+	PostgresDatabase._dreambox_clean_close = True
 
 
 def use_read_committed():

@@ -64,3 +64,5 @@ hrms.patches.v16_0.indonesian_id_fields
 hrms.patches.v16_0.drea_finance_fields
 hrms.patches.v16_0.hr_start_home_page
 hrms.patches.v16_0.hr_home_page_desk
+hrms.patches.v16_0.hr_home_page_dashboard
+hrms.patches.v16_0.dreambox_branding

@@ -131,6 +131,21 @@ class TestDreaDoors(HRMSTestSuite):
 				frappe.db.set_value("Role", role, "home_page", page)
 			frappe.cache.delete_key("home_page")
 
+	def test_hr_home_page_moves_to_hr_dashboard_unless_chosen(self):
+		from hrms.patches.v16_0 import hr_home_page_dashboard
+
+		before = {r: frappe.db.get_value("Role", r, "home_page") for r in ("HR User", "HR Manager")}
+		try:
+			frappe.db.set_value("Role", "HR User", "home_page", "desk/hr-setup")
+			frappe.db.set_value("Role", "HR Manager", "home_page", "/desk/somewhere")
+			hr_home_page_dashboard.execute()
+			self.assertEqual(frappe.db.get_value("Role", "HR User", "home_page"), "desk/hr-dashboard")
+			self.assertEqual(frappe.db.get_value("Role", "HR Manager", "home_page"), "/desk/somewhere")
+		finally:
+			for role, page in before.items():
+				frappe.db.set_value("Role", role, "home_page", page)
+			frappe.cache.delete_key("home_page")
+
 	def shown(self, user):
 		frappe.set_user(user)
 		bootinfo = frappe._dict(
