@@ -27,14 +27,26 @@ DEPARTMENTS = {
 	"HR": (DENALO, "Holding", 0, "HR - Db"),
 	"Account": (DENALO, "Holding", 0, "Marketing  - Db"),  # was Marketing (its people are "Account")
 	"Creashun": (DENALO, None, 0, "Creashun - Db"),
-	"Creator Led": (DENALO, None, 0, "Creator Led - Db"),
 	"Digital": (DENALO, None, 0, "Digital - Db"),
 	"Mind Sequence": (DENALO, None, 0, "Mind Sequence - Db"),
 	"Reagentive": (DENALO, None, 0, "Reagentive - Db"),
 	"Shoot by Code": (DENALO, None, 0, "Shoot by Code - Db"),
 	"Littlebit": (KOTAK_MIMPI, None, 0, "Littlebit - Db"),
 }
-DELETED_DEPARTMENTS = ("Payroll Test - Db",)
+# Payroll Test was a test; Creator Led is Creashun's old name (same Drea Finance division)
+DELETED_DEPARTMENTS = ("Payroll Test - Db", "Creator Led - Db", "Creator Led - DIGITAL DENALO")
+
+# what the old parent company still held: moved to Denalo, or test and sample records deleted
+MOVED_TO_DENALO = ("Email Account",)  # "Drea HR", the outgoing mail account
+DELETED_WITH_OLD_PARENT = (  # order matters: what links to the next comes first
+	"Appointment Letter",
+	"Job Offer",
+	"Job Opening",
+	"Employee Onboarding Template",
+	"Employee Separation Template",
+	"Training Program",
+	"Leave Block List",
+)
 
 EMPLOYMENT_TYPES = ("Full-time Permanent", "Full-time Contract", "Intern", "Freelance")
 EMPLOYMENT_TYPE_RENAMES = {"Full-time": "Full-time Permanent", "Contract": "Full-time Contract"}
@@ -71,11 +83,13 @@ def apply(dry_run=True, employee_departments=None):
 
 	detach_companies(plan)
 	attach_parent_settings(plan, (DENALO, KOTAK_MIMPI))
+	clear_old_parent(plan)
 	arrange_departments(plan)
 	tidy_employment_types(plan)
 	tidy_designations(plan)
 	remove_grades(plan)
 	fix_employees(plan, employee_departments or EMPLOYEE_DEPARTMENTS)
+	remove_old_parent(plan)  # last: everything above has moved off it
 
 	if not dry_run:
 		frappe.db.commit()  # nosemgrep: a bench execute command, run by hand
@@ -153,6 +167,93 @@ def attach_parent_settings(plan, companies):
 				).insert(ignore_permissions=True)
 
 			plan.do(f"Leave period {period.from_date} to {period.to_date} for {company}", add)
+
+
+def clear_old_parent(plan):
+	"""Move what the old parent company still holds that HR uses, delete its test and sample records."""
+	if not frappe.db.exists("Company", OLD_PARENT):
+		return
+	for doctype in MOVED_TO_DENALO:
+		for name in frappe.get_all(doctype, filters={"company": OLD_PARENT}, pluck="name"):
+			plan.do(
+				f"{doctype} {name!r}: company {OLD_PARENT} -> {DENALO}",
+				lambda d=doctype, n=name: frappe.db.set_value(d, n, "company", DENALO),
+			)
+	for doctype in DELETED_WITH_OLD_PARENT:
+		for name in frappe.get_all(doctype, filters={"company": OLD_PARENT}, pluck="name"):
+			plan.do(f"Delete {doctype} {name!r} ({OLD_PARENT})", lambda d=doctype, n=name: delete_record(d, n))
+
+
+def remove_old_parent(plan):
+	"""Delete the old parent company and what only it held: test projects and tasks, demo salary
+	structures, test journal entries (their payroll runs are long gone, so they can't be cancelled
+	the normal way: their ledger rows are removed directly, as ERPNext's Delete Company Transactions
+	would), its holiday assignment, leave period and per-company account rows. Then ERPNext's own
+	company delete removes its accounts, cost centers and warehouses."""
+	C = OLD_PARENT
+	if not frappe.db.exists("Company", C):
+		return
+	if frappe.db.exists("Employee", {"company": C}):
+		print(f"   kept company {C!r}: employees still belong to it")
+		return
+
+	def remove():
+		journals = frappe.get_all("Journal Entry", filters={"company": C}, pluck="name")
+		if journals:
+			frappe.db.delete("Journal Entry Account", {"parent": ("in", journals)})
+			frappe.db.delete("Journal Entry", {"name": ("in", journals)})
+		for doctype in ("GL Entry", "Payment Ledger Entry"):
+			frappe.db.delete(doctype, {"company": C})
+		for doctype in ("Task", "Project"):
+			for name in frappe.get_all(doctype, filters={"company": C}, pluck="name"):
+				frappe.delete_doc(doctype, name, ignore_permissions=True, force=True)
+		for doctype, field in (("Salary Structure", "company"), ("Holiday List Assignment", "assigned_to")):
+			for name in frappe.get_all(doctype, filters={field: C}, pluck="name"):
+				doc = frappe.get_doc(doctype, name)
+				if doc.docstatus == 1:
+					doc.cancel()
+				frappe.delete_doc(doctype, name, ignore_permissions=True)
+		for name in frappe.get_all("Leave Period", filters={"company": C}, pluck="name"):
+			frappe.delete_doc("Leave Period", name, ignore_permissions=True)
+		for child in ("Salary Component Account", "Expense Claim Account", "Mode of Payment Account"):
+			frappe.db.delete(child, {"company": C})
+		# "chart of accounts copied from" on the CVs, and the earlier AppSheet import runs
+		frappe.db.sql('update "tabCompany" set existing_company = null where existing_company = %s', C)
+		if frappe.db.has_column("Old HRIS Import", "default_company"):
+			frappe.db.sql(
+				'update "tabOld HRIS Import" set default_company = %s where default_company = %s', (DENALO, C)
+			)
+		if frappe.db.table_exists("Old HRIS Import Mapping"):  # the runs' "Business -> Company" rows
+			frappe.db.sql(
+				"""update "tabOld HRIS Import Mapping" set maps_to = %s
+				where link_doctype = 'Company' and maps_to = %s""",
+				(DENALO, C),
+			)
+		frappe.delete_doc("Company", C, ignore_permissions=True)
+
+	counts = {
+		"projects": frappe.db.count("Project", {"company": C}),
+		"tasks": frappe.db.count("Task", {"company": C}),
+		"salary structures": frappe.db.count("Salary Structure", {"company": C}),
+		"test journal entries": frappe.db.count("Journal Entry", {"company": C}),
+	}
+	plan.do(
+		f"Delete company {C!r} with its " + ", ".join(f"{n} {k}" for k, n in counts.items() if n),
+		remove,
+	)
+
+
+def delete_record(doctype, name):
+	"""Cancel first if submitted; a record something else still links to is kept and reported."""
+	frappe.db.savepoint("org_setup_record")
+	try:
+		doc = frappe.get_doc(doctype, name)
+		if doc.docstatus == 1:
+			doc.cancel()
+		frappe.delete_doc(doctype, name, ignore_permissions=True)
+	except (frappe.LinkExistsError, frappe.ValidationError) as e:
+		frappe.db.rollback(save_point="org_setup_record")  # undo a half-done cancel
+		print(f"   kept {doctype} {name!r}: {frappe.utils.strip_html(str(e))[:160]}")
 
 
 # --- departments -------------------------------------------------------------------------------
