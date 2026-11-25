@@ -8,11 +8,10 @@ totals per company and division (headcount, amount per pay code, take-home pay).
 employee id, NIK, NPWP, bank account or per-person figure ever leaves this module, and Drea
 Finance refuses any field it does not list, so none can slip in. Each person's slip stays here.
 
-Where things live:
-- HR Settings: drea_finance_url + drea_finance_api_key (shared with reimbursements),
-  drea_finance_send_payroll (the switch) and drea_finance_payroll_test_only (every send is a dry run);
-- Company.drea_finance_code, Department.drea_finance_division (hrms.finance);
-- Salary Component.drea_finance_component and the Payroll Entry fields below (hrms.setup).
+Where things live (owner, 25 Nov 2026: Drea Finance kept apart from HR): Drea Finance Settings
+(hrms.drea_finance) holds the connection (address, API key, the send switch, Tests Only) and the
+mappings Company -> legal entity code, Department -> Division, Salary Component -> pay code. With
+the connection off, nothing here runs. The Payroll Entry fields below are added by hrms.setup.
 
 A send that cannot be built (a missing code, take-home that does not add up) is never guessed
 at: it stops, and the reason is written on the Payroll Entry for HR to read.
@@ -66,25 +65,6 @@ class PayrollSendError(frappe.ValidationError):
 	pass
 
 
-# --- Salary Component -------------------------------------------------------------------------
-
-
-def validate_component(doc, method=None):
-	"""doc_event: a component's Drea Finance code must fit its type."""
-	code = doc.get("drea_finance_component")
-	if not code:
-		return
-	kind = CODE_KINDS.get(code)
-	allowed = ALLOWED_KINDS.get(doc.type, set())
-	if kind not in allowed:
-		frappe.throw(
-			_("{0} is a {1} code in Drea Finance; a {2} component can't use it.").format(
-				frappe.bold(code), kind or _("unknown"), _(doc.type)
-			),
-			title=_("Drea Finance code"),
-		)
-
-
 # --- building the message -----------------------------------------------------------------------
 
 
@@ -103,11 +83,11 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 		company = company_code.get(s["company"])
 		division = division_code.get(s["department"]) if s.get("department") else None
 		if not company:
-			problems.append(_("Company {0} has no Drea Finance code.").format(s["company"]))
+			problems.append(_("Company {0} has no legal entity code in Drea Finance Settings.").format(s["company"]))
 		if not s.get("department"):
 			problems.append(_("Salary Slip {0} has no department.").format(s["name"]))
 		elif not division:
-			problems.append(_("Department {0} has no Drea Finance division.").format(s["department"]))
+			problems.append(_("Department {0} has no division in Drea Finance Settings.").format(s["department"]))
 		if not company or not division:
 			continue
 		row = rows.setdefault(
@@ -134,7 +114,7 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 				if line["parentfield"] == "employer_contributions":
 					continue  # not sent until HR maps it; take-home doesn't depend on it
 				problems.append(
-					_("Salary Component {0} has no Drea Finance code.").format(line["salary_component"])
+					_("Salary Component {0} has no pay code in Drea Finance Settings.").format(line["salary_component"])
 				)
 				continue
 			kind = CODE_KINDS.get(code)
@@ -192,12 +172,15 @@ def build_payload(pe) -> dict:
 	lines_by_slip = {}
 	for line in lines:
 		lines_by_slip.setdefault(line.parent, []).append(line)
+	from hrms.drea_finance.doctype.drea_finance_settings.drea_finance_settings import mappings
+
+	maps = mappings()
 	rows = summarise(
 		slips,
 		lines_by_slip,
-		dict(frappe.get_all("Company", fields=["name", "drea_finance_code"], as_list=True)),
-		dict(frappe.get_all("Department", fields=["name", "drea_finance_division"], as_list=True)),
-		dict(frappe.get_all("Salary Component", fields=["name", "drea_finance_component"], as_list=True)),
+		maps["companies"],
+		maps["departments"],
+		maps["pay_codes"],
 		use_net_pay=cint(frappe.db.get_single_value("Payroll Settings", "disable_rounded_total")),
 	)
 	start = getdate(pe.start_date)
@@ -247,14 +230,18 @@ def next_version(last_version: int, last_hash: str | None, new_hash: str) -> int
 
 
 def settings() -> dict:
-	hr = frappe.get_cached_doc("HR Settings")
+	from hrms.drea_finance.doctype.drea_finance_settings.drea_finance_settings import is_enabled
+
+	connected = is_enabled()
+	conf = frappe.get_cached_doc("Drea Finance Settings") if connected else frappe._dict()
 	return {
-		"url": (hr.get("drea_finance_url") or "").strip().rstrip("/"),
-		"key": get_decrypted_password(
-			"HR Settings", "HR Settings", "drea_finance_api_key", raise_exception=False
-		),
-		"enabled": cint(hr.get("drea_finance_send_payroll")),
-		"test_only": cint(hr.get("drea_finance_payroll_test_only")),
+		"connected": connected,
+		"url": (conf.get("url") or "").strip().rstrip("/"),
+		"key": get_decrypted_password("Drea Finance Settings", "Drea Finance Settings", "api_key", raise_exception=False)
+		if connected
+		else None,
+		"enabled": connected and cint(conf.get("send_payroll")),
+		"test_only": cint(conf.get("test_only")),
 	}
 
 
@@ -300,8 +287,8 @@ def send(payroll_entry: str, test: bool = False, automatic: bool = False) -> dic
 		pe.db_set("drea_finance_status", f"{stamp}: {text}", update_modified=False)
 
 	if not conf["url"] or not conf["key"]:
-		note(_("Not sent: Drea Finance's URL or key is missing in HR Settings."))
-		raise PayrollSendError(_("Drea Finance's URL or key is missing in HR Settings."))
+		note(_("Not sent: Drea Finance's URL or key is missing in Drea Finance Settings."))
+		raise PayrollSendError(_("Drea Finance's URL or key is missing in Drea Finance Settings."))
 	try:
 		payload = build_payload(pe)
 	except PayrollSendError as e:
@@ -380,7 +367,7 @@ def send_in_background(payroll_entry: str):
 
 def queue_after_submission(payroll_entry: str):
 	"""Called from submit_salary_slips_for_employees once the slips are submitted."""
-	if not cint(frappe.db.get_single_value("HR Settings", "drea_finance_send_payroll")):
+	if not settings()["enabled"]:
 		return
 	frappe.enqueue(
 		"hrms.payroll.drea_finance.send_in_background",
@@ -400,8 +387,11 @@ def send_to_drea_finance(payroll_entry: str, test: int = 0):
 	pe.check_permission("read")
 	if pe.docstatus != 1 or not pe.salary_slips_submitted:
 		frappe.throw(_("Submit the salary slips first."))
-	if not cint(test) and not settings()["enabled"]:
-		frappe.throw(_("Sending payroll to Drea Finance is off. Turn it on in HR Settings, or use Test."))
+	conf = settings()
+	if not conf["connected"]:
+		frappe.throw(_("Drea HR is not connected to Drea Finance (Drea Finance Settings)."))
+	if not cint(test) and not conf["enabled"]:
+		frappe.throw(_("Sending payroll to Drea Finance is off. Turn it on in Drea Finance Settings, or use Test."))
 	try:
 		return send(payroll_entry, test=bool(cint(test)))
 	except PayrollSendError as e:

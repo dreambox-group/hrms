@@ -50,11 +50,13 @@ def seed_dreambox_divisions_and_codes():
 			}
 		).insert(ignore_permissions=True)
 
+	# since 25 Nov 2026 the codes live in Drea Finance Settings (Companies -> Legal Entities)
+	if not frappe.db.exists("DocType", "Drea Finance Settings"):
+		return
+	settings = frappe.get_single("Drea Finance Settings")
+	have = {r.company for r in settings.companies} | {r.entity_code for r in settings.companies}
 	for company, code in COMPANY_CODES.items():
-		if not frappe.db.exists("Company", company):
-			continue
-		if frappe.db.get_value("Company", company, "drea_finance_code"):
-			continue
-		if frappe.db.exists("Company", {"drea_finance_code": code}):
-			continue
-		frappe.db.set_value("Company", company, "drea_finance_code", code, update_modified=False)
+		if frappe.db.exists("Company", company) and company not in have and code not in have:
+			settings.append("companies", {"company": company, "entity_code": code})
+	settings.flags.ignore_mandatory = True
+	settings.save(ignore_permissions=True)

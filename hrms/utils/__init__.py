@@ -65,6 +65,10 @@ def get_employee_email(employee_id: str) -> str | None:
 def extend_bootinfo(bootinfo):
 	bootinfo.hr_only_setup = bool(frappe.conf.sk_hrms)
 	hide_erpnext_tile_from_hr(bootinfo)
+	# Drea Finance parts of the desk (Payroll Entry buttons and section) show only when connected
+	from hrms.drea_finance.doctype.drea_finance_settings.drea_finance_settings import is_enabled
+
+	bootinfo.drea_finance_enabled = is_enabled()
 
 
 # Roles that do real work in ERPNext's own modules. Whoever holds none of them has nothing to do

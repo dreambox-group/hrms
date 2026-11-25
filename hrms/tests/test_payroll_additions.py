@@ -21,7 +21,6 @@ class TestPayrollAdditions(IntegrationTestCase):
 
 		TestPayrollEntry.setUp(self)
 		frappe.db.set_single_value("Payroll Settings", "email_salary_slip_to_employee", 0)
-		frappe.db.set_single_value("HR Settings", "drea_finance_send_payroll", 0)
 
 	def make_entry(self, prefix):
 		"""A month's payroll for two new people (each test its own: an employee with a slip for

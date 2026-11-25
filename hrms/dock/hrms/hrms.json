@@ -92,9 +92,17 @@
    "link_to": "Drea Settings",
    "link_type": "Sidebar",
    "title": "Drea Settings"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "calculator-duotone",
+   "link_to": "Drea Finance",
+   "link_type": "Sidebar",
+   "title": "Drea Finance"
   }
  ],
- "modified": "2026-11-11 15:00:00.000000",
+ "modified": "2026-11-25 22:00:00.000000",
  "modified_by": "Administrator",
  "name": "hrms",
  "owner": "Administrator",

@@ -1,10 +1,10 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
 
-"""Division: Drea Finance's divisions, kept in Frappe since the one-database decision of 2 Nov 2026.
+"""Division: Drea Finance's divisions, the list payroll totals are sent per (Drea Finance module).
 
-Finance books project cost per division. HR links each Department to one through the custom
-field ``Department.drea_finance_division``; a user's Finance divisions live in ``User.drea_finance_divisions``.
+Finance books project cost per division. Drea Finance Settings maps each HR Department to one
+(Departments -> Divisions); HR's own Department form knows nothing of it (owner, 25 Nov 2026).
 The code (DV-00001 ...) is the record name and never changes; ``SHARED`` is the support-staff
 division whose pay is booked to the company itself.
 """
@@ -59,36 +59,16 @@ class Division(Document):
 
 	def refuse_deactivation_if_in_use(self):
 		"""Finance rule A30/A32: master data is add-and-deactivate, and a row in use refuses deactivation."""
-		users = []
-		departments = []
-		if frappe.db.has_column("Department", "drea_finance_division"):
-			departments = frappe.get_all(
-				"Department", filters={"drea_finance_division": self.name}, pluck="name", limit=5
-			)
-		if frappe.db.exists("DocType", "User Division"):
-			users = frappe.get_all(
-				"User Division",
-				filters={"division": self.name, "parenttype": "User"},
-				pluck="parent",
-				limit=5,
-			)
-		if departments or users:
+		departments = frappe.get_all(
+			"Drea Finance Department", filters={"division": self.name}, pluck="department", limit=5
+		)
+		if departments:
 			frappe.throw(
-				_(
-					"Division {0} is still in use and cannot be deactivated. Departments: {1}. Users: {2}."
-				).format(
-					frappe.bold(self.name),
-					", ".join(departments) or "-",
-					", ".join(sorted(set(users))) or "-",
+				_("Division {0} is still mapped to: {1}. Change the mapping in Drea Finance Settings first.").format(
+					frappe.bold(self.name), ", ".join(departments)
 				),
 				title=_("Division In Use"),
 			)
-
-	def on_trash(self):
-		# Finance's foreign keys may point here (expense rows, targets, ...). Say so before Postgres does.
-		from hrms.finance import refuse_delete
-
-		refuse_delete(self)
 
 
 def next_division_code() -> str:

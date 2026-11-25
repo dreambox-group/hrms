@@ -171,52 +171,31 @@ def get_indonesian_id_fields():
 
 
 def get_custom_fields():
-	"""HR specific custom fields that need to be added to the masters in ERPNext,
-	plus the Drea Finance fields (one database, decision of 2 Nov 2026)."""
+	"""HR specific custom fields that need to be added to the masters in ERPNext, plus the Payroll
+	Entry's Drea Finance send status (hrms.drea_finance)."""
 	fields = get_hrms_custom_fields()
 	for doctype, extra in get_drea_finance_custom_fields().items():
 		fields.setdefault(doctype, []).extend(extra)
 	return fields
 
 
-# --- Drea Finance (hrms.finance) -----------------------------------------------------------------
-
-DREA_FINANCE_ROLE_OPTIONS = "\nadmin\nstaff\nfinance\ndirector\ndept_head\nvendor"
+# --- Drea Finance (hrms.drea_finance) -----------------------------------------------------------
+# Drea HR runs on its own; Drea Finance is an optional connection that only receives payroll
+# totals (owner, 25 Nov 2026). Its connection and mappings live in Drea Finance Settings. The only
+# Finance fields on HR's own forms are the Payroll Entry's send status, shown when connected.
 
 
 def get_drea_finance_custom_fields():
-	"""What Finance keeps on people and companies that Frappe lacks, as custom fields on User and
-	Company, the way HRMS adds its own fields to ERPNext. Finance reads tabUser / tabCompany /
-	tabDivision directly. Fields at permlevel 1 are written by Finance Admin and System Manager
-	only (setup_drea_finance). Names and emails stay Frappe's own fields.
-
-	Salary Component and Payroll Entry carry what the payroll send needs (hrms.payroll.drea_finance):
-	the pay code per component, and per entry the kind and the last send. The Payroll Entry fields
-	are no_copy, so a duplicate starts a new run while an amendment continues it (run_history)."""
-	from hrms.payroll.drea_finance import COMPONENT_OPTIONS
-
+	"""Payroll Entry: the kind sent and the last send (hrms.payroll.drea_finance). no_copy, so a
+	duplicate starts a new run while an amendment continues it (run_history)."""
 	return {
-		"Salary Component": [
-			{
-				"fieldname": "drea_finance_component",
-				"fieldtype": "Select",
-				"label": _("Drea Finance Code"),
-				"options": COMPONENT_OPTIONS,
-				"description": _(
-					"The pay code Drea Finance books this on. Earnings: SALARY or INCENTIVE. A cut the "
-					"company keeps (late penalty, unpaid leave): the earning it reduces, usually SALARY. "
-					"Tax and BPJS taken from pay: their own code. Employer contributions: a _COMPANY code, "
-					"or empty to leave them out."
-				),
-				"insert_after": "type",
-			},
-		],
 		"Payroll Entry": [
 			{
 				"fieldname": "drea_finance_section",
 				"fieldtype": "Section Break",
 				"label": _("Drea Finance"),
 				"collapsible": 1,
+				"depends_on": "eval:frappe.boot.drea_finance_enabled",
 				# open once Finance has answered, so HR sees the answer without looking for it
 				"collapsible_depends_on": "drea_finance_status",
 				# on the Overview tab, under Status: after salary_slips_submitted it fell into the
@@ -278,206 +257,52 @@ def get_drea_finance_custom_fields():
 				"insert_after": "drea_finance_version",
 			},
 		],
-		"Company": [
-			{
-				"fieldname": "drea_finance_tab",
-				"fieldtype": "Tab Break",
-				"label": _("Drea Finance"),
-				"insert_after": "default_payroll_payable_account",
-			},
-			{
-				"fieldname": "drea_finance_section",
-				"fieldtype": "Section Break",
-				"label": _("Drea Finance"),
-				"insert_after": "drea_finance_tab",
-			},
-			{
-				"fieldname": "drea_finance_code",
-				"fieldtype": "Data",
-				"label": _("Drea Finance Code"),
-				"description": _("Finance's code for this legal entity, LE-00001 style. Set once."),
-				"unique": 1,
-				"permlevel": 1,
-				"insert_after": "drea_finance_section",
-			},
-			{
-				"fieldname": "drea_finance_display_name",
-				"fieldtype": "Data",
-				"label": _("Display Name in Drea Finance"),
-				"permlevel": 1,
-				"insert_after": "drea_finance_code",
-			},
-			{
-				"fieldname": "drea_finance_active",
-				"fieldtype": "Check",
-				"label": _("Active in Drea Finance"),
-				"default": "1",
-				"permlevel": 1,
-				"insert_after": "drea_finance_display_name",
-			},
-			{
-				"fieldname": "books_start_date",
-				"fieldtype": "Date",
-				"label": _("Books Start Date"),
-				"description": _(
-					"The date this entity's books begin in Drea Finance. Empty: no earlier books."
-				),
-				"permlevel": 1,
-				"insert_after": "drea_finance_active",
-			},
-			{
-				"fieldname": "drea_finance_column_break",
-				"fieldtype": "Column Break",
-				"insert_after": "books_start_date",
-			},
-			{
-				"fieldname": "is_pkp",
-				"fieldtype": "Check",
-				"label": _("PKP (registered for PPN)"),
-				"permlevel": 1,
-				"insert_after": "drea_finance_column_break",
-			},
-			{
-				"fieldname": "pkp_since",
-				"fieldtype": "Date",
-				"label": _("PKP Since"),
-				"depends_on": "eval:doc.is_pkp",
-				"permlevel": 1,
-				"insert_after": "is_pkp",
-			},
-			{
-				"fieldname": "withholding_tax_percent",
-				"fieldtype": "Percent",
-				"label": _("Withholding Tax Percent"),
-				"permlevel": 1,
-				"insert_after": "pkp_since",
-			},
-			{
-				"fieldname": "withholding_kind",
-				"fieldtype": "Select",
-				"label": _("Withholding Kind"),
-				"options": "\npph23\npph_final",
-				"depends_on": "eval:doc.withholding_tax_percent",
-				"permlevel": 1,
-				"insert_after": "withholding_tax_percent",
-			},
-		],
-		"Department": [
-			{
-				"fieldname": "drea_finance_division",
-				"fieldtype": "Link",
-				"label": _("Division (Drea Finance)"),
-				"options": "Division",
-				"description": _(
-					"The Drea Finance division this department's people work for. SHARED for support staff."
-				),
-				"insert_after": "department_name",
-			},
-		],
-		"User": [
-			# its own tab at the end of the User form (after the last field of the Sessions tab); a
-			# section after the Settings tab's last field ended up under Sessions
-			{
-				"fieldname": "drea_finance_section",
-				"fieldtype": "Tab Break",
-				"label": _("Drea Finance"),
-				"insert_after": "active_sessions",
-			},
-			{
-				"fieldname": "drea_finance_role",
-				"fieldtype": "Select",
-				"label": _("Drea Finance Role"),
-				"options": DREA_FINANCE_ROLE_OPTIONS,
-				"description": _("Empty: no access to Drea Finance. Giving a role gives access."),
-				"permlevel": 1,
-				"insert_after": "drea_finance_section",
-			},
-			{
-				"fieldname": "drea_finance_active",
-				"fieldtype": "Check",
-				"label": _("Active in Drea Finance"),
-				"default": "1",
-				"description": _("Finance-only switch: someone who keeps Drea One but loses Finance."),
-				"permlevel": 1,
-				"insert_after": "drea_finance_role",
-			},
-			{
-				"fieldname": "drea_finance_column_break",
-				"fieldtype": "Column Break",
-				"insert_after": "drea_finance_active",
-			},
-			{
-				"fieldname": "drea_finance_divisions",
-				"fieldtype": "Table MultiSelect",
-				"label": _("Drea Finance Divisions"),
-				"options": "User Division",
-				"permlevel": 1,
-				"insert_after": "drea_finance_column_break",
-			},
-		],
 	}
 
 
-# fields once shipped and since dropped; removed from existing sites on migrate
+# Fields the one-database plan of 2 Nov 2026 put on HR's forms, dropped when Drea Finance was
+# separated (owner, 25 Nov 2026). Removed from existing sites on migrate; the patch
+# v16_0.separate_drea_finance moves their values into Drea Finance Settings or a file first.
 DREA_FINANCE_RETIRED_FIELDS = [
-	("User", "telegram_id"),  # Finance v3 never reads it (owner, 3 Nov 2026)
-]
-
-DREA_FINANCE_PERMLEVEL_PERMS = {
-	# doctype: [(role, can_write)]
-	"User": [("Finance Admin", True), ("HR Manager", False)],
-	"Company": [
-		("System Manager", True),
-		("Finance Admin", True),
-		("HR Manager", False),
-		("Accounts Manager", False),
+	("User", "telegram_id"),  # Finance v3 never read it (owner, 3 Nov 2026)
+	("Salary Component", "drea_finance_component"),
+	("Department", "drea_finance_division"),
+	*[
+		("Company", f)
+		for f in (
+			"drea_finance_tab",
+			"drea_finance_section",
+			"drea_finance_code",
+			"drea_finance_display_name",
+			"drea_finance_active",
+			"books_start_date",
+			"drea_finance_column_break",
+			"is_pkp",
+			"pkp_since",
+			"withholding_tax_percent",
+			"withholding_kind",
+		)
 	],
-}
+	*[
+		("User", f)
+		for f in (
+			"drea_finance_section",
+			"drea_finance_role",
+			"drea_finance_active",
+			"drea_finance_column_break",
+			"drea_finance_divisions",
+		)
+	],
+]
 
 
 def setup_drea_finance():
-	"""Idempotent: the Finance Admin role, the Finance custom fields and the permlevel-1 rights.
-	Runs on install, on every migrate and from the patch."""
-	if not frappe.db.exists("Role", "Finance Admin"):
-		frappe.get_doc({"doctype": "Role", "role_name": "Finance Admin", "desk_access": 1}).insert(
-			ignore_permissions=True
-		)
+	"""Idempotent, on install and every migrate: the Payroll Entry fields, and none of the retired ones."""
 	create_custom_fields(get_drea_finance_custom_fields(), ignore_validate=True)
 	for doctype, fieldname in DREA_FINANCE_RETIRED_FIELDS:
 		if name := frappe.db.get_value("Custom Field", {"dt": doctype, "fieldname": fieldname}):
 			frappe.delete_doc("Custom Field", name, ignore_permissions=True, force=True)
-	for doctype, roles in DREA_FINANCE_PERMLEVEL_PERMS.items():
-		for role, can_write in roles:
-			# Only when the rule is first made: a later change in Role Permission Manager stays
-			# (second audit, 9 Nov 2026; before, every migrate put the flags back).
-			if frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": role, "permlevel": 1}):
-				continue
-			add_permission(doctype, role, permlevel=1)
-			update_permission_property(doctype, role, 1, "read", 1)
-			update_permission_property(doctype, role, 1, "write", 1 if can_write else 0)
-	fill_no_password_users()
-	frappe.clear_cache(doctype="User")
-	frappe.clear_cache(doctype="Company")
-	frappe.clear_cache(doctype="Salary Component")
 	frappe.clear_cache(doctype="Payroll Entry")
-
-
-def fill_no_password_users():
-	"""Put the three service accounts in HR Settings' "Accounts That Never Get a Password" the
-	first time only: once the setting exists, even emptied by a System Manager, it is theirs."""
-	from hrms.finance import NO_PASSWORD_DEFAULT, NO_PASSWORD_FIELD
-
-	if not frappe.db.has_column("User", "drea_finance_role"):
-		return
-	Singles = frappe.qb.DocType("Singles")
-	exists = (
-		frappe.qb.from_(Singles)
-		.select(Singles.field)
-		.where((Singles.doctype == "HR Settings") & (Singles.field == NO_PASSWORD_FIELD))
-		.run()
-	)
-	if not exists:
-		frappe.db.set_single_value("HR Settings", NO_PASSWORD_FIELD, chr(10).join(NO_PASSWORD_DEFAULT))
 
 
 def get_hrms_custom_fields():

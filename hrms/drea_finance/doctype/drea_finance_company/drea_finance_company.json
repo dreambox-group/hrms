@@ -1,0 +1,40 @@
+{
+ "actions": [],
+ "creation": "2026-11-25 22:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "entity_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company (Drea HR)",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "entity_code",
+   "fieldtype": "Data",
+   "label": "Legal Entity Code (Drea Finance)",
+   "description": "LE-00001 style",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-25 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Drea Finance",
+ "name": "Drea Finance Company",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}

@@ -81,17 +81,7 @@
   "feedback_reminder_notification_template",
   "column_break_4",
   "hiring_sender",
-  "hiring_sender_email",
-  "drea_finance_tab",
-  "drea_finance_section",
-  "drea_finance_url",
-  "drea_finance_api_key",
-  "drea_finance_send_payroll",
-  "drea_finance_payroll_test_only",
-  "column_break_drea_finance",
-  "show_reimbursements_in_employee_app",
-  "drea_finance_paused",
-  "drea_finance_no_password_users"
+  "hiring_sender_email"
  ],
  "fields": [
   {
@@ -387,73 +377,6 @@
    "label": "Show Attendance & Shift Requests in the Employee App"
   },
   {
-   "fieldname": "drea_finance_tab",
-   "fieldtype": "Tab Break",
-   "label": "Drea Finance"
-  },
-  {
-   "fieldname": "drea_finance_section",
-   "fieldtype": "Section Break",
-   "label": "Drea Finance"
-  },
-  {
-   "description": "Drea Finance's address, e.g. https://finance.dreambox.id. With the key below, the employee app shows Reimbursement: employees send claims to Drea Finance and follow their progress there.",
-   "fieldname": "drea_finance_url",
-   "fieldtype": "Data",
-   "label": "Drea Finance URL",
-   "options": "URL",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "column_break_drea_finance",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "description": "Ticked: Drea One shows Reimbursement, and claims go to Drea Finance at the address on the left. Unticked: Reimbursement is hidden in Drea One and any call is refused; the payroll link keeps working. Off on production Drea HR, on in staging (owner, 10 Nov 2026).",
-   "fieldname": "show_reimbursements_in_employee_app",
-   "fieldtype": "Check",
-   "label": "Show Reimbursements in Drea One",
-   "permlevel": 1
-  },
-  {
-   "description": "Drea Finance's HR_API_KEY. Claims are filed as the signed-in employee, by their login email; Drea Finance makes a Staff account on their first claim.",
-   "fieldname": "drea_finance_api_key",
-   "fieldtype": "Password",
-   "label": "Drea Finance API Key",
-   "permlevel": 1
-  },
-  {
-   "default": "0",
-   "description": "Tick for the hour Drea Finance moves to its new database: every reimbursement action in the employee app (the form, the list, Send, Cancel) then says reimbursements are paused, without calling Drea Finance, and nothing is sent. Untick when the move is done. Payroll sends are not affected.",
-   "fieldname": "drea_finance_paused",
-   "fieldtype": "Check",
-   "label": "Pause Reimbursements (Drea Finance Is Moving)",
-   "permlevel": 1
-  },
-  {
-   "default": "0",
-   "description": "When HR submits a Payroll Entry's salary slips, send Drea Finance the totals per company and division: headcount, amount per pay code, take-home. Never a name or a person's pay.",
-   "fieldname": "drea_finance_send_payroll",
-   "fieldtype": "Check",
-   "label": "Send Payroll Totals to Drea Finance"
-  },
-  {
-   "default": "1",
-   "depends_on": "drea_finance_send_payroll",
-   "description": "While on, every send is a test: Drea Finance checks it and saves nothing. Turn off for the first real month.",
-   "fieldname": "drea_finance_payroll_test_only",
-   "fieldtype": "Check",
-   "label": "Payroll Sends Are Tests Only"
-  },
-  {
-   "description": "Service accounts that never get a password: Forgot password, Reset Password and Set New Password are refused for them, so nobody reading their mailbox can sign in. One email per line. Everyone else keeps the usual password reset.",
-   "fieldname": "drea_finance_no_password_users",
-   "fieldtype": "Small Text",
-   "label": "Accounts That Never Get a Password",
-   "permlevel": 1
-  },
-  {
    "fieldname": "attendance_settings_section",
    "fieldtype": "Section Break",
    "label": "Attendance Settings"
@@ -591,7 +514,7 @@
    "label": "Overtime Submission (Cuti Pengganti)"
   },
   {
-   "description": "Employees pick the holidays they worked (Compensatory Leave Request in the desk, Leaves → Overtime Submission in the employee app; only days on their holiday list). Once their supervisors approve, they get the same number of days of this leave type.",
+   "description": "Employees pick the holidays they worked (Compensatory Leave Request in the desk, Leaves \u2192 Overtime Submission in the employee app; only days on their holiday list). Once their supervisors approve, they get the same number of days of this leave type.",
    "fieldname": "compensatory_leave_type",
    "fieldtype": "Link",
    "label": "Cuti Pengganti Leave Type",
@@ -617,7 +540,7 @@
   },
   {
    "default": "1",
-   "description": "Attendance for a payroll counts from this day of the month to the day before it next month: 19 = 19 Sep–18 Oct. The employee app shows each employee's late days, unpaid leave and days without check-in for the current period. 1 = calendar months.",
+   "description": "Attendance for a payroll counts from this day of the month to the day before it next month: 19 = 19 Sep\u201318 Oct. The employee app shows each employee's late days, unpaid leave and days without check-in for the current period. 1 = calendar months.",
    "fieldname": "pay_period_start_day",
    "fieldtype": "Int",
    "label": "Pay Period Starts On Day",
@@ -628,7 +551,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-12 18:00:00.000000",
+ "modified": "2026-11-25 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

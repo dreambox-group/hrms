@@ -1,0 +1,42 @@
+{
+ "app": "hrms",
+ "creation": "2026-11-25 22:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Sidebar",
+ "header_icon": "sliders-duotone",
+ "idx": 0,
+ "modified": "2026-11-25 22:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Drea Finance",
+ "name": "Drea Finance",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Drea Finance",
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "settings",
+   "indent": 0,
+   "is_default_module": 1,
+   "keep_closed": 0,
+   "label": "Drea Finance Settings",
+   "link_to": "Drea Finance Settings",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "list",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Division",
+   "link_to": "Division",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ]
+}

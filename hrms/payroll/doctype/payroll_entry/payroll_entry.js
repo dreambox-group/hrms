@@ -183,7 +183,8 @@ frappe.ui.form.on("Payroll Entry", {
 
 	// Drea: send this entry's totals (never a person's pay) to Drea Finance, or test it
 	add_drea_finance_buttons: function (frm) {
-		if (frm.doc.docstatus !== 1) return;
+		// only when Drea HR is connected to Drea Finance (Drea Finance Settings)
+		if (frm.doc.docstatus !== 1 || !frappe.boot.drea_finance_enabled) return;
 		const send = (test) =>
 			frappe.call({
 				method: "hrms.payroll.drea_finance.send_to_drea_finance",

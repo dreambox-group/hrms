@@ -50,15 +50,10 @@
   }
  ],
  "index_web_pages_for_search": 0,
- "links": [
-  {
-   "link_doctype": "Department",
-   "link_fieldname": "drea_finance_division"
-  }
- ],
- "modified": "2026-11-03 10:30:00.000000",
+ "links": [],
+ "modified": "2026-11-25 22:00:00.000000",
  "modified_by": "Administrator",
- "module": "HR",
+ "module": "Drea Finance",
  "name": "Division",
  "naming_rule": "Expression",
  "owner": "Administrator",
@@ -76,31 +71,12 @@
    "write": 1
   },
   {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Finance Admin",
-   "share": 1,
-   "write": 1
-  },
-  {
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "HR Manager"
-  },
-  {
-   "read": 1,
-   "role": "HR User"
-  },
-  {
-   "role": "Employee",
-   "select": 1
   }
  ],
  "search_fields": "division_name",

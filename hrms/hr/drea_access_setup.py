@@ -1,8 +1,8 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
 """Drea access cleanup (owner, 25 Nov 2026): disable the roles of apps and modules Dreambox does
-not use and replace ERPNext's sample role profiles with a Staff profile. It also disables website
-users that never logged in, unless they are Drea Finance users.
+not use and replace ERPNext's sample role profiles with a Staff profile. Users are left as they
+are: the 18 former Drea Finance logins stay until the owner decides (25 Nov 2026).
 
 Dry run first; it prints every change and saves nothing:
 
@@ -92,9 +92,6 @@ def apply(dry_run=True):
 				).insert(ignore_permissions=True),
 			)
 
-	for user in idle_website_users():
-		plan.do(f"Disable website user {user} (never logged in, no roles)", lambda u=user: disable_user(u))
-
 	if not dry_run:
 		frappe.db.commit()  # nosemgrep: a bench execute command, run by hand
 		frappe.clear_cache()
@@ -109,29 +106,3 @@ def disable_role(role):
 	doc.disabled = 1
 	doc.home_page = None  # the Helpdesk roles pointed at a page this site does not have
 	doc.save(ignore_permissions=True)
-
-
-def idle_website_users():
-	"""Website users who never logged in, hold no role, are no employee's login and are no Drea
-	Finance user. Drea Finance keeps its logins (staff, vendors, department heads, service accounts)
-	in this same User table, as website users that never log in here: those stay untouched."""
-	linked = set(frappe.get_all("Employee", filters={"user_id": ("is", "set")}, pluck="user_id"))
-	if frappe.db.has_column("User", "drea_finance_role"):
-		linked |= set(frappe.get_all("User", filters={"drea_finance_role": ("is", "set")}, pluck="name"))
-	with_roles = set(
-		frappe.get_all("Has Role", filters={"parenttype": "User", "role": ("not in", ["Guest", "All"])}, pluck="parent")
-	)
-	return [
-		u.name
-		for u in frappe.get_all(
-			"User",
-			filters={"user_type": "Website User", "enabled": 1, "name": ("not in", ["Guest", "Administrator"])},
-			fields=["name", "last_login"],
-			order_by="name",
-		)
-		if not u.last_login and u.name not in linked and u.name not in with_roles
-	]
-
-
-def disable_user(user):
-	frappe.db.set_value("User", user, "enabled", 0)

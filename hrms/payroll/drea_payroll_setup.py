@@ -1,6 +1,6 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
-"""Drea payroll setup: salary components, their accounts and Drea Finance codes, a draft salary
+"""Drea payroll setup: salary components and their accounts, a draft salary
 structure per company, and leave types that do not count holidays (handover, 5 Nov 2026 audit).
 
 Run it as a dry run first; it prints every change and saves nothing:
@@ -28,7 +28,8 @@ JP_WAGE_CAP = 10_547_400
 JKK_RATE = 0.0024
 
 # --- the components ----------------------------------------------------------------------------
-# name: (abbr, type, formula or None (amount entered per month), Drea Finance code,
+# name: (abbr, type, formula or None (amount entered per month), Drea Finance pay code (written to
+#        Drea Finance Settings > Salary Components -> Pay Codes, not to the component),
 #        depends on payment days, is tax applicable)
 # "base" is the person's monthly base in their Salary Structure Assignment. BPJS is worked out on
 # the full monthly wage, not on days worked, so it uses base, not the prorated Basic.
@@ -88,7 +89,7 @@ class Plan:
 			action()
 
 
-def apply(dry_run=True, companies=None):
+def apply(dry_run=True, companies=None, commit=True):
 	"""Bring components, accounts, structures and leave types in line. Returns the change list."""
 	dry_run = dry_run not in (False, 0, "0", "false", "False")
 	companies = companies or real_companies()
@@ -98,6 +99,7 @@ def apply(dry_run=True, companies=None):
 		ensure_accounts(plan, company)
 	for name, spec in COMPONENTS.items():
 		ensure_component(plan, name, spec, companies)
+	ensure_pay_codes(plan)
 	for name in RETIRED:
 		if frappe.db.get_value("Salary Component", name, "disabled") == 0:
 			plan.do(f"Disable component {name}", lambda n=name: frappe.db.set_value("Salary Component", n, "disabled", 1))
@@ -111,7 +113,7 @@ def apply(dry_run=True, companies=None):
 				lambda lt=leave_type: frappe.db.set_value("Leave Type", lt, "include_holiday", 0),
 			)
 
-	if not dry_run:
+	if not dry_run and commit:  # tests pass commit=False, so their changes roll back
 		frappe.db.commit()  # nosemgrep: a bench execute command, run by hand
 	header = "DRY RUN, nothing saved" if dry_run else "APPLIED"
 	print(f"{header}: {len(plan.lines)} change(s)")
@@ -121,8 +123,8 @@ def apply(dry_run=True, companies=None):
 
 
 def real_companies():
-	"""Companies Drea Finance knows (they have an LE- code); the demo "Dreambox" company has none."""
-	return frappe.get_all("Company", filters={"drea_finance_code": ["is", "set"]}, pluck="name", order_by="name")
+	"""Dreambox's four CVs (the old "Dreambox" parent company is gone, drea_org_setup)."""
+	return frappe.get_all("Company", pluck="name", order_by="name")
 
 
 # --- accounts ----------------------------------------------------------------------------------
@@ -194,7 +196,6 @@ def ensure_component(plan, name, spec, companies):
 	abbr, component_type, formula, code, payment_days, taxable = spec
 	wanted = {
 		"type": component_type,
-		"drea_finance_component": code,
 		"depends_on_payment_days": payment_days,
 		"is_tax_applicable": taxable,
 		"amount_based_on_formula": 1 if formula else 0,
@@ -242,6 +243,42 @@ def normalise(value):
 	if isinstance(value, float | int):
 		return flt(value)
 	return value
+
+
+def ensure_pay_codes(plan):
+	"""Drea Finance Settings > Salary Components -> Pay Codes, so the mapping is ready when Drea HR is
+	connected to Drea Finance. Drea HR itself does not need it."""
+	if not frappe.db.exists("DocType", "Drea Finance Settings"):
+		return
+	have = dict(
+		frappe.get_all(
+			"Drea Finance Pay Code",
+			filters={"parent": "Drea Finance Settings"},
+			fields=["salary_component", "pay_code"],
+			as_list=True,
+		)
+	)
+	wanted = {name: spec[3] for name, spec in COMPONENTS.items()}
+	changes = {n: c for n, c in wanted.items() if have.get(n) != c}
+	retired = [n for n in RETIRED if n in have]
+	if not changes and not retired:
+		return
+
+	def write():
+		settings = frappe.get_single("Drea Finance Settings")
+		rows = {r.salary_component: r for r in settings.pay_codes}
+		for name in retired:
+			settings.remove(rows.pop(name))
+		for name, code in changes.items():
+			if name in rows:
+				rows[name].pay_code = code
+			else:
+				settings.append("pay_codes", {"salary_component": name, "pay_code": code})
+		settings.flags.ignore_mandatory = True
+		settings.save(ignore_permissions=True)
+
+	what = [f"{n} -> {c}" for n, c in changes.items()] + [f"drop {n}" for n in retired]
+	plan.do("Drea Finance pay codes: " + "; ".join(what), write)
 
 
 # --- structures --------------------------------------------------------------------------------

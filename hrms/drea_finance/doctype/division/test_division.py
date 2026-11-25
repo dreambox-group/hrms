@@ -4,7 +4,7 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from hrms.hr.doctype.division.division import next_division_code
+from hrms.drea_finance.doctype.division.division import next_division_code
 
 
 class TestDivision(IntegrationTestCase):
@@ -14,12 +14,8 @@ class TestDivision(IntegrationTestCase):
 			frappe.delete_doc("Division", name, force=True)
 
 	def _detach(self, division):
-		if frappe.db.has_column("Department", "drea_finance_division"):
-			frappe.db.sql(
-				"update `tabDepartment` set drea_finance_division = NULL where drea_finance_division = %s",
-				division,
-			)
-		frappe.db.delete("User Division", {"division": division})
+		frappe.db.delete("Drea Finance Department", {"division": division})
+		frappe.clear_document_cache("Drea Finance Settings", "Drea Finance Settings")
 
 	def test_code_is_generated_from_the_highest_existing_number(self):
 		self.assertEqual(next_division_code(), "DV-00001")
@@ -49,40 +45,32 @@ class TestDivision(IntegrationTestCase):
 		doc.division_code = "DV-00099"
 		self.assertRaises(frappe.ValidationError, doc.save)
 
-	def test_deactivation_refused_while_a_department_uses_it(self):
-		if not frappe.db.has_column("Department", "drea_finance_division"):
-			self.skipTest("Finance custom fields not installed")
-		division = frappe.get_doc({"doctype": "Division", "division_name": "Digital"}).insert()
+	def map_department(self, division):
 		company = frappe.get_all("Company", limit=1, pluck="name")[0]
 		dept = frappe.get_doc(
-			{
-				"doctype": "Department",
-				"department_name": "_Test Finance Division Dept",
-				"company": company,
-				"drea_finance_division": division.name,
-			}
+			{"doctype": "Department", "department_name": "_Test Finance Division Dept", "company": company}
 		).insert(ignore_if_duplicate=True)
+		dept = frappe.get_doc("Department", {"department_name": "_Test Finance Division Dept", "company": company})
+		settings = frappe.get_single("Drea Finance Settings")
+		settings.set("departments", [r for r in settings.departments if r.department != dept.name])
+		settings.append("departments", {"department": dept.name, "division": division})
+		settings.save()
+		return settings, dept
+
+	def test_deactivation_refused_while_mapped_to_a_department(self):
+		division = frappe.get_doc({"doctype": "Division", "division_name": "Digital"}).insert()
+		settings, dept = self.map_department(division.name)
 		division.reload()
 		division.is_active = 0
 		self.assertRaises(frappe.ValidationError, division.save)
 
-		frappe.delete_doc("Department", dept.name, force=True)
+		settings.set("departments", [r for r in settings.departments if r.department != dept.name])
+		settings.save()
 		division.reload()
 		division.is_active = 0
 		division.save()
 		self.assertEqual(frappe.db.get_value("Division", division.name, "is_active"), 0)
 
-	def test_department_cannot_pick_an_inactive_division(self):
-		if not frappe.db.has_column("Department", "drea_finance_division"):
-			self.skipTest("Finance custom fields not installed")
+	def test_mapping_refuses_an_inactive_division(self):
 		division = frappe.get_doc({"doctype": "Division", "division_name": "Old", "is_active": 0}).insert()
-		company = frappe.get_all("Company", limit=1, pluck="name")[0]
-		dept = frappe.get_doc(
-			{
-				"doctype": "Department",
-				"department_name": "_Test Inactive Division Dept",
-				"company": company,
-				"drea_finance_division": division.name,
-			}
-		)
-		self.assertRaises(frappe.ValidationError, dept.insert)
+		self.assertRaises(frappe.ValidationError, self.map_department, division.name)

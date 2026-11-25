@@ -40,15 +40,15 @@
 			}),
 		Company: list(__("Companies"),
 			__("The legal entities that employ people and pay salaries. Payroll runs per company."), {
-				add: [__("A new company"), __("Only for a new legal entity. It needs its Drea Finance code (LE-…) before its first payroll.")],
+				add: [__("A new company"), __("Only for a new legal entity.")],
 			}),
 		Branch: list(__("Branches"), __("Office or site names. Optional: used to filter payroll, attendance and leave."), {
 			add: [__("A new branch"), __("Just a name, for example Jakarta or Tangerang.")],
 		}),
 		Department: list(__("Departments"),
-			__("Teams per company. A department decides its people's supervisors and their Drea Finance division."), {
+			__("Teams per company. A department decides its people's supervisors."), {
 				rows: [__("Per company"), __("Each company has its own departments, named \"Team - ABBR\".")],
-				add: [__("A new department"), __("Pick the company, set its Division (Drea Finance) and its leave approvers.")],
+				add: [__("A new department"), __("Pick the company and set its leave approvers.")],
 			}),
 		Designation: list(__("Designations"), __("Job titles, shown on the employee and in reports."), {
 			add: [__("A new job title"), __("Just the name.")],
@@ -71,7 +71,7 @@
 				["status", __("Status"), __("Active while they work here. <b>Left</b>, with a Relieving Date, ends shifts, automatic check-in and payroll.")],
 				["user_id", __("User ID"), __("Their login (their email) for Drea One. Without it they cannot sign in.")],
 				["company", __("Company"), __("The legal entity that pays them.")],
-				["department", __("Department"), __("Decides their supervisors (the department's leave approvers) and their Drea Finance division.")],
+				["department", __("Department"), __("Decides their supervisors (the department's leave approvers).")],
 				["employment_type", __("Employment Type"), __("Types set in HR Settings as without leave allocation (for example interns) get no paid leave; their leave moves their Contract End Date.")],
 				["holiday_list", __("Holiday List"), __("Their days off. Empty: the company's default.")],
 				["default_shift", __("Default Shift"), __("Used on days without a Shift Assignment.")],
@@ -86,7 +86,6 @@
 				["company_name", __("Company"), __("The legal name.")],
 				["abbr", __("Abbreviation"), __("A short code added to its accounts, departments and cost centers, for example DST.")],
 				["default_holiday_list", __("Default Holiday List"), __("Everyone's days off, unless an employee has their own.")],
-				["drea_finance_code", __("Drea Finance code"), __("Finance's code for this entity (LE-…), on the Drea Finance tab. Payroll is refused without it. Set once.")],
 			],
 		}),
 		Branch: form({ fields: [["branch", __("Branch"), __("The office or site name.")]] }),
@@ -94,7 +93,6 @@
 			fields: [
 				["department_name", __("Department"), __("The team's name; the company's abbreviation is added.")],
 				["company", __("Company"), __("The company it belongs to.")],
-				["drea_finance_division", __("Division (Drea Finance)"), __("Finance's division (DV-…) for this team's salaries. Every department paid must have one; support staff go to Holding.")],
 				["leave_approvers", __("Leave approvers"), __("The team's supervisors: they approve leave and Overtime Submission and see outside-office check-ins. The first is the default.")],
 				["shift_request_approver", __("Shift request approvers"), __("Who approves the team's shift requests.")],
 			],
@@ -113,7 +111,7 @@
 			],
 		}),
 		"HR Settings": form({
-			intro: [__("HR Settings"), __("Rules for the whole HR system. The tabs group them: Employee, Leaves, Attendance, Payroll, Drea Finance.")],
+			intro: [__("HR Settings"), __("Rules for the whole HR system. The tabs group them: Employee, Leaves, Attendance, Payroll.")],
 			fields: [
 				["leave_approval_by_levels", __("Approve leave by levels"), __("Leave goes to all of the department's approvers: approved once every Required approver and one Regular approver approve; rejected as soon as anyone rejects.")],
 				["employment_types_without_leave_allocation", __("Types without leave allocation"), __("These employment types get no paid leave; each approved leave day moves their Contract End Date one working day later.")],
@@ -122,7 +120,6 @@
 				["require_selfie_for_checkin", __("Selfie check-in"), __("Employees check in with their camera in Drea One, and can no longer edit their own check-ins.")],
 				["pay_period_start_day", __("Pay period"), __("Attendance for payroll counts from this day of the month to the day before it next month (19 = 19th to 18th).")],
 				["show_salary_in_employee_app", __("Salary in Drea One"), __("Everyone sees their own salary slips in Drea One.")],
-				["drea_finance_send_payroll", __("Send payroll to Drea Finance"), __("When salary slips are submitted, Finance gets the totals per company and division. Never a name or a person's pay.")],
 			],
 		}),
 	};

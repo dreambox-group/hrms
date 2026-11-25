@@ -1,6 +1,6 @@
 # Copyright (c) 2026, Dreambox and contributors
 # See license.txt
-"""Drea payroll setup (hrms.payroll.drea_payroll_setup): components with their Drea Finance codes
+"""Drea payroll setup (hrms.payroll.drea_payroll_setup): components, their Drea Finance pay codes
 and accounts, the retired components, the draft structure and the BPJS amounts on a real slip."""
 
 import frappe
@@ -20,7 +20,6 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 
 		TestPayrollEntry.setUp(self)
 		frappe.db.set_single_value("Payroll Settings", "email_salary_slip_to_employee", 0)
-		frappe.db.set_single_value("HR Settings", "drea_finance_send_payroll", 0)
 
 	def test_every_code_fits_its_component_type(self):
 		for name, (_abbr, component_type, _formula, code, _days, _taxable) in setup.COMPONENTS.items():
@@ -37,13 +36,18 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 			frappe.get_doc({"doctype": "Leave Type", "leave_type_name": "Sick Leave"}).insert()
 		frappe.db.set_value("Leave Type", "Sick Leave", "include_holiday", 1)
 
-		setup.apply(dry_run=False, companies=[COMPANY])
+		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
 
 		self.assertEqual(frappe.db.get_value("Salary Component", "Income Tax", "disabled"), 1)
 		self.assertEqual(frappe.db.get_value("Salary Component", "PPh23", "disabled"), 1)
 		self.assertEqual(frappe.db.get_value("Leave Type", "Sick Leave", "include_holiday"), 0)
+		# the pay code goes to the Drea Finance mapping, not onto the component
 		self.assertEqual(
-			frappe.db.get_value("Salary Component", "BPJS JHT Karyawan", "drea_finance_component"),
+			frappe.db.get_value(
+				"Drea Finance Pay Code",
+				{"parent": "Drea Finance Settings", "salary_component": "BPJS JHT Karyawan"},
+				"pay_code",
+			),
 			"BPJS_TK_EMPLOYEE",
 		)
 		pph21 = frappe.get_doc("Salary Component", "PPh21")
@@ -62,7 +66,7 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 
 	def test_bpjs_on_a_slip_with_the_caps(self):
 		employee = make_employee("drea.payroll.setup@example.com", company=COMPANY)
-		setup.apply(dry_run=False, companies=[COMPANY])
+		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
 		abbr = frappe.get_cached_value("Company", COMPANY, "abbr")
 		structure = frappe.get_doc("Salary Structure", setup.STRUCTURE_NAME.format(abbr=abbr))
 		if structure.docstatus == 0:

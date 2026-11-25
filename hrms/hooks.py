@@ -23,16 +23,6 @@ add_to_apps_screen = [
 		"has_permission": "hrms.hr.utils.check_app_permission",
 		"sequence_id": 2,
 	},
-	# Drea Finance shares this database (decision of 2 Nov 2026); the desk's way in (handbook 7.6).
-	# /drea-finance sends the browser to the URL kept in HR Settings, for users with a Finance role.
-	{
-		"name": "drea_finance",
-		"logo": "/assets/hrms/images/drea-hris-logo.png",
-		"title": "Drea Finance",
-		"route": "/drea-finance",
-		"has_permission": "hrms.finance.has_finance_access",
-		"sequence_id": 3,
-	},
 ]
 
 # Includes in <head>
@@ -49,8 +39,8 @@ app_include_js = [
 	# the HR desk tutorials (hr_tours.js = engine, tours/ = what each page says). ?v=: the browser
 	# keeps /assets files 12 hours; raise it when the tours change
 	"/assets/hrms/js/hr_tours.js?v=2026112404",
-	"/assets/hrms/js/tours/payroll.js?v=2026112404",
-	"/assets/hrms/js/tours/hr_setup.js?v=2026112404",
+	"/assets/hrms/js/tours/payroll.js?v=2026112601",
+	"/assets/hrms/js/tours/hr_setup.js?v=2026112601",
 	"/assets/hrms/js/tours/leaves.js?v=2026112404",
 	"/assets/hrms/js/tours/attendance.js?v=2026112404",
 ]
@@ -222,26 +212,18 @@ doc_events = {
 		"validate": [
 			"erpnext.setup.doctype.employee.employee.validate_employee_role",
 			"hrms.overrides.employee_master.update_approver_user_roles",
-			"hrms.finance.validate_user_finance_fields",
-			"hrms.finance.validate_user_finance_guards",
 		],
-		# service accounts never get a password (HR Settings > Drea Finance)
-		"before_validate": "hrms.finance.refuse_service_account_password",
-		"validate_reset_password": "hrms.finance.refuse_service_account_reset",
-		# Drea Finance's books point at users by name (handbook 7.7): refuse the delete plainly
-		"on_trash": "hrms.finance.refuse_delete",
 	},
 	"Company": {
 		"validate": [
 			"hrms.overrides.company.validate_default_accounts",
-			"hrms.finance.validate_company_finance_fields",
 		],
 		"on_update": [
 			"hrms.overrides.company.make_company_fixtures",
 			"hrms.overrides.company.set_default_hr_accounts",
 			"hrms.overrides.company.set_expense_claim_type_accounts",
 		],
-		"on_trash": ["hrms.finance.refuse_delete", "hrms.overrides.company.handle_linked_docs"],
+		"on_trash": "hrms.overrides.company.handle_linked_docs",
 	},
 	"Holiday List": {
 		"on_update": "hrms.utils.holiday_list.invalidate_cache",
@@ -273,7 +255,6 @@ doc_events = {
 	},
 	"Loan": {"validate": "hrms.hr.utils.validate_loan_repay_from_salary"},
 	"Department": {
-		"validate": "hrms.finance.validate_department_division",
 		"on_update": "hrms.hr.doctype.leave_application.leave_application.update_open_leave_approvers",
 	},
 	"Employee": {
@@ -319,7 +300,6 @@ doc_events = {
 	"Shift Request": {"on_submit": "hrms.telemetry.on_shift_request_submit"},
 	"Employee Checkin": {"after_insert": "hrms.telemetry.on_employee_checkin"},
 	"Payroll Entry": {"on_submit": "hrms.telemetry.on_payroll_entry_submit"},
-	"Salary Component": {"validate": "hrms.payroll.drea_finance.validate_component"},
 	"Job Offer": {"on_submit": "hrms.telemetry.on_job_offer_submit"},
 	"Appraisal": {"on_submit": "hrms.telemetry.on_appraisal_submit"},
 	"Interview": {"on_submit": "hrms.telemetry.on_interview_submit"},
@@ -427,15 +407,10 @@ global_search_doctypes = {
 	],
 }
 
-# the service accounts never sign in, however they try (hrms.finance); on the HR address
-# (hris.dreambox.id) only HR signs in, and a non-HR session there ends (hrms.utils.drea_doors)
-on_login = ["hrms.finance.refuse_service_account_login", "hrms.utils.drea_doors.refuse_non_hr_sign_in"]
+# on the HR address (hris.dreambox.id) only HR signs in, and a non-HR session there ends
+# (hrms.utils.drea_doors)
+on_login = ["hrms.utils.drea_doors.refuse_non_hr_sign_in"]
 before_request = ["hrms.utils.drea_doors.end_non_hr_session"]
-
-override_whitelisted_methods = {
-	# refuses a service account's password even from a link already sent (hrms.finance)
-	"frappe.core.doctype.user.user.update_password": "hrms.finance.update_password",
-}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,

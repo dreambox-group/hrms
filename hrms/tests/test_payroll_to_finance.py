@@ -125,10 +125,10 @@ class TestSummarise(IntegrationTestCase):
 			summarise(slips, lines)
 		message = str(caught.exception)
 		for expected in (
-			"Company CV Unknown has no Drea Finance code",
+			"Company CV Unknown has no legal entity code in Drea Finance Settings",
 			"Salary Slip SS-2 has no department",
-			"Department Unmapped - Db has no Drea Finance division",
-			"Salary Component Leave Encashment has no Drea Finance code",
+			"Department Unmapped - Db has no division in Drea Finance Settings",
+			"Salary Component Leave Encashment has no pay code in Drea Finance Settings",
 			"LE-00004 / DV-00001: take-home is 900000 but the earnings less the deductions come to 1000000",
 		):
 			self.assertIn(expected, message)
@@ -154,28 +154,51 @@ class TestVersions(IntegrationTestCase):
 		self.assertNotEqual(df.figures_hash(base), df.figures_hash({**base, "kind": "thr"}))
 
 
-class TestComponentCode(IntegrationTestCase):
-	def check(self, type_, code):
-		df.validate_component(frappe._dict(type=type_, drea_finance_component=code))
+def set_mappings(companies=None, departments=None, pay_codes=None, **connection):
+	"""Write Drea Finance Settings directly (tests only): the rows given replace what is there."""
+	settings = frappe.get_single("Drea Finance Settings")
+	settings.update(connection)
+	if companies is not None:
+		settings.set("companies", [{"company": c, "entity_code": e} for c, e in companies.items()])
+	if departments is not None:
+		settings.set("departments", [{"department": d, "division": v} for d, v in departments.items()])
+	if pay_codes is not None:
+		settings.set("pay_codes", [{"salary_component": c, "pay_code": p} for c, p in pay_codes.items()])
+	settings.flags.ignore_mandatory = True
+	settings.save()
+	return settings
 
-	def test_codes_fit_the_component_type(self):
-		self.check("Earning", "SALARY")
-		self.check("Deduction", "SALARY")  # a cut the company keeps
-		self.check("Deduction", "PPH21_WITHHELD")
-		self.check("Employer Contribution", "BPJS_TK_COMPANY")
-		self.check("Earning", None)
-		for type_, code in (
-			("Earning", "PPH21_WITHHELD"),
-			("Deduction", "BPJS_KES_COMPANY"),
-			("Employer Contribution", "SALARY"),
-		):
+
+class TestPayCodeMapping(IntegrationTestCase):
+	def component(self, name, type_):
+		if not frappe.db.exists("Salary Component", name):
+			frappe.get_doc({"doctype": "Salary Component", "salary_component": name, "type": type_}).insert()
+		return name
+
+	def test_codes_must_fit_the_component_type(self):
+		earning = self.component("_Test DF Earning", "Earning")
+		deduction = self.component("_Test DF Deduction", "Deduction")
+		employer = self.component("_Test DF Employer", "Employer Contribution")
+		set_mappings(pay_codes={earning: "SALARY", deduction: "SALARY", employer: "BPJS_TK_COMPANY"})
+		set_mappings(pay_codes={deduction: "PPH21_WITHHELD"})
+		for name, code in ((earning, "PPH21_WITHHELD"), (deduction, "BPJS_KES_COMPANY"), (employer, "SALARY")):
 			with self.assertRaises(frappe.ValidationError):
-				self.check(type_, code)
+				set_mappings(pay_codes={name: code})
+
+	def test_entity_codes_are_checked_and_unique(self):
+		companies = frappe.get_all("Company", pluck="name", limit=2)
+		with self.assertRaises(frappe.ValidationError):
+			set_mappings(companies={companies[0]: "LE-1"})
+		if len(companies) == 2:
+			settings = frappe.get_single("Drea Finance Settings")
+			settings.set("companies", [{"company": c, "entity_code": "LE-00009"} for c in companies])
+			self.assertRaises(frappe.ValidationError, settings.save)
+		set_mappings(companies={companies[0]: "le-00009"})
+		self.assertEqual(frappe.get_single("Drea Finance Settings").companies[0].entity_code, "LE-00009")
 
 
-class TestFields(IntegrationTestCase):
-	def test_migrate_made_the_fields(self):
-		self.assertTrue(frappe.get_meta("Salary Component").has_field("drea_finance_component"))
+class TestSeparation(IntegrationTestCase):
+	def test_payroll_entry_keeps_its_send_status(self):
 		for field in (
 			"drea_finance_kind",
 			"drea_finance_run_id",
@@ -186,20 +209,42 @@ class TestFields(IntegrationTestCase):
 			self.assertTrue(frappe.get_meta("Payroll Entry").has_field(field), field)
 			if field != "drea_finance_kind":
 				self.assertTrue(frappe.get_meta("Payroll Entry").get_field(field).no_copy, field)
-		for field in ("drea_finance_send_payroll", "drea_finance_payroll_test_only"):
-			self.assertTrue(frappe.get_meta("HR Settings").has_field(field), field)
+		section = frappe.get_meta("Payroll Entry").get_field("drea_finance_section")
+		self.assertEqual(section.depends_on, "eval:frappe.boot.drea_finance_enabled")
 
-	def test_drea_settings_has_its_own_module(self):
+	def test_hr_forms_carry_no_drea_finance_fields(self):
+		for doctype in ("Company", "Department", "Salary Component", "User", "HR Settings"):
+			finance = [
+				f.fieldname for f in frappe.get_meta(doctype).fields if "drea_finance" in (f.fieldname or "")
+			]
+			self.assertEqual(finance, [], doctype)
+		self.assertFalse(frappe.db.exists("DocType", "User Division"))
+
+	def test_drea_hr_runs_without_drea_finance(self):
+		set_mappings(enabled=0, send_payroll=1)
+		self.assertFalse(df.settings()["enabled"])
+		with patch.object(df.frappe, "enqueue") as enqueue:
+			df.queue_after_submission("HR-PRUN-NOT-SENT")
+		enqueue.assert_not_called()
+		set_mappings(enabled=1, url="https://f.invalid", send_payroll=1)
+		self.assertTrue(df.settings()["enabled"])
+		set_mappings(enabled=0)
+
+	def test_each_settings_area_has_its_own_module(self):
 		# A sidebar claims every workspace of its module, and the desk opens a workspace in the first
 		# sidebar that claims it: filed under HR Setup, Drea Settings took over /desk/hr-setup. Filed
 		# under HR it vanished from the dock, because hooks.py makes HR a code-only module.
 		from frappe.desk.doctype.sidebar.sidebar import get_navigable_modules
 
-		module = frappe.db.get_value("Sidebar", "Drea Settings", "module")
-		self.assertEqual(module, "Drea Settings")
-		self.assertEqual(frappe.db.get_value("Module Def", module, "app_name"), "hrms")
-		self.assertFalse(frappe.get_all("Workspace", filters={"module": module}, limit=1))
-		self.assertIn(module, get_navigable_modules())
+		for sidebar in ("Drea Settings", "Drea Finance"):
+			module = frappe.db.get_value("Sidebar", sidebar, "module")
+			self.assertEqual(module, sidebar)
+			self.assertEqual(frappe.db.get_value("Module Def", module, "app_name"), "hrms")
+			self.assertFalse(frappe.get_all("Workspace", filters={"module": module}, limit=1))
+			self.assertIn(module, get_navigable_modules())
+		# Division is Drea Finance's, not in HR's settings menu
+		items = frappe.get_all("Sidebar Item", filters={"parent": "Drea Settings"}, pluck="link_to")
+		self.assertNotIn("Division", items)
 
 
 def response(status, body):
@@ -337,7 +382,6 @@ class TestRealPayrollEntry(IntegrationTestCase):
 
 		TestPayrollEntry.setUp(self)
 		frappe.db.set_single_value("Payroll Settings", "email_salary_slip_to_employee", 0)
-		frappe.db.set_value("Company", "_Test Company", "drea_finance_code", "LE-TEST1")
 		if not frappe.db.exists("Division", "DV-TEST1"):
 			frappe.get_doc(
 				{
@@ -359,7 +403,14 @@ class TestRealPayrollEntry(IntegrationTestCase):
 		from hrms.tests.test_utils import create_department
 
 		department = create_department("Drea Payroll Test")
-		frappe.db.set_value("Department", department, "drea_finance_division", "DV-TEST1")
+		set_mappings(
+			companies={"_Test Company": "LE-00091"},
+			departments={department: "DV-TEST1"},
+			pay_codes={},
+			enabled=1,
+			url="https://f.invalid",
+			send_payroll=1,
+		)
 		company = frappe.get_doc("Company", "_Test Company")
 		employees = [
 			make_employee(f"drea.payroll{i}@example.com", company=company.name, department=department)
@@ -369,7 +420,6 @@ class TestRealPayrollEntry(IntegrationTestCase):
 			frappe.db.set_value("Employee", employee, "department", department)
 			setup_salary_structure(employee, company)
 
-		frappe.db.set_single_value("HR Settings", "drea_finance_send_payroll", 1)
 		dates = get_start_end_dates("Monthly", frappe.utils.nowdate())
 		with patch("hrms.payroll.drea_finance.queue_after_submission") as queued:
 			entry = make_payroll_entry(
@@ -387,16 +437,20 @@ class TestRealPayrollEntry(IntegrationTestCase):
 		with self.assertRaises(df.PayrollSendError):
 			df.build_payload(frappe.get_doc("Payroll Entry", entry.name))
 		# ... and once every component has a code, the totals go
-		for component, type_ in frappe.get_all("Salary Component", fields=["name", "type"], as_list=True):
-			code = {"Earning": "SALARY", "Deduction": "PPH21_WITHHELD"}.get(type_)
-			frappe.db.set_value("Salary Component", component, "drea_finance_component", code)
+		set_mappings(
+			pay_codes={
+				component: {"Earning": "SALARY", "Deduction": "PPH21_WITHHELD"}[type_]
+				for component, type_ in frappe.get_all("Salary Component", fields=["name", "type"], as_list=True)
+				if type_ in ("Earning", "Deduction")
+			}
+		)
 		payload = df.build_payload(frappe.get_doc("Payroll Entry", entry.name))
 		slips = frappe.get_all(
 			"Salary Slip", filters={"payroll_entry": entry.name, "docstatus": 1}, fields=["rounded_total"]
 		)
 		self.assertEqual(len(payload["rows"]), 1)
 		row = payload["rows"][0]
-		self.assertEqual((row["company_code"], row["division_code"]), ("LE-TEST1", "DV-TEST1"))
+		self.assertEqual((row["company_code"], row["division_code"]), ("LE-00091", "DV-TEST1"))
 		self.assertEqual(row["headcount"], len(slips))
 		self.assertEqual(row["take_home"], sum(round(s.rounded_total) for s in slips))
 		self.assertEqual(payload["month"], str(dates.start_date)[:7])

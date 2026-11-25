@@ -68,17 +68,6 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
-   "label": "Division",
-   "link_to": "Division",
-   "link_type": "DocType",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
-   "child": 1,
-   "collapsible": 1,
-   "indent": 0,
-   "keep_closed": 0,
    "label": "Holiday List",
    "link_to": "Holiday List",
    "link_type": "DocType",
@@ -301,7 +290,7 @@
    "url": "/desk/hr-settings#tutorial"
   }
  ],
- "modified": "2026-11-24 14:00:00.000000",
+ "modified": "2026-11-25 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "Drea Settings",
  "name": "Drea Settings",

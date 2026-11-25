@@ -16,8 +16,6 @@ export const showSalary = computed(() => Boolean(settings.data?.show_salary_in_e
 export const showAttendanceRequests = computed(() =>
 	Boolean(settings.data?.show_attendance_requests_in_employee_app)
 )
-// Reimbursement goes to Drea Finance, once HR Settings has its address and key
-export const showReimbursements = computed(() => Boolean(settings.data?.show_reimbursements))
 
 // the app's main sections: bottom tabs on phones, a top bar on wide screens
 export const useMainSections = (__) =>
@@ -28,10 +26,8 @@ export const useMainSections = (__) =>
 			{ icon: LeaveIcon, title: __("Leaves"), route: "/dashboard/leaves" },
 			// everyone's shifts, for every employee (not only approvers)
 			{ icon: RosterIcon, title: __("Employee Schedule"), route: "/schedule" },
-			// Frappe's own expense claims, unless claims go to Drea Finance instead
-			showExpenses.value && !showReimbursements.value && { icon: ExpenseIcon, title: __("Expenses"), route: "/dashboard/expense-claims" },
+			// Frappe's own expense claims, when HR Settings turns them on for the app
+			showExpenses.value && { icon: ExpenseIcon, title: __("Expenses"), route: "/dashboard/expense-claims" },
 			showSalary.value && { icon: SalaryIcon, title: __("Salary"), route: "/dashboard/salary-slips" },
-			// last: the least frequent of the employee's goals
-			showReimbursements.value && { icon: ExpenseIcon, title: __("Reimburse"), route: "/reimbursements" },
 		].filter(Boolean)
 	)

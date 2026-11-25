@@ -8,9 +8,9 @@
 	function payroll_list_steps() {
 		return [
 			step(null, __("Welcome to Payroll"),
-				__("Each month HR runs one Payroll Entry per company. It makes everyone's salary slip and sends Drea Finance only the totals. This short tour shows where things are.")),
+				__("Each month HR runs one Payroll Entry per company. It makes everyone's salary slip. This short tour shows where things are.")),
 			step(list_rows, __("Payroll Entries"),
-				__("Every month's run is listed here with its status. Open one to see its slips and Drea Finance's answer.")),
+				__("Every month's run is listed here with its status. Open one to see its slips.")),
 			step(button(__("Add Payroll Entry")), __("Start a month"),
 				__("Press this to start a month's payroll. Its own tutorial starts the first time you open one.")),
 			step(sidebar_link("salary-structure-assignment"), __("Before the first month"),
@@ -45,7 +45,7 @@
 			step(top(".page-head .menu-btn-group > button, .page-head .menu-btn-group"), __("Export to CSV"),
 				__("<b>Export Salary Slips (CSV)</b> in this menu downloads the ticked slips, or every slip the filters show: one row per slip, one column per component, for Excel.")),
 			step(null, __("Fixing a slip"),
-				__("Fix the cause (assignment, Additional Salary, leave or attendance), then make the slips again from the Payroll Entry. A slip edited by hand drifts from what Finance was sent.")),
+				__("Fix the cause (assignment, Additional Salary, leave or attendance), then make the slips again from the Payroll Entry. Avoid editing a slip by hand.")),
 			again,
 		],
 		"Additional Salary": () => [
@@ -72,9 +72,9 @@
 			step(null, __("Salary Components"),
 				__("The pay items on a slip: Gaji Pokok, Insentif, PPh 21, BPJS, Potongan Keterlambatan.")),
 			step(list_rows, __("Earnings, deductions, employer contributions"),
-				__("Open one to see its type, its <b>Drea Finance Code</b> and its account per company. A component without a code stops the send to Finance.")),
+				__("Open one to see its type and its account per company.")),
 			step(add_button, __("A new pay item"),
-				__("Give it a Type, a Drea Finance Code and an account for each company. The component's own <b>Tutorial</b> explains each field.")),
+				__("Give it a Type and an account for each company. The component's own <b>Tutorial</b> explains each field.")),
 			again,
 		],
 		"Salary Structure": () => [
@@ -92,7 +92,7 @@
 	const REPORT_TOURS = {
 		"Salary Register": () => [
 			step(null, __("Salary Register"),
-				__("Every slip in a period, one row per person, one column per component. Use it to check a month before submitting the slips, or to hand Finance the detail.")),
+				__("Every slip in a period, one row per person, one column per component. Use it to check a month before submitting the slips.")),
 			step(list_filters, __("Choose the period"),
 				__("From and To = the month, then the Company. <b>Document Status</b>: Draft to check slips not yet final, Submitted for the final month.")),
 			step(report_table, __("The register"),
@@ -117,19 +117,28 @@
 		const draft = frm.doc.docstatus === 0;
 		const submitted = frm.doc.docstatus === 1;
 		const sent = submitted && frm.doc.salary_slips_submitted;
+		const fin = frappe.boot.drea_finance_enabled; // connected to Drea Finance (Drea Finance Settings)
 		return [
 			step(null, __("Payroll, one month at a time"),
-				__("One Payroll Entry pays one company for one month. It makes a salary slip for each person; submitting the slips sends Drea Finance the totals per company and division, never a person's pay.")),
+				fin
+					? __("One Payroll Entry pays one company for one month. It makes a salary slip for each person; submitting the slips sends Drea Finance the totals per company and division, never a person's pay.")
+					: __("One Payroll Entry pays one company for one month. It makes a salary slip for each person.")),
 			step(field(frm, "posting_date"), __("Posting Date = pay date"),
-				__("The day salaries are paid. Drea Finance books the month's journal on this date.")),
+				fin
+					? __("The day salaries are paid. Drea Finance books the month's journal on this date.")
+					: __("The day salaries are paid.")),
 			step(field(frm, "company"), __("Company"),
-				__("The legal entity paying. It needs its Drea Finance code (LE-…) in the Company form, or the send is stopped.")),
+				fin
+					? __("The legal entity paying. It needs its legal entity code (LE-…) in Drea Finance Settings, or the send is stopped.")
+					: __("The legal entity paying.")),
 			step(field(frm, "start_date"), __("The month"),
 				__("Payroll Frequency Monthly, Start Date and End Date = the month being paid (for example 1 to 30 November).")),
-			step(field(frm, "drea_finance_kind"), __("Kind for Drea Finance"),
+			fin && step(field(frm, "drea_finance_kind"), __("Kind for Drea Finance"),
 				__("Salary for the monthly pay; THR or Bonus for those runs. Finance keeps them apart.")),
 			step(field(frm, "department"), __("Department (optional)"),
-				__("Empty pays the whole company. Every department paid must have a Drea Finance division (DV-…).")),
+				fin
+					? __("Empty pays the whole company. Every department paid must have a division in Drea Finance Settings.")
+					: __("Empty pays the whole company.")),
 			step(field(frm, "employees"), __("Employees"),
 				__("<b>Get Employees</b> fills this list: everyone with a salary structure assignment for the month who has no slip yet. Once the slips are made, <b>Net Pay</b> shows each person's take-home. Check it before going on.")),
 			step(field(frm, "cost_center"), __("Accounting"),
@@ -137,19 +146,23 @@
 			draft && step(button(__("Get Employees")), __("Get Employees"),
 				__("Save first, then press it. Penalties and one-off amounts must already be in as <b>Additional Salary</b> for the month.")),
 			draft && step(button(__("Create Salary Slips")), __("Create Salary Slips"),
-				__("Submits this entry and makes one <b>draft</b> salary slip per person. Nothing goes to Finance yet.")),
+				__("Submits this entry and makes one <b>draft</b> salary slip per person.")),
 			submitted && step(null, __("Check the slips"),
 				__("Open the Connections tab, Salary Slip: check gross, deductions and take-home for each person. Fix a wrong one at its source (assignment, Additional Salary) before going on.")),
 			submitted && !sent && step(button(__("Submit Salary Slip")), __("Submit Salary Slip"),
-				__("Submits every slip and makes the accrual journal here. With <b>Send Payroll</b> on in HR Settings, the totals go to Drea Finance within a minute.")),
-			submitted && step(field(frm, "drea_finance_status", "drea_finance_section"), __("Drea Finance's Answer"),
+				fin
+					? __("Submits every slip and makes the accrual journal here. With <b>Send Payroll Totals</b> on in Drea Finance Settings, the totals go to Drea Finance within a minute.")
+					: __("Submits every slip and makes the accrual journal here.")),
+			submitted && fin && step(field(frm, "drea_finance_status", "drea_finance_section"), __("Drea Finance's Answer"),
 				__("Finance's reply lands here: \"received\" (draft journal made), \"unchanged\" (already had these figures) or the list of problems to fix.")),
-			sent && step(button(__("Drea Finance")), __("Drea Finance buttons"),
+			sent && fin && step(button(__("Drea Finance")), __("Drea Finance buttons"),
 				__("<b>Test (nothing saved)</b> checks the totals without saving. <b>Send Totals</b> sends them, as a new version after a correction.")),
 			sent && step(button(__("Make Bank Entry")), __("Pay"),
 				__("Records the payment from the bank account once salaries are transferred.")),
 			step(null, __("Done"),
-				__("Finance checks the draft journal in Drea Finance, Salary, and posts it. The Payroll Manual Guide has the setup, the edge cases and the error messages.")),
+				fin
+					? __("Finance checks the draft journal in Drea Finance, Salary, and posts it. The Payroll Manual Guide has the setup, the edge cases and the error messages.")
+					: __("The month's payroll is done. The Payroll Manual Guide has the setup, the edge cases and the error messages.")),
 		];
 	}
 
@@ -158,12 +171,10 @@
 		"Salary Component": (frm) => [
 			step(field(frm, "type"), __("Type"),
 				__("Earning, Deduction (taken from pay, or a cut such as a late penalty) or Employer Contribution (the company's BPJS share).")),
-			step(field(frm, "drea_finance_component"), __("Drea Finance code"),
-				__("Which line this is in Finance: SALARY, INCENTIVE, PPH21_WITHHELD, BPJS_… A late penalty is a Deduction with code <b>SALARY</b>: Finance sees lower salary. A component without a code stops the send.")),
 			step(field(frm, "round_to_the_nearest_integer"), __("Round to the Nearest Integer"),
-				__("Tick it: Finance takes whole rupiah only. 1% of 6,333,333 becomes 63,333.")),
+				__("Tick it for whole rupiah. 1% of 6,333,333 becomes 63,333.")),
 			step(field(frm, "remove_if_zero_valued"), __("Remove if Zero Valued"),
-				__("Untick it to keep a 0 line on the slip (for example BPJS TK 0). A 0 line is never sent to Finance either way.")),
+				__("Untick it to keep a 0 line on the slip (for example BPJS TK 0).")),
 			step(field(frm, "accounts"), __("Accounts"),
 				__("One row per company. An Employer Contribution needs both the expense account and the liability account. Without a row for the company, the component cannot be picked in that company's salary structures.")),
 		],
