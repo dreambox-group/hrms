@@ -78,6 +78,25 @@ def get_leave_end_date_fields():
 	]
 
 
+def get_additional_department_fields():
+	"""Employee > Secondary Departments: other departments the person works in (owner, 25 Nov 2026). Payroll,
+	Drea Finance and leave approval follow the main Department; the leave approvers of these
+	departments also see the person in their Drea One team (hrms.hr.supervisors.get_team)."""
+	return [
+		{
+			"fieldname": "additional_departments",
+			"fieldtype": "Table MultiSelect",
+			"label": _("Secondary Departments"),
+			"options": "Employee Additional Department",
+			"insert_after": "department",
+			"description": _(
+				"Other departments this person also works in. Only for Drea One: their leaders see this "
+				"person in their team. Payroll, Drea Finance and leave approval follow the main Department."
+			),
+		},
+	]
+
+
 def get_auto_checkin_fields():
 	"""Employee > Attendance & Leaves: Automatic Check-in (hrms.hr.auto_checkin; owner, 24 Nov 2026)."""
 	return [
@@ -634,6 +653,7 @@ def get_hrms_custom_fields():
 			},
 			*get_auto_checkin_fields(),
 			*get_leave_end_date_fields(),
+			*get_additional_department_fields(),
 			{
 				"collapsible": 1,
 				"fieldname": "health_insurance_section",

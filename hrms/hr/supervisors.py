@@ -57,13 +57,34 @@ def get_supervised_departments(user: str) -> list[str]:
 
 
 def get_team(user: str) -> list[frappe._dict]:
-	"""Active employees in the user's departments, without the user."""
+	"""Active employees in the user's departments, without the user: those whose Department is one
+	of them, and those who list one under Secondary Departments (owner, 25 Nov 2026)."""
 	from hrms.hr.workforce_today import get_active_employees
 
 	departments = get_supervised_departments(user)
 	if not departments:
 		return []
-	return [e for e in get_active_employees(departments=departments) if e.user_id != user]
+	team = {e.name: e for e in get_active_employees(departments=departments)}
+	also = get_employees_also_in(departments)
+	if also:
+		for e in get_active_employees():
+			if e.name in also and e.name not in team:
+				team[e.name] = e
+	return sorted((e for e in team.values() if e.user_id != user), key=lambda e: e.employee_name or "")
+
+
+def get_employees_also_in(departments: list[str]) -> set[str]:
+	"""Employees who list any of these departments under Secondary Departments."""
+	if not frappe.db.table_exists("Employee Additional Department"):  # before the migrate that adds it
+		return set()
+	return set(
+		frappe.get_all(
+			"Employee Additional Department",
+			filters={"parenttype": "Employee", "parentfield": "additional_departments", "department": ("in", departments)},
+			pluck="parent",
+			distinct=True,
+		)
+	)
 
 
 HR_ROLES = ("HR Manager", "HR User", "System Manager")
