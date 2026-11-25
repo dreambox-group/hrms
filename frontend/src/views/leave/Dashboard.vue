@@ -4,6 +4,7 @@
 			<button
 				type="button"
 				class="flex min-h-[44px] items-center gap-2 rounded-xl bg-brand-600 px-5 text-[15px] font-semibold text-white hover:bg-brand-700"
+				data-tour="request-leave"
 				@click="openLeaveRequest(router, isDesktop)"
 			>
 				<FeatherIcon name="plus" class="h-4 w-4" />
@@ -15,6 +16,7 @@
 				<!-- Employee Types without Leave Allocation: the contract end date instead of balances -->
 				<section
 					v-if="endDate.data?.applies"
+					data-tour="end-date"
 					:aria-label="__('Contract end date')"
 					class="rounded-2xl border border-line bg-white p-5 lg:max-w-[560px] lg:p-6"
 				>
@@ -23,7 +25,7 @@
 				</section>
 
 				<!-- balances -->
-				<div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div v-else data-tour="balances" class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<section
 						v-for="row in balances"
 						:key="row.type"
@@ -59,7 +61,7 @@
 				<div class="flex flex-col items-start gap-5 lg:flex-row lg:gap-6">
 					<div class="flex w-full min-w-0 flex-1 flex-col gap-5 lg:gap-6">
 						<!-- requests -->
-						<section class="flex w-full flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
+						<section data-tour="my-requests" class="flex w-full flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<div class="flex flex-row flex-wrap items-center justify-between gap-3">
 								<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("My requests") }}</h2>
 								<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-1 overflow-x-auto rounded-xl bg-[#F1F3F0] p-1">
@@ -124,7 +126,7 @@
 
 						<CutiPenggantiCard v-if="endDate.fetched && !endDate.data?.applies" />
 
-						<section class="flex flex-col rounded-2xl border border-line bg-white p-4 lg:p-6">
+						<section data-tour="holidays" class="flex flex-col rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<div class="flex flex-row items-baseline justify-between pb-2">
 								<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("Upcoming holidays") }}</h2>
 								<button

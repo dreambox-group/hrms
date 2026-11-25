@@ -7,7 +7,7 @@
 						<DreaLogo class="h-8 w-8" />
 						<span class="text-lg font-bold tracking-tight">{{ __("Drea One") }}</span>
 					</router-link>
-					<nav class="hidden flex-row items-center gap-1 lg:flex" :aria-label="__('Main')">
+					<nav data-tour="nav" class="hidden flex-row items-center gap-1 lg:flex" :aria-label="__('Main')">
 						<router-link
 							v-for="item in sections"
 							:key="item.route"
@@ -23,8 +23,20 @@
 						</router-link>
 					</nav>
 					<div class="ml-auto flex flex-row items-center gap-2">
-						<NotificationBell />
-						<router-link :to="{ name: 'Profile' }" :aria-label="__('Profile')" class="flex items-center">
+						<!-- the tutorial of this screen (utils/tours.js) -->
+						<button
+							v-if="tourHere"
+							type="button"
+							data-tour="help"
+							:aria-label="__('Tutorial')"
+							:title="__('Tutorial')"
+							class="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 hover:text-ink"
+							@click="startTour(route.name, __)"
+						>
+							<FeatherIcon name="help-circle" class="h-5 w-5" />
+						</button>
+						<span data-tour="bell" class="flex items-center"><NotificationBell /></span>
+						<router-link data-tour="profile" :to="{ name: 'Profile' }" :aria-label="__('Profile')" class="flex items-center">
 							<Avatar :image="user.data.user_image" :label="user.data.first_name" size="xl" />
 						</router-link>
 					</div>
@@ -60,16 +72,18 @@
 import { IonHeader, IonContent, IonPage } from "@ionic/vue"
 import { FeatherIcon, Avatar } from "frappe-ui"
 import { useRoute } from "vue-router"
-import { inject } from "vue"
+import { computed, inject } from "vue"
 
 import DreaLogo from "@/components/icons/DreaLogo.vue"
 import NotificationBell from "@/components/NotificationBell.vue"
 import { useMainSections } from "@/utils/navigation"
+import { hasTour, startTour } from "@/utils/tours"
 
 const user = inject("$user")
 const __ = inject("$translate")
 const route = useRoute()
 const sections = useMainSections(__)
+const tourHere = computed(() => hasTour(route.name))
 
 const props = defineProps({
 	// shown as the page's heading, under the bar; the bar always says Drea One

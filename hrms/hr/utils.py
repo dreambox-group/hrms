@@ -377,11 +377,15 @@ def allocate_earned_leaves():
 
 			if not allocation_date or allocation_date != today:
 				continue
+			# a savepoint per allocation: on Postgres a failed statement aborts the whole
+			# transaction, and every allocation after it (and the error log) would fail too
+			frappe.db.savepoint("earned_leave")
 			try:
 				update_previous_leave_allocation(
 					allocation, annual_allocation, e_leave_type, earned_leaves, today
 				)
 			except Exception as e:
+				frappe.db.rollback(save_point="earned_leave")
 				log_allocation_error(allocation.name, e)
 				failed_allocations.append(allocation.name)
 	if failed_allocations:

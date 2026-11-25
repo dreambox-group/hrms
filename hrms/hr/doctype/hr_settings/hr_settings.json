@@ -410,7 +410,7 @@
   },
   {
    "default": "0",
-   "description": "Ticked: Drea One shows Reimbursement, and claims go to Drea Finance at the address on the left. Unticked: Reimbursement is hidden in Drea One and any call is refused; the payroll link keeps working. Off on production HRIS, on in staging (owner, 10 Nov 2026).",
+   "description": "Ticked: Drea One shows Reimbursement, and claims go to Drea Finance at the address on the left. Unticked: Reimbursement is hidden in Drea One and any call is refused; the payroll link keeps working. Off on production Drea HR, on in staging (owner, 10 Nov 2026).",
    "fieldname": "show_reimbursements_in_employee_app",
    "fieldtype": "Check",
    "label": "Show Reimbursements in Drea One",
@@ -628,7 +628,7 @@
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-10 17:00:00.000000",
+ "modified": "2026-11-12 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "HR",
  "name": "HR Settings",

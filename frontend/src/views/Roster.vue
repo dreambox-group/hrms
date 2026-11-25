@@ -1,7 +1,7 @@
 <template>
 	<BaseLayout :pageTitle="__('Employee Schedule')">
 		<template #actions>
-			<div class="flex flex-row items-center gap-2">
+			<div data-tour="week" class="flex flex-row items-center gap-2">
 				<button
 					type="button"
 					class="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink hover:bg-gray-50"
@@ -55,7 +55,7 @@
 				</div>
 
 				<!-- wide screens: everyone × the week -->
-				<section v-if="isDesktop" class="overflow-x-auto rounded-2xl border border-line bg-white">
+				<section v-if="isDesktop" data-tour="schedule-table" class="overflow-x-auto rounded-2xl border border-line bg-white">
 					<table class="w-full min-w-[900px] table-fixed border-collapse text-sm">
 						<thead>
 							<tr class="border-b border-line">
@@ -136,6 +136,7 @@
 
 					<section
 						v-for="group in departmentGroups"
+						data-tour="schedule-table"
 						:key="group.department"
 						class="flex flex-col gap-1 rounded-2xl border border-line bg-white p-4"
 					>

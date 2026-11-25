@@ -427,8 +427,15 @@ def get_employees(salary_structure: str) -> list[str]:
 def get_salary_component(
 	doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict
 ) -> list:
+	from pypika.functions import Lower
+
 	sc = frappe.qb.DocType("Salary Component")
 	sca = frappe.qb.DocType("Salary Component Account")
+
+	# The form sends "earning" / "deduction" / "employer contribution" in lower case. MariaDB compares
+	# without case, Postgres does not, so on Postgres the list came back empty. Compare in lower case.
+	component_type = cstr(filters.get("component_type")).lower()
+	search = f"%{cstr(txt).lower()}%"
 
 	salary_components = (
 		frappe.qb.from_(sc)
@@ -436,9 +443,9 @@ def get_salary_component(
 		.on(sca.parent == sc.name)
 		.select(sc.name, sca.account, sca.company)
 		.where(
-			(sc.type == filters.get("component_type"))
+			(Lower(sc.type) == component_type)
 			& (sc.disabled == 0)
-			& (sc[searchfield].like(f"%{txt}%") | sc.name.like(f"%{txt}%"))
+			& (Lower(sc[searchfield]).like(search) | Lower(sc.name).like(search))
 		)
 		.limit(page_len)
 		.offset(start)

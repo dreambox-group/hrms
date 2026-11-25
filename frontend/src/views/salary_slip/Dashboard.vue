@@ -2,12 +2,13 @@
 	<BaseLayout :pageTitle="__('Salary')">
 		<template #body>
 			<div class="flex w-full flex-col gap-5 px-4 pb-24 pt-5 lg:gap-6 lg:px-6">
-				<section class="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
+				<section data-tour="slips" class="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
 					<div class="flex flex-row flex-wrap items-center justify-between gap-3">
 						<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("All salary slips") }}</h2>
 						<!-- amounts stay hidden until asked for, so a glance at the phone shows no salary -->
 						<button
 							v-if="slips.data?.length"
+							data-tour="amounts"
 							type="button"
 							:aria-pressed="showAmounts"
 							class="flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-600 hover:text-brand-700 lg:ml-auto"

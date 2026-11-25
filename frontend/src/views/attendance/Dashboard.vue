@@ -2,6 +2,7 @@
 	<BaseLayout :pageTitle="__('Attendance')">
 		<template #actions>
 			<router-link
+				data-tour="history"
 				:to="{ name: 'EmployeeCheckinListView' }"
 				class="text-sm font-semibold text-brand-600 hover:text-brand-700"
 			>
@@ -38,7 +39,7 @@
 				</div>
 
 				<div class="flex flex-col items-start gap-5 lg:flex-row lg:gap-6">
-					<section class="w-full min-w-0 flex-1 rounded-2xl border border-line bg-white p-3.5 lg:p-6">
+					<section data-tour="calendar" class="w-full min-w-0 flex-1 rounded-2xl border border-line bg-white p-3.5 lg:p-6">
 						<div class="mb-3 flex flex-row items-center justify-between lg:mb-4">
 							<button
 								type="button"
@@ -109,7 +110,7 @@
 							</div>
 						</section>
 
-						<section v-if="!viewing" class="flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4 lg:p-6">
+						<section v-if="!viewing" data-tour="schedule" class="flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("Your schedule") }}</h2>
 							<div
 								v-for="shift in upcomingShifts"
@@ -131,7 +132,7 @@
 							</div>
 						</section>
 
-						<section v-if="showAttendanceRequests && !viewing" class="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4 lg:p-6">
+						<section v-if="showAttendanceRequests && !viewing" data-tour="attendance-requests" class="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<router-link :to="{ name: 'AttendanceRequestFormView' }" class="text-sm font-semibold text-brand-600">
 								{{ __("Request attendance") }}
 							</router-link>
@@ -143,7 +144,7 @@
 				</div>
 
 				<!-- supervisors: their team's month -->
-				<TeamAttendance v-if="homeData.data?.team" :month="month" :viewing="viewing?.employee || ''" @select="view" />
+				<TeamAttendance v-if="homeData.data?.team" data-tour="team-attendance" :month="month" :viewing="viewing?.employee || ''" @select="view" />
 			</div>
 		</template>
 	</BaseLayout>

@@ -10,13 +10,14 @@ import frappe
 from frappe import _
 from frappe.desk.reportview import get_match_cond
 from frappe.model.document import Document
-from frappe.query_builder.functions import Coalesce, Count
+from frappe.query_builder.functions import Coalesce, Count, Lower
 from frappe.utils import (
 	DATE_FORMAT,
 	add_days,
 	add_to_date,
 	cint,
 	comma_and,
+	cstr,
 	date_diff,
 	flt,
 	get_link_to_form,
@@ -39,7 +40,25 @@ from hrms.utils.holiday_list import (
 
 
 class PayrollEntry(Document):
+	def set_slip_net_pay(self):
+		"""Each employee row's Net Pay column: the take-home on their slip from this entry (owner,
+		24 Nov 2026). Read when the entry is opened, so it follows the slips as they are now."""
+		if not self.employees or self.is_new() or not frappe.has_permission("Salary Slip", "read"):
+			return
+		# get_list: someone who may open the entry but not every slip sees only the slips they may
+		net_pay = dict(
+			frappe.get_list(
+				"Salary Slip",
+				filters={"payroll_entry": self.name, "docstatus": ["!=", 2]},
+				fields=["employee", "net_pay"],
+				as_list=True,
+			)
+		)
+		for row in self.employees:
+			row.net_pay = net_pay.get(row.employee)
+
 	def onload(self):
+		self.set_slip_net_pay()
 		if self.docstatus == 0 and not self.salary_slips_created and self.employees:
 			[employees_eligible_for_overtime, unsubmitted_overtime_slips] = self.get_overtime_slip_details()
 			overtime_step = None
@@ -1525,9 +1544,10 @@ def set_fields_to_select(query, fields: list[str] | None = None):
 
 def set_searchfield(query, searchfield, search_string, qb_object):
 	if searchfield:
+		# lower(): Postgres LIKE is case-sensitive, MariaDB's is not
+		search = f"%{cstr(search_string).lower()}%"
 		query = query.where(
-			(qb_object[searchfield].like("%" + search_string + "%"))
-			| (qb_object.employee_name.like("%" + search_string + "%"))
+			(Lower(qb_object[searchfield]).like(search)) | (Lower(qb_object.employee_name).like(search))
 		)
 
 	return query
@@ -1861,7 +1881,7 @@ def get_payroll_entries_for_jv(
 		frappe.qb.from_(PayrollEntry)
 		.select(PayrollEntry.name)
 		.where(PayrollEntry.docstatus == 1)
-		.where(PayrollEntry[searchfield].like("%%%s%%" % txt))
+		.where(Lower(PayrollEntry[searchfield]).like("%%%s%%" % cstr(txt).lower()))
 		.where(PayrollEntry.name.notin(linked_entries))
 		.orderby(PayrollEntry.name)
 		.limit(page_len)

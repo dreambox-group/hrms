@@ -78,6 +78,24 @@ def get_leave_end_date_fields():
 	]
 
 
+def get_auto_checkin_fields():
+	"""Employee > Attendance & Leaves: Automatic Check-in (hrms.hr.auto_checkin; owner, 24 Nov 2026)."""
+	return [
+		{
+			"fieldname": "auto_checkin",
+			"fieldtype": "Check",
+			"label": _("Automatic Check-in"),
+			"default": "0",
+			"insert_after": "default_shift",
+			"description": _(
+				"Checks this person in at the start of their shift (on time) and out at its end, every "
+				"working day, by itself. Office shift: at the office's location. Skipped on leave, "
+				"holidays, days without a shift and days they check in themselves. Only HR can change it."
+			),
+		},
+	]
+
+
 def get_indonesian_id_fields():
 	"""Employee fields the old HRIS kept: Indonesian IDs, the bank account's name, the documents folder."""
 	return [
@@ -614,6 +632,7 @@ def get_hrms_custom_fields():
 				"options": "Shift Type",
 				"insert_after": "holiday_list",
 			},
+			*get_auto_checkin_fields(),
 			*get_leave_end_date_fields(),
 			{
 				"collapsible": 1,

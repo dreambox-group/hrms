@@ -64,6 +64,70 @@ def register():
 	psycopg2.extensions.register_adapter(bool, lambda value: psycopg2.extensions.AsIs(int(value)))
 	use_read_committed()
 	end_transaction_before_close()
+	is_set_on_any_column()
+
+
+def is_set_on_any_column():
+	"""Filters "is set" / "is not set" on a Date, Datetime, Int, Float or Currency column (24 Nov
+	2026 audit).
+
+	Frappe writes them as `x != ''` and `x IS NULL OR x = ''` whatever the column's type. MariaDB
+	compares a date or a number with '' without complaint ('' counts as 0 for a number); Postgres
+	refuses ("invalid input syntax for type date") and the list, report or code using the filter
+	fails, e.g. Employee filtered on "Relieving Date is not set". Here the column's type decides,
+	as MariaDB's results did: a number is set when not empty and not 0, a date or time when not
+	empty; text keeps Frappe's own condition. A column whose type can't be found is compared as
+	text. Postgres only; MariaDB keeps Frappe's own condition.
+	"""
+	try:
+		from frappe.database import operator_map
+	except ImportError:
+		return
+	if getattr(operator_map, "_dreambox_is_any_type", False):
+		return
+	from pypika.functions import Cast
+
+	original = operator_map.func_is
+	numbers = {"Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration"}
+	dates = {"Date", "Datetime", "Time"}
+
+	def fieldtype(key):
+		import frappe
+
+		table = getattr(getattr(key, "table", None), "_table_name", "") or ""
+		name = getattr(key, "name", None)
+		if not table.startswith("tab") or not name:
+			return None
+		if name in ("creation", "modified"):
+			return "Datetime"
+		if name in ("docstatus", "idx"):
+			return "Int"
+		try:
+			df = frappe.get_meta(table[3:]).get_field(name)
+		except Exception:
+			return None
+		return df.fieldtype if df else None
+
+	def func_is(key, value):
+		import frappe
+
+		db = getattr(frappe.local, "db", None)
+		state = str(value or "").lower()
+		if db is None or db.db_type != "postgres" or state not in ("set", "not set"):
+			return original(key, value)
+		kind = fieldtype(key)
+		if kind in numbers:
+			return (key.isnotnull() & (key != 0)) if state == "set" else (key.isnull() | (key == 0))
+		if kind in dates:
+			return key.isnotnull() if state == "set" else key.isnull()
+		if kind:  # text: Frappe's own condition is valid on Postgres
+			return original(key, value)
+		as_text = Cast(key, "TEXT")
+		return (key.isnotnull() & (as_text != "")) if state == "set" else (key.isnull() | (as_text == ""))
+
+	operator_map.func_is = func_is
+	operator_map.OPERATOR_MAP["is"] = func_is
+	operator_map._dreambox_is_any_type = True
 
 
 def end_transaction_before_close():

@@ -353,7 +353,13 @@ def get_salary_components(salary_slips):
 def get_salary_slips(filters, company_currency):
 	doc_status = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
 
-	query = frappe.qb.from_(salary_slip).select(salary_slip.star)
+	# ordered: Postgres returns rows in no particular order (MariaDB happened to give the key's)
+	query = (
+		frappe.qb.from_(salary_slip)
+		.select(salary_slip.star)
+		.orderby(salary_slip.employee_name)
+		.orderby(salary_slip.start_date)
+	)
 
 	if filters.get("docstatus"):
 		query = query.where(salary_slip.docstatus == doc_status[filters.get("docstatus")])

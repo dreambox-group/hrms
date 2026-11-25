@@ -2,7 +2,7 @@
 	<BaseLayout :pageTitle="__('To do')" :backTo="{ name: 'Home' }" :backLabel="__('Home')">
 		<template #body>
 			<div class="flex w-full flex-col gap-4 px-4 pb-24 pt-4 lg:px-6">
-				<TodoList />
+				<TodoList data-tour="todo" />
 			</div>
 		</template>
 	</BaseLayout>

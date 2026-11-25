@@ -212,4 +212,5 @@ def get_years() -> str:
 	if not year_list:
 		year_list = [getdate().year]
 
-	return "\n".join(str(year) for year in year_list)
+	# int: Postgres EXTRACT gives a numeric (2026.0), and the reports then fail on int("2026.0")
+	return "\n".join(str(int(year)) for year in year_list)

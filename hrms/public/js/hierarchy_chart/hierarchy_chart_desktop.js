@@ -246,7 +246,9 @@ hrms.HierarchyChart = class {
 					});
 
 					me.root_node = expand_node;
-					if (!expanded_view) {
+					// nobody at the top has a team (no "Reports to" set yet): nothing to open; this
+					// crashed with "reading '$link'" (24 Nov 2026)
+					if (!expanded_view && expand_node) {
 						me.expand_node(expand_node);
 					}
 				}

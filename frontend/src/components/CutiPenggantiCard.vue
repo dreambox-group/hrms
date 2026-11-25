@@ -1,6 +1,7 @@
 <template>
 	<section
 		v-if="summary.data?.enabled"
+		data-tour="cuti-pengganti"
 		:aria-label="__('Overtime Submission')"
 		class="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6"
 	>

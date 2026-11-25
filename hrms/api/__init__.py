@@ -334,7 +334,8 @@ def get_shift_request_approvers(employee: str) -> str | list[str]:
 
 	department_approvers = []
 	if department:
-		frappe.has_permission("Department", "read", department, throw=True)
+		# no Department check: the employee check above suffices, and the Employee role cannot read
+		# Department (Drea One's Request a Shift failed with "No permission for Department")
 		department_approvers = get_department_approvers(department, "shift_request_approver")
 		if not shift_request_approver:
 			shift_request_approver = frappe.db.get_value(

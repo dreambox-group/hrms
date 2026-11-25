@@ -126,6 +126,8 @@ def process_auto_shift_creation():
 		pluck="name",
 	)
 	for d in shift_schedule_assignments:
+		# a savepoint per schedule: on Postgres a failed statement aborts the whole transaction
+		frappe.db.savepoint("shift_schedule")
 		try:
 			doc = frappe.get_doc("Shift Schedule Assignment", d)
 
@@ -139,6 +141,7 @@ def process_auto_shift_creation():
 
 			doc.add_comment(comment_type="Info", text=text)
 		except Exception as e:
+			frappe.db.rollback(save_point="shift_schedule")
 			frappe.log_error(e)
 
 			continue

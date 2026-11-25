@@ -42,8 +42,9 @@ class EmployeeCheckin(Document):
 		self.validate_distance_from_shift_location()
 
 	def validate_selfie(self):
-		# employees checking themselves in must go through add_log_with_selfie
-		if not self.is_new() or self.flags.selfie_checkin:
+		# employees checking themselves in must go through add_log_with_selfie; Automatic Check-in
+		# (hrms.hr.auto_checkin, server side only) has no camera
+		if not self.is_new() or self.flags.selfie_checkin or self.flags.auto_checkin:
 			return
 
 		if is_selfie_required_for(self.employee):
@@ -117,6 +118,10 @@ class EmployeeCheckin(Document):
 		"""Outside the office's check-in radius the employee can still check in, with a reason
 		(Meeting di Luar / Sudah izin Supervisor); their supervisors and HR see it that day."""
 		if not frappe.db.get_single_value("HR Settings", "allow_geolocation_tracking"):
+			return
+
+		# Automatic Check-in on a shift without an office (working from home) has no location
+		if self.flags.auto_checkin and not (self.latitude or self.longitude):
 			return
 
 		if not (self.latitude or self.longitude):

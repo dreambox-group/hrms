@@ -12,14 +12,14 @@
 				<div class="flex flex-col items-start gap-5 lg:flex-row lg:gap-6">
 					<div class="flex w-full min-w-0 flex-1 flex-col gap-5 lg:gap-6">
 						<CheckInPanel />
-						<TodoList :limit="isDesktop ? 0 : 2" />
-						<TeamToday />
+						<TodoList data-tour="todo" :limit="isDesktop ? 0 : 2" />
+						<TeamToday data-tour="team" />
 					</div>
 					<aside class="flex w-full flex-col gap-5 lg:w-[340px] lg:flex-none lg:gap-6">
-						<HomeLeaveCard />
-						<PenaltiesCard />
-						<AroundOffice />
-						<MyRequestsCard />
+						<HomeLeaveCard data-tour="leave" />
+						<PenaltiesCard data-tour="period" />
+						<AroundOffice data-tour="around" />
+						<MyRequestsCard data-tour="requests" />
 						<!-- last, as in the menu: the least frequent goal -->
 						<ReimbursementCard />
 						<QuickLinks v-if="extraLinks.length" :items="extraLinks" :title="__('More')" />

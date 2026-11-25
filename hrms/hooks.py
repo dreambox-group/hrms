@@ -44,9 +44,15 @@ app_include_js = [
 	"hrms.bundle.js",
 	# not bundled, so an image can change it without rebuilding the desk assets
 	"/assets/hrms/js/dreambox_brand.js",
-	# payroll tutorial (12 Nov 2026): driver.js 1.3.6, MIT, vendored as is, then the tours
+	# tutorials (12 Nov 2026): driver.js 1.3.6, MIT, vendored as is, then the tours
 	"/assets/hrms/js/vendor/driver.js.iife.js",
-	"/assets/hrms/js/payroll_tour.js",
+	# the HR desk tutorials (hr_tours.js = engine, tours/ = what each page says). ?v=: the browser
+	# keeps /assets files 12 hours; raise it when the tours change
+	"/assets/hrms/js/hr_tours.js?v=2026112404",
+	"/assets/hrms/js/tours/payroll.js?v=2026112404",
+	"/assets/hrms/js/tours/hr_setup.js?v=2026112404",
+	"/assets/hrms/js/tours/leaves.js?v=2026112404",
+	"/assets/hrms/js/tours/attendance.js?v=2026112404",
 ]
 app_include_css = ["hrms.bundle.css", "/assets/hrms/css/vendor/driver.css"]
 code_only_modules = {"HR": ["HR Setup"]}
@@ -274,6 +280,7 @@ doc_events = {
 		"validate": [
 			"hrms.overrides.employee_master.validate_onboarding_process",
 			"hrms.hr.doctype.leave_application.leave_end_date.validate_employee",
+			"hrms.hr.auto_checkin.validate_employee",
 		],
 		"on_update": [
 			"hrms.overrides.employee_master.update_approver_role",
@@ -333,6 +340,10 @@ scheduler_events = {
 	"all": [
 		"hrms.hr.doctype.interview.interview.send_interview_reminder",
 	],
+	"cron": {
+		# Automatic Check-in: in at shift start, out at shift end (owner, 24 Nov 2026)
+		"*/10 * * * *": ["hrms.hr.auto_checkin.run"],
+	},
 	"hourly": [
 		"hrms.hr.doctype.daily_work_summary_group.daily_work_summary_group.trigger_emails",
 	],
@@ -432,6 +443,7 @@ override_whitelisted_methods = {
 override_doctype_dashboards = {
 	"Employee": "hrms.overrides.dashboard_overrides.get_dashboard_for_employee",
 	"Holiday List": "hrms.overrides.dashboard_overrides.get_dashboard_for_holiday_list",
+	"Company": "hrms.overrides.dashboard_overrides.get_dashboard_for_company",
 	"Task": "hrms.overrides.dashboard_overrides.get_dashboard_for_project",
 	"Project": "hrms.overrides.dashboard_overrides.get_dashboard_for_project",
 	"Timesheet": "hrms.overrides.dashboard_overrides.get_dashboard_for_timesheet",

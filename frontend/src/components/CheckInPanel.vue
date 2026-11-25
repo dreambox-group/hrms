@@ -1,6 +1,7 @@
 <template>
 	<!-- Today: what the employee needs to do now -->
 	<section
+		data-tour="checkin"
 		:aria-label="__('Today')"
 		class="flex flex-col gap-4 rounded-2xl border border-line bg-white p-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-6 lg:p-7"
 	>

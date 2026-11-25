@@ -21,7 +21,8 @@ frappe.ui.form.on("Salary Slip", {
 		frm.set_query("salary_component", "earnings", function () {
 			return {
 				filters: {
-					type: "earning",
+					// the stored value's case: Postgres compares with case (was "earning", empty there)
+					type: "Earning",
 				},
 			};
 		});
@@ -29,7 +30,8 @@ frappe.ui.form.on("Salary Slip", {
 		frm.set_query("salary_component", "deductions", function () {
 			return {
 				filters: {
-					type: "deduction",
+					// the stored value's case: Postgres compares with case (was "deduction", empty there)
+					type: "Deduction",
 				},
 			};
 		});

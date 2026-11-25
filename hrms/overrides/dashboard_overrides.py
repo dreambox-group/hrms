@@ -86,6 +86,15 @@ def get_dashboard_for_employee(data):
 	return data
 
 
+def get_dashboard_for_company(data):
+	"""HR opens a Company for its Drea Finance code; the Sales graph made it read Sales Invoices,
+	which HR may not ("Insufficient Permission for Sales Invoice", 24 Nov 2026). No graph here."""
+	data.pop("graph", None)
+	data.pop("graph_method", None)
+	data.pop("graph_method_args", None)
+	return data
+
+
 def get_dashboard_for_holiday_list(data):
 	data["non_standard_fieldnames"].update({"Leave Period": "optional_holiday_list"})
 

@@ -2,7 +2,7 @@
 	<ion-page>
 		<ion-tabs>
 			<ion-router-outlet></ion-router-outlet>
-			<BottomTabs />
+			<BottomTabs data-tour="tabs" />
 		</ion-tabs>
 	</ion-page>
 </template>
