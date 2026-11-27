@@ -24,8 +24,13 @@ class Workbook:
 		return key(sheet) in self.sheets
 
 	def rows(self, sheet):
-		"""Rows of one sheet as dicts keyed by trimmed header, with `_row` = the sheet's row number."""
+		"""Rows of one sheet as dicts keyed by trimmed header, with `_row` = the sheet's row number.
+		"A.01. Employee Database" is also found as "Employee Database"."""
 		name = self.sheets.get(key(sheet))
+		if not name:
+			bare = key(re.sub(r"^[A-Za-z]\.?\d+\.?", "", sheet))
+			found = [n for k, n in self.sheets.items() if k.endswith(bare)]
+			name = found[0] if len(found) == 1 else None
 		if not name:
 			return []
 		return read_rows(self.book[name])

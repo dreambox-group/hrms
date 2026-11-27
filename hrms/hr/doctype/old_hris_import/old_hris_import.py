@@ -116,12 +116,19 @@ def nothing_saved():
 	"""
 	commit = frappe.db.commit
 	frappe.db.commit = lambda *args, **kwargs: None
+	# what the check queues for a commit (a new login's contact job, realtime messages) belongs to
+	# records that are rolled back; left queued, it would run at the next commit and fail in the worker
+	callbacks = [frappe.db.before_commit, frappe.db.after_commit, frappe.db.after_rollback]
+	queued_before = [len(c._functions) for c in callbacks]
 	frappe.db.savepoint("old_hris_check")
 	try:
 		yield
 	finally:
 		frappe.db.commit = commit
 		frappe.db.rollback(save_point="old_hris_check")
+		for c, n in zip(callbacks, queued_before):
+			while len(c._functions) > n:
+				c._functions.pop()
 
 
 @frappe.whitelist()

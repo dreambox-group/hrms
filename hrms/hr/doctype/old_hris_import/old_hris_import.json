@@ -71,7 +71,7 @@
    "fieldname": "import_from",
    "fieldtype": "Date",
    "label": "Leave and Attendance From",
-   "description": "Leave, leave balances and attendance before this date are left out. Empty = everything."
+   "description": "Attendance before this date is left out, and leave balances that ended before it. Leave counts from the start of the leave year this date falls in, so the balances add up. Empty = everything."
   },
   {
    "fieldname": "create_logins",

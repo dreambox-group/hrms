@@ -12,6 +12,7 @@ from frappe.utils import getdate
 
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
+from hrms.hr.doctype.old_hris_import.importer import OldHRISImporter
 from hrms.tests.utils import HRMSTestSuite
 
 COMPANY = "_Test Company"
@@ -130,7 +131,18 @@ class TestOldHRISImport(HRMSTestSuite):
 		return frappe.db.get_value("Employee", {"employee_number": old_id})
 
 	def test_check_saves_nothing_and_fills_the_matching(self):
-		self.doc.check()
+		# outside tests, a new login queues its contact job for after the commit; it must not outlive the check
+		queued = []
+		create_employee = OldHRISImporter.create_employee
+
+		def create_and_queue(importer, row):
+			frappe.db.after_commit.add(lambda: queued.append(row))
+			return create_employee(importer, row)
+
+		with patch.object(OldHRISImporter, "create_employee", create_and_queue):
+			self.doc.check()
+		frappe.db.after_commit.run()
+		self.assertEqual(queued, [])
 		report = self.report()
 		self.assertEqual(self.doc.status, "Checked", report.get("failed"))
 		self.assertTrue(report["dry_run"])
@@ -236,3 +248,248 @@ class TestOldHRISImport(HRMSTestSuite):
 		self.assertNotIn("Employees created", report["counts"])
 		for doctype, n in counts.items():
 			self.assertEqual(frappe.db.count(doctype), n, doctype)
+
+	def test_start_date_keeps_the_whole_leave_year(self):
+		# a balance is imported whole, so leave taken from it before the start date must come in too
+		self.doc.import_from = "2025-04-01"
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.doc.start_import()
+		report = self.report()
+		self.assertEqual(self.doc.status, "Imported", report.get("failed"))
+
+		self.assertTrue(frappe.db.exists("Leave Application", {"old_hris_id": "LR-1", "docstatus": 1}))  # 3 March
+		self.assertTrue(frappe.db.exists("Leave Allocation", {"old_hris_id": "LB-1", "docstatus": 1}))
+		self.assertTrue(any("imported from 2025-01-01" in m[3] for m in report["messages"]))
+		# attendance keeps the start date as it is
+		self.assertFalse(frappe.db.exists("Attendance", {"old_hris_id": ("in", ("ATD-0", "ATD-1", "ATD-2", "ATD-4"))}))
+		self.assertEqual(report["counts"]["Attendance before the start date (left out)"], 4)
+
+	def test_values_differing_only_in_case_are_one(self):
+		# Postgres compares case: "Old Team Beta" and "old team beta " must still be one department
+		people = [
+			{"Employee ID": "91001", "Name": "Eka Satu", "Team": "old team beta ", "Position": "designer", "Join Date": "1/6/2025", "Employment Status": "Active"},
+			{"Employee ID": "91002", "Name": "Fani Dua", "Team": "Old Team Beta", "Position": "Designer", "Join Date": "1/6/2025", "Employment Status": "Active"},
+		]
+		if not frappe.db.exists("Designation", "Designer"):
+			frappe.get_doc({"doctype": "Designation", "designation_name": "Designer"}).insert()
+		content = workbook(
+			{
+				"A.01 Employee Database": (EMPLOYEE_HEADERS, people),
+				"A.02 Team Database": (["Team ID", "Team Name", "Supervisor 1 ID"], [{"Team Name": "Old Team Beta"}]),
+			}
+		)
+		self.doc.workbook = attach("case.xlsx", content)
+		self.doc.attendance_files = []
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.assertEqual([row.old_value for row in self.doc.mappings if row.column == "Team"], ["Old Team Beta"])
+		self.doc.start_import()
+		report = self.report()
+		self.assertEqual(self.doc.status, "Imported", report.get("failed"))
+
+		eka, fani = (frappe.get_doc("Employee", self.employee(i)) for i in ("91001", "91002"))
+		self.assertEqual(eka.department, fani.department)
+		self.assertEqual(frappe.db.get_value("Department", eka.department, "department_name"), "Old Team Beta")
+		names = frappe.get_all("Department", pluck="department_name") + frappe.get_all("Designation", pluck="name")
+		self.assertEqual([n for n in names if n.lower() in ("old team beta", "designer")].count("Old Team Beta"), 1)
+		self.assertNotIn("old team beta", names)
+		self.assertEqual((eka.designation, fani.designation), ("Designer", "Designer"))
+		self.assertNotIn("designer", names)
+
+	def test_each_company_has_its_own_department_and_dreambox_employment_types(self):
+		# Dreambox: a department belongs to the CV its people work for; the old Type maps to the four types
+		other = "_Test Company 1"
+		for name in ("Full-time Permanent", "Full-time Contract", "Freelance"):
+			if not frappe.db.exists("Employment Type", name):
+				frappe.get_doc({"doctype": "Employment Type", "employee_type_name": name}).insert()
+		accounts = {}
+		for company in (COMPANY, other):
+			accounts[company] = frappe.get_doc(
+				{"doctype": "Department", "department_name": "Old Account", "company": company, "parent_department": "All Departments"}
+			).insert().name
+		people = [
+			{"Employee ID": "92001", "Name": "Gita Tiga", "Type": "Full Time - Permanent", "Business": COMPANY, "Team": "Old Digital",
+			 "Join Date": "1/6/2025", "End Date": "12/31/2027", "Employment Status": "Active", "Email": "gita.old@example.com"},
+			{"Employee ID": "92002", "Name": "Hadi Empat", "Type": "Freelancer", "Business": other, "Team": "old digital",
+			 "Join Date": "1/6/2025", "Employment Status": "Active"},
+			{"Employee ID": "92003", "Name": "Indah Lima", "Type": "Contract", "Business": other, "Team": "Old Marketing",
+			 "Join Date": "1/6/2025", "End Date": "12/31/2027", "Employment Status": "Active"},
+		]
+		content = workbook(
+			{
+				"A.01 Employee Database": (EMPLOYEE_HEADERS, people),
+				"A.02 Team Database": (["Team ID", "Team Name", "Supervisor 1 ID"], [{"Team Name": "Old Digital", "Supervisor 1 ID": "92001"}]),
+			}
+		)
+		self.doc.workbook = attach("cvs.xlsx", content)
+		self.doc.attendance_files = []
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		guessed = {(row.column, row.old_value): row.maps_to for row in self.doc.mappings}
+		self.assertEqual(guessed[("Type", "Full Time - Permanent")], "Full-time Permanent")
+		self.assertEqual(guessed[("Type", "Freelancer")], "Freelance")
+		self.assertEqual(guessed[("Type", "Contract")], "Full-time Contract")
+		# HR matches the renamed team to the department of one CV; the other CV's of that name is used for its people
+		for row in self.doc.mappings:
+			if (row.column, row.old_value) == ("Team", "Old Marketing"):
+				row.maps_to = accounts[COMPANY]
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.doc.start_import()
+		report = self.report()
+		self.assertEqual(self.doc.status, "Imported", report.get("failed"))
+
+		gita, hadi, indah = (frappe.get_doc("Employee", self.employee(i)) for i in ("92001", "92002", "92003"))
+		self.assertEqual(
+			[(e.company, e.employment_type) for e in (gita, hadi, indah)],
+			[(COMPANY, "Full-time Permanent"), (other, "Freelance"), (other, "Full-time Contract")],
+		)
+		for e in (gita, hadi):
+			self.assertEqual(frappe.db.get_value("Department", e.department, ["company", "department_name"]), (e.company, "Old Digital"))
+		self.assertEqual(indah.department, accounts[other])
+		self.assertIsNone(gita.contract_end_date)
+		self.assertEqual(str(indah.contract_end_date), "2027-12-31")
+		# the team's supervisor approves leave in both CVs' departments
+		for e in (gita, hadi):
+			approvers = [r.approver for r in frappe.get_doc("Department", e.department).leave_approvers]
+			self.assertEqual(approvers, ["gita.old@example.com"])
+
+	def test_without_the_employee_tab_rows_go_to_employee_numbers_in_drea_hr(self):
+		# HR can leave the employee tab out: leave and attendance go to the people already there
+		frappe.db.set_value("Employee", self.dewi, "employee_number", "93001")
+		next_year = getdate().year + 1
+		balance_headers = ["Leave Balance ID", "Employee ID", "Period (Y)", "Paid Leave Quota", "Carried Over Quota", "Start Date", "End Date"]
+		leave_headers = ["Leave Log ID", "Employee ID", "Type", "Start Date", "End Date", "Total Leave Days", "Used Paid Leave", "Used Unpaid Leave", "Used Special Leave", "Reason"]
+		content = workbook(
+			{
+				"A.02. Team Database": (["Team ID", "Team Name", "Supervisor 1 ID"], [{"Team Name": "Old Team Gone", "Supervisor 1 ID": "93001"}]),
+				"B.01. Attendance": (ATTENDANCE_HEADERS, [
+					{"Attendance ID": "ATD-93", "Employee ID": 93001, "Date": "3/10/2025", "Status": "Present", "Check In Time": "08:55:00"},
+					{"Attendance ID": "ATD-94", "Employee ID": "10999", "Date": "3/10/2025", "Status": "Present"},
+				]),
+				"C.01. Leave Balance": (balance_headers, [
+					{"Leave Balance ID": "LB-93", "Employee ID": 93001, "Period (Y)": "2025", "Paid Leave Quota": 12, "Carried Over Quota": 0, "Start Date": "1/1/2025", "End Date": "12/31/2025"},
+					{"Leave Balance ID": "LB-94", "Employee ID": 93001, "Period (Y)": str(next_year), "Paid Leave Quota": 12, "Carried Over Quota": 0, "End Date": f"12/31/{next_year}"},
+				]),
+				"C.02. Leave Log": (leave_headers, [
+					{"Leave Log ID": "LR-93", "Employee ID": 93001, "Type": "Personal", "Start Date": "3/4/2025", "End Date": "3/4/2025", "Used Paid Leave": 1},
+				]),
+			}
+		)
+		self.doc.workbook = attach("no-employees.xlsx", content)
+		self.doc.attendance_files = []
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.assertEqual([row.old_value for row in self.doc.mappings if row.column == "Team"], [])
+		self.doc.start_import()
+		report = self.report()
+		self.assertEqual(self.doc.status, "Imported", report.get("failed"))
+
+		self.assertEqual(frappe.db.get_value("Attendance", {"old_hris_id": "ATD-93"}, "employee"), self.dewi)
+		self.assertEqual(frappe.db.get_value("Leave Allocation", {"old_hris_id": "LB-93"}, "employee"), self.dewi)
+		self.assertEqual(frappe.db.get_value("Leave Application", {"old_hris_id": "LR-93"}, "employee"), self.dewi)
+		self.assertFalse(frappe.db.exists("Leave Allocation", {"old_hris_id": "LB-94"}))
+		self.assertEqual(report["counts"]["Leave balances of a year that hasn't started (left out)"], 1)
+		self.assertFalse(frappe.db.exists("Department", {"department_name": "Old Team Gone"}))
+		self.assertTrue(any("unknown Employee ID '10999'" in m[3] for m in report["messages"]))
+
+	def test_absent_is_left_out_for_automatic_check_in_and_days_with_a_second_row(self):
+		frappe.db.set_value("Employee", self.dewi, {"employee_number": "93002", "auto_checkin": 1})
+		budi = make_employee("budi.absent@example.com", COMPANY, first_name="Budi Absent")
+		frappe.db.set_value("Employee", budi, "employee_number", "93003")
+		content = workbook(
+			{
+				"B.01. Attendance": (ATTENDANCE_HEADERS, [
+					{"Attendance ID": "ATD-A1", "Employee ID": "93002", "Date": "3/10/2025", "Status": "Absent"},
+					# the same person under an old and a new ID, now both 93003: the check-in wins over Absent
+					{"Attendance ID": "ATD-A2", "Employee ID": "93003", "Date": "3/10/2025", "Status": "Absent"},
+					{"Attendance ID": "ATD-A3", "Employee ID": "93003", "Date": "3/10/2025", "Status": "Present", "Check In Time": "08:50:00"},
+					{"Attendance ID": "ATD-A4", "Employee ID": "93003", "Date": "3/11/2025", "Status": "Absent"},
+				]),
+			}
+		)
+		self.doc.workbook = attach("absent.xlsx", content)
+		self.doc.attendance_files = []
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.doc.start_import()
+		report = self.report()
+		self.assertEqual(self.doc.status, "Imported", report.get("failed"))
+
+		self.assertFalse(frappe.db.exists("Attendance", {"employee": self.dewi}))
+		self.assertEqual(
+			frappe.get_all("Attendance", filters={"employee": budi}, fields=["old_hris_id", "status"], order_by="attendance_date"),
+			[{"old_hris_id": "ATD-A3", "status": "Present"}, {"old_hris_id": "ATD-A4", "status": "Absent"}],
+		)
+		self.assertEqual(report["counts"]["Absent days of people with Automatic Check-in (left out)"], 1)
+		self.assertEqual(report["counts"]["Absent rows on a day the same person came in (left out)"], 1)
+
+	def test_todays_employee_sheet_after_a_reset(self):
+		# the employee tab as HR keeps it now: other titles, Status Kawin, no Active/Inactive column
+		from hrms.hr.doctype.old_hris_import import reset_employees
+
+		frappe.db.set_value("Employee", self.dewi, "employee_number", "94009")
+		checkin = frappe.get_doc({"doctype": "Employee Checkin", "employee": self.dewi, "time": "2025-03-10 08:00:00", "log_type": "IN"}).insert().name
+		reset_employees.run(confirm=frappe.local.site, only=[self.dewi])
+		self.assertFalse(frappe.db.exists("Employee", self.dewi))
+		self.assertFalse(frappe.db.exists("Employee Checkin", checkin))
+		self.assertTrue(frappe.db.exists("Leave Type", ANNUAL))  # the leave setup stays
+
+		headers = ["Employee Number", "Name", "Status", "Designation", "Division", "Legal Entity", "Join Date", "Promoted",
+			"End Date", "Email", "NIK", "Status Kawin", "Basic Salary", "Take Home Pay", "Supervisor 1", "Supervisor 2"]
+		people = [
+			{"Employee Number": 94001, "Name": "Joko Enam", "Status": "Full-time Permanent", "Designation": "Director", "Division": "Old Holding",
+			 "Legal Entity": COMPANY, "Join Date": "1/2/2020", "End Date": "4/1/2020", "Email": "joko.old@example.com", "NIK": "3201-0000-2222", "Status Kawin": "K/1"},
+			{"Employee Number": 94002, "Name": "Kiki Tujuh", "Status": "Full-time Contract", "Designation": "Content", "Division": "Old Holding",
+			 "Legal Entity": COMPANY, "Join Date": "1/2/2025", "End Date": "12/31/2099", "Status Kawin": "Belum Kawin",
+			 "Basic Salary": 1, "Take Home Pay": 1, "Supervisor 1": 94001},
+			{"Employee Number": 94003, "Name": "Lala Delapan", "Status": "Intern", "Division": "Old Holding", "Legal Entity": COMPANY,
+			 "Join Date": "1/2/2024", "End Date": "6/30/2024", "Status Kawin": "TK/0"},
+			{"Employee Number": 94004, "Name": "Mira Sembilan", "Status": "Full-time Contract", "Division": "Old Holding", "Legal Entity": COMPANY,
+			 "Join Date": "10/23/2025", "End Date": "4/30/2025"},  # a typo: ends before joining
+		]
+		# Holding is a group over Director, Finance, HR: the matching still guesses it
+		holding = frappe.get_doc(
+			{"doctype": "Department", "department_name": "Old Holding", "company": COMPANY, "is_group": 1,
+			 "parent_department": "All Departments"}
+		).insert().name
+		self.doc.workbook = attach("today.xlsx", workbook({"Employee Database": (headers, people)}))
+		self.doc.attendance_files = []
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.assertEqual(
+			[r.maps_to for r in self.doc.mappings if (r.column, r.old_value) == ("Team", "Old Holding")], [holding]
+		)
+		# a row left empty (from before) is filled on the next check
+		for r in self.doc.mappings:
+			if r.old_value == "Old Holding":
+				r.maps_to = None
+		self.doc.save()
+		self.doc.check()
+		self.doc.reload()
+		self.assertEqual(
+			[r.maps_to for r in self.doc.mappings if (r.column, r.old_value) == ("Team", "Old Holding")], [holding]
+		)
+		self.doc.start_import()
+		report = self.report()
+		self.assertEqual(self.doc.status, "Imported", report.get("failed"))
+
+		joko, kiki, lala, mira = (frappe.get_doc("Employee", self.employee(i)) for i in ("94001", "94002", "94003", "94004"))
+		self.assertEqual((joko.designation, joko.ktp_number, joko.marital_status), ("Director", "320100002222", "Married"))
+		self.assertEqual((kiki.reports_to, kiki.status, str(kiki.contract_end_date), kiki.marital_status), (joko.name, "Active", "2099-12-31", "Single"))
+		# today's sheet lists the people working now: a passed End Date is a contract to renew, not a leaving date
+		self.assertEqual((lala.status, str(lala.contract_end_date), lala.marital_status), ("Active", "2024-06-30", "Single"))
+		self.assertIn("contract ended on 2024-06-30", str(report))
+		# a permanent's End Date is when the first contract ended: they became permanent then
+		self.assertEqual((str(joko.final_confirmation_date), joko.contract_end_date, joko.status), ("2020-04-01", None, "Active"))
+		self.assertEqual((mira.status, mira.contract_end_date, mira.relieving_date), ("Active", None, None))
+		self.assertEqual(kiki.department, holding)
+		self.assertEqual(joko.user_id, "joko.old@example.com")

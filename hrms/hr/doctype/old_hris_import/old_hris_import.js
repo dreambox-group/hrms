@@ -20,7 +20,7 @@ frappe.ui.form.on("Old HRIS Import", {
 
 	setup(frm) {
 		frappe.realtime.on("old_hris_import_done", ({ name }) => {
-			if (name === frm.doc.name) frm.reload_doc();
+			if (name === frm.doc.name) reload(frm);
 		});
 	},
 
@@ -42,7 +42,7 @@ frappe.ui.form.on("Old HRIS Import", {
 				"orange"
 			);
 			// in case the realtime message is missed
-			frm.old_hris_poll = setTimeout(() => frm.reload_doc(), 5000);
+			frm.old_hris_poll = setTimeout(() => reload(frm), 5000);
 			return;
 		}
 
@@ -60,19 +60,28 @@ frappe.ui.form.on("Old HRIS Import", {
 			);
 		}
 
-		const check = frm.add_custom_button(checked ? __("Check Again") : __("Check"), () =>
+		const check_label = checked ? __("Check Again") : __("Check");
+		frm.add_custom_button(check_label, () =>
 			// saving an unchanged form never resolves
 			(frm.is_dirty() ? frm.save() : Promise.resolve()).then(() =>
-				frm.call("check").then(() => frm.reload_doc())
+				frm.call("check").then(() => reload(frm))
 			)
 		);
+		// v16 buttons take their look from the button type, not from a btn-primary class
 		if (checked && !needs_check) {
-			frm.add_custom_button(__("Import"), () => confirm_import(frm)).removeClass("btn-default").addClass("btn-primary");
+			frm.add_custom_button(__("Import"), () => confirm_import(frm));
+			frm.change_custom_button_type(__("Import"), null, "primary");
 		} else {
-			check.removeClass("btn-default").addClass("btn-primary");
+			frm.change_custom_button_type(check_label, null, "primary");
 		}
 	},
 });
+
+// an open row editor greys the page out; reloading under it would leave the page greyed out and unclickable
+function reload(frm) {
+	if (frm.cur_grid?.hide_form) frm.cur_grid.hide_form();
+	return frm.reload_doc();
+}
 
 // whole numbers as they are, half days with one decimal
 const count = (n) => (Number.isInteger(n) ? String(n) : format_number(n, null, 1));
@@ -86,7 +95,7 @@ function confirm_import(frm) {
 	frappe.confirm(
 		`<p>${__("The import does what the last check showed:")}</p><ul>${lines}</ul>
 		<p>${__("Take a backup first. Running it again later skips what is already imported.")}</p>`,
-		() => frm.call("start_import").then(() => frm.reload_doc())
+		() => frm.call("start_import").then(() => reload(frm))
 	);
 }
 
