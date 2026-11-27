@@ -69,3 +69,4 @@ hrms.patches.v16_0.dreambox_branding
 hrms.patches.v16_0.auto_checkin_field
 hrms.patches.v16_0.additional_departments_field
 hrms.patches.v16_0.separate_drea_finance
+hrms.patches.v16_0.drea_payroll_fields

@@ -65,10 +65,10 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 			self.assertEqual(frappe.db.get_value("Leave Type", "Sick Leave", "include_holiday"), 1)
 
 	def test_bpjs_on_a_slip_with_the_caps(self):
-		employee = make_employee("drea.payroll.setup@example.com", company=COMPANY)
+		employee = make_employee("drea.payroll.setup@example.com", company=COMPANY, date_of_joining="2025-01-01")
 		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
 		abbr = frappe.get_cached_value("Company", COMPANY, "abbr")
-		structure = frappe.get_doc("Salary Structure", setup.STRUCTURE_NAME.format(abbr=abbr))
+		structure = frappe.get_doc("Salary Structure", f"Drea Full-time - {abbr}")
 		if structure.docstatus == 0:
 			structure.submit()
 
@@ -77,7 +77,10 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 			create_salary_structure_assignment,
 		)
 
-		create_salary_structure_assignment(employee, structure.name, company=COMPANY, base=15_000_000)
+		# from before the period: the pay calendar's period to pay now may start last month
+		create_salary_structure_assignment(
+			employee, structure.name, company=COMPANY, base=15_000_000, from_date="2025-01-01"
+		)
 		slip = make_salary_slip(structure.name, employee=employee)
 		amounts = {row.salary_component: row.amount for row in slip.earnings + slip.deductions}
 		amounts.update({row.salary_component: row.amount for row in slip.employer_contributions})
@@ -93,4 +96,26 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 		self.assertEqual(amounts["BPJS JP"], round(setup.JP_WAGE_CAP * 0.02))
 		self.assertEqual(amounts["BPJS JKM"], 45_000)
 		self.assertEqual(amounts["BPJS JKK"], 36_000)
-		self.assertNotIn("PPh21", amounts)  # no formula yet, and a 0 line is removed
+		self.assertNotIn("PPh21", amounts)  # Calculate PPh 21 is off, and a 0 line is removed
+		self.assertNotIn("Unpaid Leave", amounts)  # no unpaid days
+
+	def test_structures_and_pay_calendar(self):
+		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
+		abbr = frappe.get_cached_value("Company", COMPANY, "abbr")
+		intern = frappe.get_doc("Salary Structure", f"Drea Intern - {abbr}")
+		self.assertEqual([r.salary_component for r in intern.deductions], ["Unpaid Leave", "Late Penalty"])
+		self.assertEqual([r.salary_component for r in intern.employer_contributions], ["PPh21"])
+		full = frappe.get_doc("Salary Structure", f"Drea Full-time - {abbr}")
+		self.assertIn("PPh21", [r.salary_component for r in full.employer_contributions])
+		self.assertNotIn("PPh21", [r.salary_component for r in full.deductions])
+		self.assertEqual(frappe.db.get_value("Salary Component", "PPh21", "type"), "Employer Contribution")
+		self.assertEqual(frappe.db.get_single_value("HR Settings", "pay_period_start_day"), 19)
+		self.assertEqual(frappe.db.get_single_value("HR Settings", "pay_day"), 27)
+		self.assertEqual(
+			frappe.db.get_value(
+				"Drea Finance Pay Code",
+				{"parent": "Drea Finance Settings", "salary_component": "THR"},
+				"pay_code",
+			),
+			"INCENTIVE",
+		)

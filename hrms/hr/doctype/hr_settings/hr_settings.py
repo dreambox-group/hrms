@@ -20,6 +20,8 @@ class HRSettings(Document):
 		validate_settings(self)
 		if not 0 <= cint(self.pay_period_start_day) <= 28:
 			frappe.throw(_("The pay period can start on day 1 to 28 of the month."))
+		if not 0 <= cint(self.pay_day) <= 28:
+			frappe.throw(_("Pay Day can be day 1 to 28 of the month, or 0 for none."))
 
 		# Based on proceed flag
 		global PROCEED_WITH_FREQUENCY_CHANGE

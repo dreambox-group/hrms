@@ -325,7 +325,11 @@ class SalarySlip(TransactionBase):
 
 	def get_date_details(self):
 		if not self.end_date:
-			date_details = get_start_end_dates(self.payroll_frequency, self.start_date or self.posting_date)
+			date_details = get_start_end_dates(
+				self.payroll_frequency,
+				self.start_date or self.posting_date,
+				to_pay=0 if self.start_date else 1,
+			)
 			self.start_date = date_details.start_date
 			self.end_date = date_details.end_date
 
@@ -876,6 +880,11 @@ class SalarySlip(TransactionBase):
 		# shown on the slip, but never part of gross, deduction or net pay
 		if self.salary_structure:
 			self.calculate_component_amounts("employer_contributions")
+
+		# Drea: PPh 21 (TER), once every other line is known; only when switched on in Payroll Settings
+		from hrms.payroll import drea_pph21
+
+		drea_pph21.apply(self)
 
 		self.set_precision_for_component_amounts()
 		self.set_net_pay()

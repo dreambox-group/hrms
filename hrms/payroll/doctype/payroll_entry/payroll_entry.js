@@ -392,12 +392,19 @@ frappe.ui.form.on("Payroll Entry", {
 				args: {
 					payroll_frequency: frm.doc.payroll_frequency,
 					start_date: frm.doc.posting_date,
+					// the period to be paid next (pay calendar, hrms.payroll.drea_pay_calendar)
+					to_pay: 1,
 				},
 				callback: function (r) {
 					if (r.message) {
 						in_progress = true;
 						frm.set_value("start_date", r.message.start_date);
 						frm.set_value("end_date", r.message.end_date);
+						// a new run is posted on its pay day, once; HR can still change it
+						if (r.message.pay_date && frm.is_new() && !frm.__pay_date_set) {
+							frm.__pay_date_set = true;
+							frm.set_value("posting_date", r.message.pay_date);
+						}
 					}
 				},
 			});

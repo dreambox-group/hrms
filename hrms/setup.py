@@ -170,12 +170,64 @@ def get_indonesian_id_fields():
 	]
 
 
+def get_drea_payroll_fields():
+	"""PPh 21 (hrms.payroll.drea_pph21; owner, 27 Nov 2026). The pay calendar is in HR Settings
+	(Pay Period Starts On Day, Pay Day; hrms.payroll.drea_pay_calendar)."""
+	from hrms.payroll.drea_pph21 import PTKP_OPTIONS
+
+	return {
+		"Employee": [
+			{
+				"fieldname": "ptkp_status",
+				"fieldtype": "Select",
+				"label": _("PTKP Status"),
+				"options": PTKP_OPTIONS,
+				"insert_after": "npwp_number",
+				"description": _(
+					"For PPh 21. TK: not married, K: married; the number is dependants, at most 3."
+				),
+			},
+		],
+		"Payroll Settings": [
+			{
+				"fieldname": "drea_pph21_section",
+				"fieldtype": "Section Break",
+				"label": _("PPh 21"),
+				"insert_after": "show_leave_balances_in_salary_slip",
+			},
+			{
+				"fieldname": "calculate_pph21",
+				"fieldtype": "Check",
+				"label": _("Calculate PPh 21"),
+				"default": "0",
+				"insert_after": "drea_pph21_section",
+				"description": _(
+					"Work out PPh 21 on each slip whose structure has PPh21: TER each month, the whole "
+					"year in its last month. Needs each person's PTKP Status. Off: PPh 21 stays 0."
+				),
+			},
+		],
+		"Salary Slip": [
+			{
+				"fieldname": "pph21_working",
+				"fieldtype": "Small Text",
+				"label": _("PPh 21 Working"),
+				"read_only": 1,
+				"no_copy": 1,
+				"depends_on": "eval:doc.pph21_working",
+				"insert_after": "base_total_deduction",
+			},
+		],
+	}
+
+
 def get_custom_fields():
 	"""HR specific custom fields that need to be added to the masters in ERPNext, plus the Payroll
 	Entry's Drea Finance send status (hrms.drea_finance)."""
 	fields = get_hrms_custom_fields()
-	for doctype, extra in get_drea_finance_custom_fields().items():
-		fields.setdefault(doctype, []).extend(extra)
+	for extra_fields in (get_drea_finance_custom_fields(), get_drea_payroll_fields()):
+		for doctype, extra in extra_fields.items():
+			fields.setdefault(doctype, []).extend(extra)
 	return fields
 
 

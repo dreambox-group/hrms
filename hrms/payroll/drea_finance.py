@@ -83,11 +83,15 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 		company = company_code.get(s["company"])
 		division = division_code.get(s["department"]) if s.get("department") else None
 		if not company:
-			problems.append(_("Company {0} has no legal entity code in Drea Finance Settings.").format(s["company"]))
+			problems.append(
+				_("Company {0} has no legal entity code in Drea Finance Settings.").format(s["company"])
+			)
 		if not s.get("department"):
 			problems.append(_("Salary Slip {0} has no department.").format(s["name"]))
 		elif not division:
-			problems.append(_("Department {0} has no division in Drea Finance Settings.").format(s["department"]))
+			problems.append(
+				_("Department {0} has no division in Drea Finance Settings.").format(s["department"])
+			)
 		if not company or not division:
 			continue
 		row = rows.setdefault(
@@ -114,7 +118,9 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 				if line["parentfield"] == "employer_contributions":
 					continue  # not sent until HR maps it; take-home doesn't depend on it
 				problems.append(
-					_("Salary Component {0} has no pay code in Drea Finance Settings.").format(line["salary_component"])
+					_("Salary Component {0} has no pay code in Drea Finance Settings.").format(
+						line["salary_component"]
+					)
 				)
 				continue
 			kind = CODE_KINDS.get(code)
@@ -183,9 +189,11 @@ def build_payload(pe) -> dict:
 		maps["pay_codes"],
 		use_net_pay=cint(frappe.db.get_single_value("Payroll Settings", "disable_rounded_total")),
 	)
-	start = getdate(pe.start_date)
+	# a pay period belongs to the month it ends in (19 Oct - 18 Nov is November's pay;
+	# hrms.payroll.drea_pay_calendar). For a calendar month, start and end are the same month.
+	end = getdate(pe.end_date)
 	return {
-		"month": f"{start.year}-{start.month:02d}",
+		"month": f"{end.year}-{end.month:02d}",
 		"kind": (pe.get("drea_finance_kind") or "Salary").lower(),
 		"pay_date": str(getdate(pe.posting_date)),
 		"rows": rows,
@@ -237,7 +245,9 @@ def settings() -> dict:
 	return {
 		"connected": connected,
 		"url": (conf.get("url") or "").strip().rstrip("/"),
-		"key": get_decrypted_password("Drea Finance Settings", "Drea Finance Settings", "api_key", raise_exception=False)
+		"key": get_decrypted_password(
+			"Drea Finance Settings", "Drea Finance Settings", "api_key", raise_exception=False
+		)
 		if connected
 		else None,
 		"enabled": connected and cint(conf.get("send_payroll")),
@@ -391,7 +401,9 @@ def send_to_drea_finance(payroll_entry: str, test: int = 0):
 	if not conf["connected"]:
 		frappe.throw(_("Drea HR is not connected to Drea Finance (Drea Finance Settings)."))
 	if not cint(test) and not conf["enabled"]:
-		frappe.throw(_("Sending payroll to Drea Finance is off. Turn it on in Drea Finance Settings, or use Test."))
+		frappe.throw(
+			_("Sending payroll to Drea Finance is off. Turn it on in Drea Finance Settings, or use Test.")
+		)
 	try:
 		return send(payroll_entry, test=bool(cint(test)))
 	except PayrollSendError as e:

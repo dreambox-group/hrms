@@ -1275,9 +1275,13 @@ class PayrollEntry(Document):
 		).run()
 
 	def set_start_end_dates(self):
-		self.update(
-			get_start_end_dates(self.payroll_frequency, self.start_date or self.posting_date, self.company)
+		dates = get_start_end_dates(
+			self.payroll_frequency,
+			self.start_date or self.posting_date,
+			self.company,
+			to_pay=0 if self.start_date else 1,
 		)
+		self.update({"start_date": dates.start_date, "end_date": dates.end_date})
 
 	@frappe.whitelist()
 	def get_employees_with_unmarked_attendance(self) -> list[dict] | None:
@@ -1611,9 +1615,22 @@ def remove_payrolled_employees(emp_list, start_date, end_date):
 
 @frappe.whitelist()
 def get_start_end_dates(
-	payroll_frequency: str, start_date: str | datetime.date | None = None, company: str | None = None
+	payroll_frequency: str,
+	start_date: str | datetime.date | None = None,
+	company: str | None = None,
+	to_pay: int | None = None,
 ) -> frappe._dict:
-	"""Returns dict of start and end dates for given payroll frequency based on start_date"""
+	"""Returns dict of start and end dates for given payroll frequency based on start_date.
+
+	Monthly payroll follows the pay calendar when one is set (HR Settings > Pay Period Starts On
+	Day, Pay Day; hrms.payroll.drea_pay_calendar). to_pay: start_date is a posting date or today,
+	so give the period to be paid next, with its pay_date."""
+
+	if payroll_frequency in ("Monthly", "") and start_date:
+		from hrms.payroll import drea_pay_calendar
+
+		if found := drea_pay_calendar.period(start_date, to_pay=bool(cint(to_pay))):
+			return found
 
 	if payroll_frequency == "Monthly" or payroll_frequency == "Bimonthly" or payroll_frequency == "":
 		fiscal_year = get_fiscal_year(start_date, company=company)[0]
