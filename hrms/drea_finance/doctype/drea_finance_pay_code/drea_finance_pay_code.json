@@ -23,12 +23,12 @@
    "label": "Pay Code (Drea Finance)",
    "reqd": 1,
    "in_list_view": 1,
-   "description": "Drea Finance's pay code: SALARY, INCENTIVE, PPH21_WITHHELD, BPJS_KES_EMPLOYEE, BPJS_TK_EMPLOYEE, OVERPAID_RECOVERY, BPJS_KES_COMPANY, BPJS_TK_COMPANY, PPH21_COMPANY, or PRIVE_<NAME> for a partner's drawing."
+   "description": "A pay code from Pay Codes → Drea Finance Accounts, e.g. SALARY, THR or PRIVE."
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-11-27 18:00:00.000000",
+ "modified": "2026-11-27 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "Drea Finance",
  "name": "Drea Finance Pay Code",

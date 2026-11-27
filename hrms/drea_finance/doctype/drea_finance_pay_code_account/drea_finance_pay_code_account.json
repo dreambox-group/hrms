@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-11-27 21:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "pay_code",
+  "code_name",
+  "kind",
+  "account",
+  "owed_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "pay_code",
+   "fieldtype": "Data",
+   "label": "Pay Code",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Capital letters, digits and _, e.g. SALARY."
+  },
+  {
+   "fieldname": "code_name",
+   "fieldtype": "Data",
+   "label": "Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "How Drea Finance shows the code, e.g. Gaji."
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "options": "\nearning\ndeduction\nemployer",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "earning: pay. deduction: taken from pay and owed to someone. employer: paid by the company on top of pay."
+  },
+  {
+   "fieldname": "account",
+   "fieldtype": "Data",
+   "label": "Account",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "For pay and company contributions: the cost account in Drea Finance's chart, six digits (e.g. 510201), or 310200 for partners' prive. Empty for a deduction."
+  },
+  {
+   "fieldname": "owed_account",
+   "fieldtype": "Data",
+   "label": "Owed Account",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "For deductions and company contributions: the account it is owed on, six digits (e.g. 210301). Empty for pay."
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-27 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Drea Finance",
+ "name": "Drea Finance Pay Code Account",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}

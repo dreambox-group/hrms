@@ -15,6 +15,8 @@
   "companies",
   "departments_section",
   "departments",
+  "codes_section",
+  "codes",
   "pay_codes_section",
   "pay_codes"
  ],
@@ -53,9 +55,9 @@
   {
    "fieldname": "send_payroll",
    "fieldtype": "Check",
-   "label": "Send Payroll Totals",
+   "label": "Send Payroll",
    "depends_on": "eval:doc.enabled",
-   "description": "When a Payroll Entry's salary slips are submitted, its totals per company, division and pay code go to Drea Finance. Never a person's pay."
+   "description": "When a Payroll Entry's salary slips are submitted, it goes to Drea Finance: totals per company, division and pay code, and one line per person (name, bank account, amounts, take-home) for the bank transfer lists."
   },
   {
    "fieldname": "test_only",
@@ -92,11 +94,24 @@
    "options": "Drea Finance Department"
   },
   {
+   "fieldname": "codes_section",
+   "fieldtype": "Section Break",
+   "label": "Pay Codes \u2192 Drea Finance Accounts",
+   "depends_on": "eval:doc.enabled",
+   "description": "One row per Drea Finance pay code, with the accounts it books to. Drea Finance keeps no salary settings of its own: this table is sent with every payroll, and Drea Finance checks each account against its chart. Drea Finance's admin gives the account codes."
+  },
+  {
+   "fieldname": "codes",
+   "fieldtype": "Table",
+   "label": "Pay Code Accounts",
+   "options": "Drea Finance Pay Code Account"
+  },
+  {
    "fieldname": "pay_codes_section",
    "fieldtype": "Section Break",
    "label": "Salary Components \u2192 Pay Codes",
    "depends_on": "eval:doc.enabled",
-   "description": "Which Drea Finance pay code each salary component is booked on. A cut the company keeps (late penalty, unpaid leave) uses the earning it reduces, usually SALARY. A company contribution left out here is not sent."
+   "description": "Which pay code each salary component is booked on (codes from the table above). A cut the company keeps (late penalty, unpaid leave) uses the earning it reduces, usually SALARY. A company contribution left out here is not sent."
   },
   {
    "fieldname": "pay_codes",
@@ -107,7 +122,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-11-25 22:00:00.000000",
+ "modified": "2026-11-27 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "Drea Finance",
  "name": "Drea Finance Settings",

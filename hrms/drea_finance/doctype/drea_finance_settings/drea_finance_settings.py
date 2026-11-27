@@ -6,6 +6,8 @@ off, nothing here is used.
 
 - Connection: address, API key, send on/off, Tests Only.
 - Mappings: Company -> legal entity code, Department -> Division, Salary Component -> pay code.
+- Pay codes -> Drea Finance accounts (owner, 27 Nov 2026): Drea Finance keeps no salary settings;
+  this table goes with every payroll and Drea Finance checks the accounts against its chart.
 """
 
 import re
@@ -16,6 +18,14 @@ from frappe.model.document import Document
 from frappe.utils import cint
 
 ENTITY_CODE = re.compile(r"^LE-\d{5}$")
+PAY_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,39}$")  # Drea Finance's rule
+ACCOUNT_CODE = re.compile(r"^\d{6}$")
+# which accounts each kind of pay code books to: (account, owed account)
+ACCOUNTS_FOR_KIND = {
+	"earning": (True, False),  # pay: a cost account, or 310200 for partners' prive
+	"deduction": (False, True),  # taken from pay, owed to someone (tax, BPJS)
+	"employer": (True, True),  # paid by the company on top: a cost, owed to BPJS or the tax office
+}
 
 
 class DreaFinanceSettings(Document):
@@ -26,6 +36,7 @@ class DreaFinanceSettings(Document):
 		self.check_unique("pay_codes", "salary_component", _("Salary Component"))
 		self.check_entity_codes()
 		self.check_divisions()
+		self.check_codes()
 		self.check_pay_codes()
 
 	def check_unique(self, table, field, label):
@@ -65,27 +76,78 @@ class DreaFinanceSettings(Document):
 					)
 				)
 
-	def check_pay_codes(self):
-		from hrms.payroll.drea_finance import ALLOWED_KINDS, PRIVE_CODE, code_kind
+	def check_codes(self):
+		seen = set()
+		for row in self.codes:
+			row.pay_code = (row.pay_code or "").strip().upper()
+			row.code_name = (row.code_name or "").strip()
+			row.account = (row.account or "").strip()
+			row.owed_account = (row.owed_account or "").strip()
+			code = frappe.bold(row.pay_code)
+			if not PAY_CODE.match(row.pay_code):
+				frappe.throw(
+					_(
+						"Row {0}: {1} is not a pay code. Use capital letters, digits and _, e.g. SALARY."
+					).format(row.idx, code),
+					title=_("Pay code"),
+				)
+			if row.pay_code in seen:
+				frappe.throw(_("Pay code {0} is listed twice.").format(code), title=_("Pay code"))
+			seen.add(row.pay_code)
+			if row.kind not in ACCOUNTS_FOR_KIND:
+				frappe.throw(
+					_("Row {0}: choose what {1} is: earning, deduction or employer.").format(row.idx, code),
+					title=_("Pay code"),
+				)
+			wants_account, wants_owed = ACCOUNTS_FOR_KIND[row.kind]
+			for field, label, wanted in (
+				("account", _("Account"), wants_account),
+				("owed_account", _("Owed Account"), wants_owed),
+			):
+				value = row.get(field)
+				if wanted and not value:
+					frappe.throw(
+						_("Row {0}: {1} is a {2} code; it needs the {3}.").format(
+							row.idx, code, row.kind, label
+						),
+						title=_("Pay code"),
+					)
+				if not wanted and value:
+					frappe.throw(
+						_("Row {0}: {1} is a {2} code; leave {3} empty.").format(
+							row.idx, code, row.kind, label
+						),
+						title=_("Pay code"),
+					)
+				if value and not ACCOUNT_CODE.match(value):
+					frappe.throw(
+						_(
+							"Row {0}: {1} {2} must be a Drea Finance account code, six digits (e.g. 510201)."
+						).format(row.idx, code, label),
+						title=_("Pay code"),
+					)
 
+	def check_pay_codes(self):
+		from hrms.payroll.drea_finance import ALLOWED_KINDS
+
+		kinds = {row.pay_code: row.kind for row in self.codes}
 		for row in self.pay_codes:
 			row.pay_code = (row.pay_code or "").strip().upper()
 			component_type = frappe.db.get_value("Salary Component", row.salary_component, "type")
-			kind = code_kind(row.pay_code)
-			if PRIVE_CODE.match(row.pay_code) and component_type != "Earning":
-				# a drawing is paid out, never a cut (hrms.payroll.drea_payroll_setup.add_leader)
+			kind = kinds.get(row.pay_code)
+			if not kind:
 				frappe.throw(
-					_("Row {0}: {1} is a partner's drawing; only an Earning component can carry it.").format(
+					_("Row {0}: pay code {1} is not in Pay Codes → Drea Finance Accounts.").format(
 						row.idx, frappe.bold(row.pay_code)
 					),
 					title=_("Pay code"),
 				)
 			if kind not in ALLOWED_KINDS.get(component_type, set()):
 				frappe.throw(
-					_("Row {0}: {1} is a {2} code in Drea Finance; {3} is a {4} component.").format(
+					_("Row {0}: {1} is a {2} code; {3} is a {4} component.").format(
 						row.idx,
 						frappe.bold(row.pay_code),
-						kind or _("unknown"),
+						kind,
 						frappe.bold(row.salary_component),
 						_(component_type or ""),
 					),
@@ -101,10 +163,20 @@ def is_enabled() -> bool:
 
 
 def mappings() -> dict:
-	"""{"companies": {company: LE code}, "departments": {department: division}, "pay_codes": {component: code}}."""
+	"""{"companies": {company: LE code}, "departments": {department: division},
+	"pay_codes": {component: code}, "codes": {code: {"name", "kind", "account", "owed_account"}}}."""
 	doc = frappe.get_cached_doc("Drea Finance Settings")
 	return {
 		"companies": {r.company: r.entity_code for r in doc.companies},
 		"departments": {r.department: r.division for r in doc.departments},
 		"pay_codes": {r.salary_component: r.pay_code for r in doc.pay_codes},
+		"codes": {
+			r.pay_code: {
+				"name": r.code_name or r.pay_code,
+				"kind": r.kind,
+				"account": r.account or None,
+				"owed_account": r.owed_account or None,
+			}
+			for r in doc.codes
+		},
 	}

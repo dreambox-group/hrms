@@ -181,7 +181,7 @@ frappe.ui.form.on("Payroll Entry", {
 		}
 	},
 
-	// Drea: send this entry's totals (never a person's pay) to Drea Finance, or test it
+	// Drea: send this entry to Drea Finance (totals, and each person for the bank transfer lists), or test it
 	add_drea_finance_buttons: function (frm) {
 		// only when Drea HR is connected to Drea Finance (Drea Finance Settings)
 		if (frm.doc.docstatus !== 1 || !frappe.boot.drea_finance_enabled) return;
@@ -190,7 +190,7 @@ frappe.ui.form.on("Payroll Entry", {
 				method: "hrms.payroll.drea_finance.send_to_drea_finance",
 				args: { payroll_entry: frm.doc.name, test: test ? 1 : 0 },
 				freeze: true,
-				freeze_message: __("Sending totals to Drea Finance..."),
+				freeze_message: __("Sending payroll to Drea Finance..."),
 				callback: (r) => {
 					frm.reload_doc();
 					if (r.message) {
@@ -202,7 +202,7 @@ frappe.ui.form.on("Payroll Entry", {
 					}
 				},
 			});
-		frm.add_custom_button(__("Send Totals"), () => send(false), __("Drea Finance"));
+		frm.add_custom_button(__("Send Payroll"), () => send(false), __("Drea Finance"));
 		frm.add_custom_button(__("Test (nothing saved)"), () => send(true), __("Drea Finance"));
 	},
 

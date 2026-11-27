@@ -12,9 +12,9 @@ Salary). Dry run first; it prints every change and saves nothing:
   PTKP status (TK/1, K/2) is taken as it is. Written to Employee > PTKP Status.
 - Basic Salary: the amount the person receives. A number becomes a Salary Structure Assignment
   from from_date (or their joining date, if later) on the structure for their employment type:
-  Drea Full-time (permanent and contract) or Drea Intern. "PRIVE": a partner paid by drawing
-  (hrms.payroll.drea_payroll_setup.add_leader), on their own leader structure with base
-  prive_amount until HR enters the real figure. Empty: not on payroll (freelancers invoice).
+  Drea Full-time (permanent and contract) or Drea Intern. "PRIVE": a partner paid by drawing,
+  on Drea Leader with base prive_amount until HR enters the real figure. Empty: not on payroll
+  (freelancers invoice).
 - A draft structure must be submitted first; submit_structures=True does it (HR's check of the
   drafts comes first on production).
 """
@@ -45,11 +45,6 @@ def ptkp_from(text) -> str | None:
 	if text.startswith("MENIKAH") or text == "KAWIN":
 		return "K/0"
 	return None
-
-
-def prive_code_for(employee_name: str) -> str:
-	first = re.sub(r"[^A-Z0-9]", "", (employee_name or "").split()[0].upper()) if employee_name else ""
-	return f"PRIVE_{first}"
 
 
 def read_sheet(path) -> list[dict]:
@@ -128,12 +123,7 @@ def load(
 			skipped.append(f"{who}: no pay in the sheet (not on payroll)")
 			continue
 		if str(basic).strip().upper() == PRIVE:
-			code = prive_code_for(emp.employee_name)
-			plan.lines.extend(
-				f"{who}: {line}"
-				for line in setup.add_leader(emp.name, code, dry_run=dry_run, commit=False, verbose=False)
-			)
-			structure = setup.LEADER_STRUCTURE.format(name=emp.employee_name, abbr=abbr)
+			structure = setup.LEADER_STRUCTURE.format(abbr=abbr)
 			base = flt(prive_amount)
 		else:
 			template = STRUCTURE_FOR.get(emp.employment_type)
@@ -172,14 +162,22 @@ def assign(plan, who, emp, structure, base, start, submit_structures, dry_run, s
 				lambda s=structure: frappe.get_doc("Salary Structure", s).submit(),
 			)
 
+	# already paid this way from an earlier date (e.g. assigned before a joining date was corrected)
+	current = frappe.db.get_value(
+		"Salary Structure Assignment",
+		{"employee": emp.name, "docstatus": 1, "from_date": ["<=", start]},
+		["salary_structure", "base"],
+		as_dict=True,
+		order_by="from_date desc",
+	)
+	if current and current.salary_structure == structure and flt(current.base) == base:
+		return
 	existing = frappe.db.get_value(
 		"Salary Structure Assignment",
 		{"employee": emp.name, "docstatus": 1, "from_date": start},
 		["name", "salary_structure", "base"],
 		as_dict=True,
 	)
-	if existing and existing.salary_structure == structure and flt(existing.base) == base:
-		return
 	if existing:
 		plan.lines.append(
 			f"   {who}: already assigned {existing.salary_structure} at {existing.base:,.0f} from {start}; "

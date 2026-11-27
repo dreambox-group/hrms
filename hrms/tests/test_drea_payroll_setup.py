@@ -9,7 +9,7 @@ from frappe.tests import IntegrationTestCase
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
 from hrms.payroll import drea_payroll_setup as setup
-from hrms.payroll.drea_finance import ALLOWED_KINDS, CODE_KINDS
+from hrms.payroll.drea_finance import ALLOWED_KINDS
 
 COMPANY = "_Test Company"
 
@@ -23,7 +23,7 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 
 	def test_every_code_fits_its_component_type(self):
 		for name, (_abbr, component_type, _formula, code, _days, _taxable) in setup.COMPONENTS.items():
-			self.assertIn(CODE_KINDS[code], ALLOWED_KINDS[component_type], name)
+			self.assertIn(setup.FINANCE_CODES[code][1], ALLOWED_KINDS[component_type], name)
 
 	def test_retires_components_and_stops_counting_holidays(self):
 		for name in ("Income Tax", "PPh23"):
@@ -124,17 +124,43 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 				{"parent": "Drea Finance Settings", "salary_component": "THR"},
 				"pay_code",
 			),
-			"INCENTIVE",
+			"THR",  # its own code, so Drea Finance's transfer list shows it apart
 		)
 
-	def test_prive_codes(self):
-		from hrms.payroll.drea_finance import code_kind
+	def test_drea_finance_codes_and_accounts(self):
+		from hrms.drea_finance.doctype.drea_finance_settings.drea_finance_settings import mappings
 
-		self.assertEqual(code_kind("PRIVE_ALAND"), "earning")
-		self.assertEqual(code_kind("SALARY"), "earning")
-		self.assertIsNone(code_kind("PRIVE_"))
-		self.assertIsNone(code_kind("PRIVE_aland"))
-		self.assertIsNone(code_kind("SOMETHING_ELSE"))
+		# an old per-partner mapping, from before the accounts table
+		settings = frappe.get_single("Drea Finance Settings")
+		settings.set("pay_codes", [r for r in settings.pay_codes if r.salary_component != "Incentive"])
+		settings.append("pay_codes", {"salary_component": "Incentive", "pay_code": "PRIVE_SOMEONE"})
+		settings.flags.ignore_validate = True
+		settings.flags.ignore_mandatory = True
+		settings.save(ignore_permissions=True)
+
+		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
+		frappe.clear_document_cache("Drea Finance Settings", "Drea Finance Settings")
+		codes = mappings()["codes"]
+		self.assertEqual(
+			codes["SALARY"], {"name": "Gaji", "kind": "earning", "account": "510201", "owed_account": None}
+		)
+		self.assertEqual(codes["PRIVE"]["account"], "310200")
+		self.assertEqual(codes["THR"]["account"], "510202")
+		self.assertEqual(
+			(codes["BPJS_TK_COMPANY"]["account"], codes["BPJS_TK_COMPANY"]["owed_account"]),
+			("510402", "210302"),
+		)
+		self.assertEqual(
+			(codes["PPH21_COMPANY"]["account"], codes["PPH21_COMPANY"]["owed_account"]),
+			("510521", "210421"),
+		)
+		# every mapped code is in the table; the per-partner PRIVE_<NAME> code is gone
+		pay_codes = mappings()["pay_codes"]
+		self.assertTrue(set(pay_codes.values()) <= set(codes))
+		self.assertEqual(pay_codes["Prive"], "PRIVE")
+		self.assertEqual(pay_codes["Incentive"], "INCENTIVE")
+		# a second run finds nothing to do
+		self.assertEqual(setup.apply(dry_run=True, companies=[COMPANY]), [])
 
 	def test_leader_paid_by_prive(self):
 		from hrms.payroll.doctype.salary_structure.salary_structure import make_salary_slip
@@ -144,29 +170,19 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 
 		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
 		employee = make_employee("drea.leader@example.com", company=COMPANY, date_of_joining="2025-01-01")
-		name = frappe.db.get_value("Employee", employee, "employee_name")
 		abbr = frappe.get_cached_value("Company", COMPANY, "abbr")
 
-		self.assertEqual(frappe.db.count("Salary Structure", {"name": f"Drea Leader - {name} - {abbr}"}), 0)
-		lines = setup.add_leader(employee, "prive_test_leader", dry_run=False, commit=False)
-		self.assertTrue(lines)
-		component = f"Prive {name}"
-		self.assertEqual(frappe.db.get_value("Salary Component", component, "type"), "Earning")
-		self.assertEqual(frappe.get_doc("Salary Component", component).accounts[0].account, f"Prive - {abbr}")
-		self.assertEqual(frappe.db.get_value("Account", f"Prive - {abbr}", "root_type"), "Equity")
-		self.assertEqual(
-			frappe.db.get_value(
-				"Drea Finance Pay Code",
-				{"parent": "Drea Finance Settings", "salary_component": component},
-				"pay_code",
-			),
-			"PRIVE_TEST_LEADER",
-		)
-		# a second run finds nothing to do
-		self.assertEqual(setup.add_leader(employee, "PRIVE_TEST_LEADER", dry_run=True), [])
+		# one component and one structure for every partner, booked on the company's Prive account
+		prive = frappe.get_doc("Salary Component", "Prive")
+		self.assertEqual((prive.type, prive.is_tax_applicable), ("Earning", 0))
+		account = next(row.account for row in prive.accounts if row.company == COMPANY)
+		self.assertEqual(frappe.db.get_value("Account", account, "root_type"), "Equity")
+		structure = frappe.get_doc("Salary Structure", f"Drea Leader - {abbr}")
+		self.assertEqual([r.salary_component for r in structure.earnings], ["Prive"])
+		self.assertEqual(structure.deductions + structure.employer_contributions, [])
+		if structure.docstatus == 0:
+			structure.submit()
 
-		structure = frappe.get_doc("Salary Structure", f"Drea Leader - {name} - {abbr}")
-		structure.submit()
 		create_salary_structure_assignment(
 			employee, structure.name, company=COMPANY, base=20_000_000, from_date="2025-01-01"
 		)
@@ -176,18 +192,19 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 			for table in ("earnings", "deductions", "employer_contributions")
 			for row in slip.get(table)
 		}
-		self.assertEqual(lines, {component: 20_000_000})  # no BPJS, PPh 21 or cuts on a drawing
+		self.assertEqual(lines, {"Prive": 20_000_000})  # no BPJS, PPh 21 or cuts on a drawing
 		self.assertEqual(slip.net_pay, 20_000_000)
 
-	def test_prive_code_only_on_an_earning(self):
+	def test_pay_code_must_be_in_the_accounts_table(self):
+		setup.apply(dry_run=False, companies=[COMPANY], commit=False)
 		settings = frappe.get_single("Drea Finance Settings")
-		settings.append("pay_codes", {"salary_component": "Late Penalty", "pay_code": "PRIVE_SOMEONE"})
+		settings.append("pay_codes", {"salary_component": "Incentive", "pay_code": "PRIVE_SOMEONE"})
 		settings.flags.ignore_mandatory = True
 		with self.assertRaises(frappe.ValidationError):
 			settings.save(ignore_permissions=True)
 
 	def test_pay_sheet_reading(self):
-		from hrms.payroll.drea_pay_sheet import prive_code_for, ptkp_from
+		from hrms.payroll.drea_pay_sheet import ptkp_from
 
 		self.assertEqual(ptkp_from("Belum Menikah"), "TK/0")
 		self.assertEqual(ptkp_from("Menikah, K/2"), "K/2")
@@ -195,5 +212,3 @@ class TestDreaPayrollSetup(IntegrationTestCase):
 		self.assertEqual(ptkp_from("TK/1"), "TK/1")
 		self.assertIsNone(ptkp_from(""))
 		self.assertIsNone(ptkp_from("Cerai"))
-		self.assertEqual(prive_code_for("Andreas Kevin Adam"), "PRIVE_ANDREAS")
-		self.assertEqual(prive_code_for("Aland Sinduartha Tjandra"), "PRIVE_ALAND")

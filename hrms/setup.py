@@ -262,7 +262,7 @@ def get_drea_finance_custom_fields():
 				"default": "Salary",
 				"allow_on_submit": 1,
 				"description": _(
-					"Sent to Drea Finance with the totals. Only totals are sent, never a person's pay."
+					"Sent to Drea Finance with the payroll."
 				),
 				"insert_after": "drea_finance_section",
 			},

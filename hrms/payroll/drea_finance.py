@@ -1,17 +1,26 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
 
-"""Payroll totals to Drea Finance (Drea Finance's handbook HR-PAYROLL-LINK.md, 27 Oct 2026).
+"""Payroll to Drea Finance (Drea Finance's handbook HR-PAYROLL-LINK.md, reworked 27 Nov 2026).
 
-When HR submits a Payroll Entry's salary slips, Drea Finance gets ONE message for the entry:
-totals per company and division (headcount, amount per pay code, take-home pay). No name,
-employee id, NIK, NPWP, bank account or per-person figure ever leaves this module, and Drea
-Finance refuses any field it does not list, so none can slip in. Each person's slip stays here.
+When HR submits a Payroll Entry's salary slips, Drea Finance gets ONE message for the entry (one
+company, one month):
+
+- components: every pay code in the run, with the Drea Finance accounts it books to. The mapping
+  lives only here, in Drea Finance Settings; Drea Finance keeps no salary settings of its own.
+- rows: totals per company and division (headcount, amount per pay code, take-home pay). Drea
+  Finance books these.
+- people: one line per person (employee number, name, bank account, amounts, take-home), only
+  for the bank transfer lists Directors and Admin download in Drea Finance. They add up to the
+  rows. The owner approved sending them (27 Nov 2026); no Drea Finance screen shows a person.
+  Nothing else about a person (NIK, NPWP, BPJS numbers, address) ever leaves this module, and
+  Drea Finance refuses any field it does not list.
 
 Where things live (owner, 25 Nov 2026: Drea Finance kept apart from HR): Drea Finance Settings
 (hrms.drea_finance) holds the connection (address, API key, the send switch, Tests Only) and the
-mappings Company -> legal entity code, Department -> Division, Salary Component -> pay code. With
-the connection off, nothing here runs. The Payroll Entry fields below are added by hrms.setup.
+mappings Company -> legal entity code, Department -> Division, Salary Component -> pay code, and
+pay code -> Drea Finance accounts. With the connection off, nothing here runs. The Payroll Entry
+fields below are added by hrms.setup.
 
 A send that cannot be built (a missing code, take-home that does not add up) is never guessed
 at: it stops, and the reason is written on the Payroll Entry for HR to read.
@@ -19,7 +28,6 @@ at: it stops, and the reason is written on the Payroll Entry for HR to read.
 
 import hashlib
 import json
-import re
 import time
 
 import requests
@@ -32,35 +40,6 @@ from frappe.utils.password import get_decrypted_password
 PATH = "/api/v2/integrations/payroll"
 TIMEOUT = 30
 RETRY_WAITS = (5, 20)  # after the first try: at most three tries, only on a network error or 5xx
-
-# Drea Finance's pay codes and what each is (GET /api/v2/integrations/payroll/reference).
-# Finance can add codes in its Settings -> Salary; add them here too (and to the Select options).
-CODE_KINDS = {
-	"SALARY": "earning",
-	"INCENTIVE": "earning",
-	"PPH21_WITHHELD": "deduction",
-	"BPJS_KES_EMPLOYEE": "deduction",
-	"BPJS_TK_EMPLOYEE": "deduction",
-	"OVERPAID_RECOVERY": "deduction",
-	"BPJS_KES_COMPANY": "employer",
-	"BPJS_TK_COMPANY": "employer",
-	"PPH21_COMPANY": "employer",
-}
-COMPONENT_OPTIONS = "\n" + "\n".join(CODE_KINDS)
-
-# A partner's drawing (prive) paid through payroll (owner, 27 Nov 2026): one code per partner,
-# PRIVE_<NAME>, so the totals per code are per partner and Drea Finance books each on that
-# partner's prive account. An earning: it is paid out like salary. Drea Finance adds each code in
-# its Settings -> Salary (see hrms.payroll.drea_payroll_setup.add_leader).
-PRIVE_CODE = re.compile(r"^PRIVE_[A-Z0-9_]{1,34}$")
-
-
-def code_kind(code: str | None) -> str | None:
-	"""earning, deduction or employer; None for a code Drea Finance doesn't have."""
-	if not code:
-		return None
-	return CODE_KINDS.get(code) or ("earning" if PRIVE_CODE.match(code) else None)
-
 
 # which codes a Salary Component of each type may carry
 ALLOWED_KINDS = {
@@ -83,17 +62,20 @@ class PayrollSendError(frappe.ValidationError):
 # --- building the message -----------------------------------------------------------------------
 
 
-def summarise(slips, lines_by_slip, company_code, division_code, components, use_net_pay):
-	"""The rows of the message, from plain data (kept apart from the database so it can be tested).
+def summarise(slips, lines_by_slip, company_code, division_code, components, codes, use_net_pay):
+	"""The components, rows and people of the message, from plain data (kept apart from the database
+	so it can be tested).
 
-	slips: dicts with name, company, department, net_pay, rounded_total.
+	slips: dicts with name, employee, employee_name, company, department, net_pay, rounded_total,
+	    bank_name, bank_account_no, account_name.
 	lines_by_slip: {slip name: [dicts with parentfield, salary_component, amount,
 	    statistical_component, do_not_include_in_total]}.
 	company_code / division_code: {company: LE code}, {department: DV code}.
-	components: {component name: Drea Finance code or None}.
+	components: {component name: pay code or None}.
+	codes: {pay code: {"name", "kind", "account", "owed_account"}}.
 	Raises PayrollSendError listing every problem at once."""
 	problems = []
-	rows = {}
+	people = []
 	for s in slips:
 		company = company_code.get(s["company"])
 		division = division_code.get(s["department"]) if s.get("department") else None
@@ -109,64 +91,134 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 			)
 		if not company or not division:
 			continue
+		amounts = person_amounts(s["name"], lines_by_slip.get(s["name"], []), components, codes, problems)
+		take_home = round(flt(s["net_pay"] if use_net_pay else s["rounded_total"]))
+		expected = sum(
+			v * (1 if codes[k]["kind"] == "earning" else -1)
+			for k, v in amounts.items()
+			if codes[k]["kind"] != "employer"
+		)
+		if expected != take_home:
+			problems.append(
+				_(
+					"Salary Slip {0} ({1}): take-home is {2} but the earnings less the deductions come to {3}. "
+					"Check rounding (Round to the Nearest Integer on the components) and the mappings."
+				).format(s["name"], s["employee"], take_home, expected)
+			)
+		if any(v < 0 for v in amounts.values()):
+			problems.append(
+				_("Salary Slip {0} ({1}): a pay code comes out below 0: {2}.").format(
+					s["name"], s["employee"], ", ".join(f"{k} {v}" for k, v in amounts.items() if v < 0)
+				)
+			)
+		people.append(person(s, company, division, amounts, take_home))
+
+	if problems:
+		raise PayrollSendError("\n".join(dict.fromkeys(problems)))
+	if not people:
+		raise PayrollSendError(_("No salary slips to send."))
+	people.sort(key=lambda p: (p["company_code"], p["division_code"], p["employee_id"]))
+	used = sorted({code for p in people for code in p["amounts"]})
+	return {
+		"components": [component(code, codes[code]) for code in used],
+		"rows": rows_of(people),
+		"people": people,
+	}
+
+
+def person_amounts(slip, lines, components, codes, problems) -> dict:
+	"""{pay code: whole rupiah} for one slip; a cut mapped to an earning code is taken off it."""
+	amounts = {}
+	for line in lines:
+		if (
+			line.get("statistical_component")
+			or line.get("do_not_include_in_total")
+			or not flt(line["amount"])
+		):
+			continue
+		code = components.get(line["salary_component"])
+		if not code:
+			if line["parentfield"] == "employer_contributions":
+				continue  # not sent until HR maps it; take-home doesn't depend on it
+			problems.append(
+				_("Salary Component {0} has no pay code in Drea Finance Settings.").format(
+					line["salary_component"]
+				)
+			)
+			continue
+		kind = (codes.get(code) or {}).get("kind")
+		if not kind:
+			problems.append(
+				_("Pay code {0} (Salary Component {1}) has no accounts in Drea Finance Settings.").format(
+					code, line["salary_component"]
+				)
+			)
+			continue
+		if kind not in ALLOWED_KINDS.get(TABLE_TYPE.get(line["parentfield"]), set()):
+			problems.append(
+				_("Salary Component {0} sits in {1} but its code {2} is a {3} code.").format(
+					line["salary_component"], line["parentfield"], code, kind
+				)
+			)
+			continue
+		amount = round(flt(line["amount"]))
+		if line["parentfield"] == "deductions" and kind == "earning":
+			amount = -amount  # a cut the company keeps, e.g. the late penalty
+		amounts[code] = amounts.get(code, 0) + amount
+	return {k: v for k, v in sorted(amounts.items()) if v}
+
+
+def person(s, company, division, amounts, take_home) -> dict:
+	"""One person's line. Bank details are left out when the person has no account (Drea Finance
+	lists them to pay by hand). The account number stays text, so leading zeros are kept."""
+	line = {
+		"employee_id": s["employee"],
+		"name": (s.get("employee_name") or s["employee"]).strip(),
+		"company_code": company,
+		"division_code": division,
+	}
+	account_number = str(s.get("bank_account_no") or "").strip()
+	if account_number:
+		line["account_number"] = account_number
+		for field, value in (("bank", s.get("bank_name")), ("account_name", s.get("account_name"))):
+			if value := (value or "").strip():
+				line[field] = value
+	line["amounts"] = amounts
+	line["take_home"] = take_home
+	return line
+
+
+def component(code, spec) -> dict:
+	"""A pay code as Drea Finance takes it: pay has only an account, a deduction only the account it is
+	owed on, a company contribution both."""
+	out = {"code": code, "name": spec.get("name") or code, "kind": spec["kind"]}
+	if spec["kind"] in ("earning", "employer"):
+		out["account"] = spec.get("account")
+	if spec["kind"] in ("deduction", "employer"):
+		out["owed_account"] = spec.get("owed_account")
+	return out
+
+
+def rows_of(people) -> list[dict]:
+	"""The totals per company and division, from the people, so they always add up."""
+	rows = {}
+	for p in people:
 		row = rows.setdefault(
-			(company, division),
+			(p["company_code"], p["division_code"]),
 			{
-				"company_code": company,
-				"division_code": division,
+				"company_code": p["company_code"],
+				"division_code": p["division_code"],
 				"headcount": 0,
 				"amounts": {},
 				"take_home": 0,
 			},
 		)
 		row["headcount"] += 1
-		row["take_home"] += round(flt(s["net_pay"] if use_net_pay else s["rounded_total"]))
-		for line in lines_by_slip.get(s["name"], []):
-			if (
-				line.get("statistical_component")
-				or line.get("do_not_include_in_total")
-				or not flt(line["amount"])
-			):
-				continue
-			code = components.get(line["salary_component"])
-			if not code:
-				if line["parentfield"] == "employer_contributions":
-					continue  # not sent until HR maps it; take-home doesn't depend on it
-				problems.append(
-					_("Salary Component {0} has no pay code in Drea Finance Settings.").format(
-						line["salary_component"]
-					)
-				)
-				continue
-			kind = code_kind(code)
-			if kind not in ALLOWED_KINDS.get(TABLE_TYPE.get(line["parentfield"]), set()):
-				problems.append(
-					_("Salary Component {0} sits in {1} but its code {2} is a {3} code.").format(
-						line["salary_component"], line["parentfield"], code, kind or _("unknown")
-					)
-				)
-				continue
-			amount = round(flt(line["amount"]))
-			if line["parentfield"] == "deductions" and kind == "earning":
-				amount = -amount  # a cut the company keeps, e.g. the late penalty
+		row["take_home"] += p["take_home"]
+		for code, amount in p["amounts"].items():
 			row["amounts"][code] = row["amounts"].get(code, 0) + amount
-
 	for row in rows.values():
-		row["amounts"] = {k: v for k, v in sorted(row["amounts"].items()) if v}
-		expected = sum(
-			v * (1 if code_kind(k) == "earning" else -1)
-			for k, v in row["amounts"].items()
-			if code_kind(k) != "employer"
-		)
-		if expected != row["take_home"]:
-			problems.append(
-				_(
-					"{0} / {1}: take-home is {2} but the earnings less the deductions come to {3}. "
-					"Check rounding (Round to the Nearest Integer on the components) and the mappings."
-				).format(row["company_code"], row["division_code"], row["take_home"], expected)
-			)
-	if problems:
-		raise PayrollSendError("\n".join(dict.fromkeys(problems)))
+		row["amounts"] = dict(sorted(row["amounts"].items()))
 	return sorted(rows.values(), key=lambda r: (r["company_code"], r["division_code"]))
 
 
@@ -174,10 +226,32 @@ def build_payload(pe) -> dict:
 	slips = frappe.get_all(
 		"Salary Slip",
 		filters={"payroll_entry": pe.name, "docstatus": 1},
-		fields=["name", "company", "department", "net_pay", "rounded_total"],
+		fields=[
+			"name",
+			"employee",
+			"employee_name",
+			"company",
+			"department",
+			"net_pay",
+			"rounded_total",
+			"bank_name",
+			"bank_account_no",
+		],
 	)
 	if not slips:
 		raise PayrollSendError(_("No submitted salary slips to send."))
+	# the account holder's name is on the Employee only (hrms.setup: Bank Account Name)
+	if frappe.get_meta("Employee").has_field("bank_account_name"):
+		holders = dict(
+			frappe.get_all(
+				"Employee",
+				filters={"name": ["in", [s.employee for s in slips]]},
+				fields=["name", "bank_account_name"],
+				as_list=True,
+			)
+		)
+		for s in slips:
+			s.account_name = holders.get(s.employee)
 	lines = frappe.get_all(
 		"Salary Detail",
 		filters={"parenttype": "Salary Slip", "parent": ["in", [s.name for s in slips]]},
@@ -196,12 +270,13 @@ def build_payload(pe) -> dict:
 	from hrms.drea_finance.doctype.drea_finance_settings.drea_finance_settings import mappings
 
 	maps = mappings()
-	rows = summarise(
+	parts = summarise(
 		slips,
 		lines_by_slip,
 		maps["companies"],
 		maps["departments"],
 		maps["pay_codes"],
+		maps["codes"],
 		use_net_pay=cint(frappe.db.get_single_value("Payroll Settings", "disable_rounded_total")),
 	)
 	# a pay period belongs to the month it ends in (19 Oct - 18 Nov is November's pay;
@@ -211,12 +286,20 @@ def build_payload(pe) -> dict:
 		"month": f"{end.year}-{end.month:02d}",
 		"kind": (pe.get("drea_finance_kind") or "Salary").lower(),
 		"pay_date": str(getdate(pe.posting_date)),
-		"rows": rows,
+		**parts,
 	}
 
 
 def figures_hash(payload: dict) -> str:
-	figures = [payload["month"], payload["kind"], payload["pay_date"], payload["rows"]]
+	"""Anything Drea Finance keeps: an amount, an account or a bank account changed is a new version."""
+	figures = [
+		payload["month"],
+		payload["kind"],
+		payload["pay_date"],
+		payload.get("components"),
+		payload["rows"],
+		payload.get("people"),
+	]
 	return hashlib.sha256(json.dumps(figures, sort_keys=True).encode()).hexdigest()
 
 
@@ -328,6 +411,12 @@ def send(payroll_entry: str, test: bool = False, automatic: bool = False) -> dic
 
 	try:
 		response = post(conf["url"], conf["key"], payload)
+		if response.status_code == 409 and not dry_run:
+			# Drea Finance already has this version with other figures: a send it saved before HR
+			# heard back (a timeout). Its handbook says to send the figures as the next version; once.
+			version += 1
+			payload = {**payload, "version": version}
+			response = post(conf["url"], conf["key"], payload)
 	except requests.RequestException:
 		note(
 			_(
@@ -348,11 +437,12 @@ def send(payroll_entry: str, test: bool = False, automatic: bool = False) -> dic
 		)
 	if response.ok:
 		totals = (body.get("summary") or {}).get("totals") or {}
-		extra = (
-			_(" ({0} people, take-home {1})").format(totals.get("people"), totals.get("take_home"))
-			if totals
-			else ""
-		)
+		extra = ""
+		if totals:
+			extra = _(" ({0} people, take-home {1}").format(totals.get("people"), totals.get("take_home"))
+			if totals.get("prive"):
+				extra += _(", of which prive {0}").format(totals["prive"])
+			extra += ")"
 		note(f"{label}: {body.get('status') or response.status_code}. {message}{extra}")
 	else:
 		note(_("{0} refused ({1}): {2}").format(label, response.status_code, message))

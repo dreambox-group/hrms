@@ -1,8 +1,9 @@
 # Copyright (c) 2026, Dreambox and contributors
 # For license information, please see license.txt
 """Drea payroll setup: salary components and their accounts, draft salary structures per company
-(full-time and interns; owner, 27 Nov 2026), the pay calendar, and leave types that do not count
-holidays (handover, 5 Nov 2026 audit).
+(full-time, interns and leaders paid by prive; owner, 27 Nov 2026), Drea Finance's pay codes and
+accounts, the pay calendar, and leave types that do not count holidays (handover, 5 Nov 2026
+audit).
 
 Run it as a dry run first; it prints every change and saves nothing:
 
@@ -53,9 +54,14 @@ COMPONENTS = {
 		1,
 	),
 	"Incentive": ("INC", "Earning", None, "INCENTIVE", 0, 1),
-	# Drea Finance books THR with incentives and bonus ("Incentives, bonus and THR", 510202).
-	# THR is an Additional Salary in that month's payroll (hrms.payroll.drea_thr).
-	"THR": ("THR", "Earning", None, "INCENTIVE", 0, 1),
+	# THR has its own code, so Drea Finance's transfer list can show it apart (Drea Finance, 27 Nov
+	# 2026); booked with incentives on 510202. An Additional Salary in that month's payroll
+	# (hrms.payroll.drea_thr).
+	"THR": ("THR", "Earning", None, "THR", 0, 1),
+	# A partner's drawing (prive), not salary (owner, 27 Nov 2026): every partner on this one
+	# component and code; Drea Finance books it on 310200 and allocates it per partner at year end.
+	# The amount is the base of their assignment on "Drea Leader". Not taxable as salary.
+	"Prive": ("PRIVE", "Earning", "base", "PRIVE", 0, 0),
 	# deductions taken from pay: only cuts the company keeps; they reduce salary in Finance
 	"Late Penalty": ("LATE", "Deduction", "late_entry_days * 50000", "SALARY", 0, 1),  # HR's rule
 	"Unpaid Leave": (
@@ -97,6 +103,20 @@ COMPONENTS = {
 	"PPh21": ("PPh21", "Employer Contribution", None, "PPH21_COMPANY", 0, 0),
 }
 
+# Drea Finance's pay codes and the accounts in its chart they book to (Drea Finance, 27 Nov 2026):
+# code: (name, kind, account, owed account). Written to Drea Finance Settings > Pay Codes -> Drea
+# Finance Accounts when missing; a row HR has changed since is left as it is and reported.
+# OVERPAID_RECOVERY (deduction, owed on 210201) is left out until HR takes back an overpayment.
+FINANCE_CODES = {
+	"SALARY": ("Gaji", "earning", "510201", None),
+	"INCENTIVE": ("Insentif & Bonus", "earning", "510202", None),
+	"THR": ("THR", "earning", "510202", None),
+	"PRIVE": ("Prive", "earning", "310200", None),
+	"BPJS_KES_COMPANY": ("BPJS Kesehatan", "employer", "510401", "210301"),
+	"BPJS_TK_COMPANY": ("BPJS Ketenagakerjaan", "employer", "510402", "210302"),
+	"PPH21_COMPANY": ("PPh 21 ditanggung perusahaan", "employer", "510521", "210421"),
+}
+
 # disabled, never deleted: the single 4% "BPJS" deduction (wrong rate, no split), the duplicate
 # "Income Tax" (PPh21 covers it), PPh23 (a tax on payments to vendors, not on salaries), the
 # second basic pay "Gaji Pokok Denalo" (Basic does it for every company), and Arrear and Leave
@@ -129,6 +149,13 @@ STRUCTURES = {
 		"earnings": ["Basic"],
 		"deductions": ["Unpaid Leave", "Late Penalty"],
 		"employer_contributions": ["PPh21"],
+	},
+	# partners paid by drawing (prive): their monthly drawing is the base of their assignment. No
+	# BPJS, PPh 21, unpaid days or late penalty: a drawing is not a salary.
+	"Drea Leader - {abbr}": {
+		"earnings": ["Prive"],
+		"deductions": [],
+		"employer_contributions": [],
 	},
 }
 # the one draft before 27 Nov 2026, replaced by "Drea Full-time" while nobody is on it
@@ -214,6 +241,7 @@ def accounts_for(company):
 		"bpjs": f"BPJS Payable - {abbr}",
 		"pph21": f"PPh 21 Payable - {abbr}",
 		"payroll": f"Payroll Payable - {abbr}",
+		"prive": f"Prive - {abbr}",
 	}
 
 
@@ -227,13 +255,13 @@ def root_company(company):
 
 def ensure_accounts(plan, company):
 	names = accounts_for(company)
+	below = [c for c in frappe.get_all("Company", filters={"parent_company": company}, pluck="name")]
+	copied = f" (copied to {', '.join(below)})" if below else ""
 	payroll_payable = frappe.db.get_value("Account", names["payroll"], ["parent_account"], as_dict=True)
 	for key, account_type in (("bpjs", "Payable"), ("pph21", "Tax")):
 		if frappe.db.exists("Account", names[key]) or not payroll_payable:
 			continue
 		account_name = names[key].rsplit(" - ", 1)[0]
-		below = [c for c in frappe.get_all("Company", filters={"parent_company": company}, pluck="name")]
-		copied = f" (copied to {', '.join(below)})" if below else ""
 
 		def create(account_name=account_name, account_type=account_type):
 			frappe.get_doc(
@@ -250,11 +278,32 @@ def ensure_accounts(plan, company):
 
 		plan.do(f"Create account {names[key]}{copied}", create)
 
+	# partners' drawings in Drea HR's own books (Drea Finance books them on its 310200)
+	equity = frappe.db.get_value(
+		"Account", {"company": company, "root_type": "Equity", "is_group": 1}, "name", order_by="lft asc"
+	)
+	if not frappe.db.exists("Account", names["prive"]) and equity:
+
+		def create_prive():
+			frappe.get_doc(
+				{
+					"doctype": "Account",
+					"account_name": "Prive",
+					"company": company,
+					"parent_account": equity,
+					"account_type": "Equity",
+					"root_type": "Equity",
+					"report_type": "Balance Sheet",
+				}
+			).insert(ignore_permissions=True)
+
+		plan.do(f"Create account {names['prive']} under {equity}{copied}", create_prive)
+
 
 def account_row(company, component_type, component):
 	names = accounts_for(company)
 	if component_type == "Earning":
-		return {"company": company, "account": names["expense"]}
+		return {"company": company, "account": names["prive" if component == "Prive" else "expense"]}
 	if component_type == "Deduction":
 		if component.startswith("BPJS"):
 			return {"company": company, "account": names["bpjs"]}
@@ -340,28 +389,41 @@ def normalise(value):
 
 
 def ensure_pay_codes(plan):
-	"""Drea Finance Settings > Salary Components -> Pay Codes, so the mapping is ready when Drea HR is
-	connected to Drea Finance. Drea HR itself does not need it."""
+	"""Drea Finance Settings: the pay codes with their Drea Finance accounts, and Salary Component ->
+	pay code, so both are ready when Drea HR is connected to Drea Finance. Drea HR itself does not
+	need them. One save, so the settings' checks see both tables at once."""
 	if not frappe.db.exists("DocType", "Drea Finance Settings"):
 		return
-	have = dict(
-		frappe.get_all(
-			"Drea Finance Pay Code",
-			filters={"parent": "Drea Finance Settings"},
-			fields=["salary_component", "pay_code"],
-			as_list=True,
-		)
-	)
+	settings = frappe.get_single("Drea Finance Settings")
+	have_codes = {r.pay_code: r for r in settings.get("codes", [])}
+	new_codes = [code for code in FINANCE_CODES if code not in have_codes]
+	for code, (_name, kind, account, owed) in FINANCE_CODES.items():
+		row = have_codes.get(code)
+		if row and (row.kind, row.account or None, row.owed_account or None) != (kind, account, owed):
+			print(
+				f"   pay code {code} differs from Drea Finance's list ({row.kind} {row.account or '-'} "
+				f"{row.owed_account or '-'}, list: {kind} {account or '-'} {owed or '-'}): left as it is"
+			)
+	known = set(have_codes) | set(FINANCE_CODES)
+
+	have = {r.salary_component: r.pay_code for r in settings.pay_codes}
 	wanted = {name: spec[3] for name, spec in COMPONENTS.items()}
 	changes = {n: c for n, c in wanted.items() if have.get(n) != c}
-	retired = [n for n in RETIRED if n in have]
-	if not changes and not retired:
+	# retired components, and codes Drea Finance no longer has (the per-partner PRIVE_<NAME>)
+	dropped = [n for n, c in have.items() if n in RETIRED or c not in known]
+	if not new_codes and not changes and not dropped:
 		return
 
 	def write():
 		settings = frappe.get_single("Drea Finance Settings")
+		for code in new_codes:
+			name, kind, account, owed = FINANCE_CODES[code]
+			settings.append(
+				"codes",
+				{"pay_code": code, "code_name": name, "kind": kind, "account": account, "owed_account": owed},
+			)
 		rows = {r.salary_component: r for r in settings.pay_codes}
-		for name in retired:
+		for name in dropped:
 			settings.remove(rows.pop(name))
 		for name, code in changes.items():
 			if name in rows:
@@ -371,7 +433,14 @@ def ensure_pay_codes(plan):
 		settings.flags.ignore_mandatory = True
 		settings.save(ignore_permissions=True)
 
-	what = [f"{n} -> {c}" for n, c in changes.items()] + [f"drop {n}" for n in retired]
+	what = (
+		[
+			f"add {c} ({FINANCE_CODES[c][1]}, {FINANCE_CODES[c][2] or '-'} / {FINANCE_CODES[c][3] or '-'})"
+			for c in new_codes
+		]
+		+ [f"{n} -> {c}" for n, c in changes.items()]
+		+ [f"drop {n} ({have[n]})" for n in dropped]
+	)
 	plan.do("Drea Finance pay codes: " + "; ".join(what), write)
 
 
@@ -480,123 +549,8 @@ def ensure_pay_calendar(plan):
 
 # --- leaders paid by drawing (prive) -----------------------------------------------------------
 # A leader who is a partner of their CV takes their pay as a drawing (prive), not salary (owner,
-# 27 Nov 2026). Each gets their own component and structure, mapped to their own Drea Finance code
-# PRIVE_<NAME>, so the totals HR sends per code are per partner and Finance books each on that
-# partner's prive account. Drea Finance must have the code first (Settings -> Salary, on the
-# partner's prive account). Locally the drawing is booked on the company's "Prive" equity account.
-LEADER_STRUCTURE = "Drea Leader - {name} - {abbr}"
-
-
-def add_leader(employee, prive_code, dry_run=True, commit=True, verbose=True):
-	"""Set up a leader paid by drawing. Dry run first:
-
-	    bench --site <site> execute hrms.payroll.drea_payroll_setup.add_leader \
-	        --kwargs "{'employee': 'HR-EMP-00001', 'prive_code': 'PRIVE_ALAND'}"
-
-	Makes a draft structure with one line, "Prive <name>" = base. HR submits it and assigns it with
-	the monthly drawing as base. No BPJS, PPh 21, unpaid days or late penalty: a drawing is not a
-	salary. Returns the change list."""
-	from hrms.payroll.drea_finance import PRIVE_CODE
-
-	dry_run = dry_run not in (False, 0, "0", "false", "False")
-	prive_code = (prive_code or "").strip().upper()
-	if not PRIVE_CODE.match(prive_code):
-		frappe.throw(f"{prive_code!r} is not a prive code: PRIVE_ and the partner's name, e.g. PRIVE_ALAND.")
-	emp = frappe.db.get_value("Employee", employee, ["employee_name", "company"], as_dict=True)
-	if not emp:
-		frappe.throw(f"No employee {employee}.")
-	plan = Plan(dry_run)
-	company, abbr = emp.company, frappe.get_cached_value("Company", emp.company, "abbr")
-	component = f"Prive {emp.employee_name}"
-	account = f"Prive - {abbr}"
-
-	if not frappe.db.exists("Account", account):
-		root = root_company(company)
-		parent = frappe.db.get_value(
-			"Account", {"company": root, "root_type": "Equity", "is_group": 1}, "name", order_by="lft asc"
-		)
-
-		def create_account():
-			frappe.get_doc(
-				{
-					"doctype": "Account",
-					"account_name": "Prive",
-					"company": root,
-					"parent_account": parent,
-					"root_type": "Equity",
-					"report_type": "Balance Sheet",
-					"account_type": "Equity",
-				}
-			).insert(ignore_permissions=True)
-
-		plan.do(f"Create account {account} under {parent}", create_account)
-
-	if not frappe.db.exists("Salary Component", component):
-
-		def create_component():
-			frappe.get_doc(
-				{
-					"doctype": "Salary Component",
-					"salary_component": component,
-					"salary_component_abbr": prive_code,
-					"type": "Earning",
-					"amount_based_on_formula": 1,
-					"formula": "base",
-					"depends_on_payment_days": 0,
-					"is_tax_applicable": 0,
-					"round_to_the_nearest_integer": 1,
-					"remove_if_zero_valued": 1,
-					"accounts": [{"company": company, "account": account}],
-				}
-			).insert(ignore_permissions=True)
-
-		plan.do(f"Create component {component} (Earning, base, booked on {account})", create_component)
-
-	if frappe.db.exists("DocType", "Drea Finance Settings"):
-		have = frappe.db.get_value(
-			"Drea Finance Pay Code",
-			{"parent": "Drea Finance Settings", "salary_component": component},
-			"pay_code",
-		)
-		if have != prive_code:
-
-			def map_code():
-				settings = frappe.get_single("Drea Finance Settings")
-				rows = [r for r in settings.pay_codes if r.salary_component == component]
-				if rows:
-					rows[0].pay_code = prive_code
-				else:
-					settings.append("pay_codes", {"salary_component": component, "pay_code": prive_code})
-				settings.flags.ignore_mandatory = True
-				settings.save(ignore_permissions=True)
-
-			plan.do(f"Drea Finance pay code: {component} -> {prive_code}", map_code)
-
-	structure = LEADER_STRUCTURE.format(name=emp.employee_name, abbr=abbr)
-
-	def create_structure():
-		doc = frappe.new_doc("Salary Structure")
-		doc.update(
-			{
-				"company": company,
-				"payroll_frequency": "Monthly",
-				"is_active": "Yes",
-				"currency": frappe.get_cached_value("Company", company, "default_currency"),
-			}
-		)
-		doc.append(
-			"earnings",
-			{"salary_component": component, "amount_based_on_formula": 1, "formula": "base"},
-		)
-		doc.insert(ignore_permissions=True, set_name=structure)
-
-	if not frappe.db.exists("Salary Structure", structure):
-		plan.do(f"Create draft salary structure {structure} ({component} = base)", create_structure)
-
-	if not dry_run and commit:
-		frappe.db.commit()  # nosemgrep: a bench execute command, run by hand
-	if verbose:
-		print(f"{'DRY RUN, nothing saved' if dry_run else 'APPLIED'}: {len(plan.lines)} change(s)")
-		for line in plan.lines:
-			print(" -", line)
-	return plan.lines
+# 27 Nov 2026). Every partner is on "Drea Leader - <abbr>" (STRUCTURES), with their own monthly
+# drawing as the base of their assignment (hrms.payroll.drea_pay_sheet). One component and one
+# pay code, PRIVE, for all of them: Drea Finance books it on 310200 and refuses it in a company
+# with no partner on the pay date.
+LEADER_STRUCTURE = "Drea Leader - {abbr}"
