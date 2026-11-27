@@ -19,6 +19,7 @@ at: it stops, and the reason is written on the Payroll Entry for HR to read.
 
 import hashlib
 import json
+import re
 import time
 
 import requests
@@ -46,6 +47,20 @@ CODE_KINDS = {
 	"PPH21_COMPANY": "employer",
 }
 COMPONENT_OPTIONS = "\n" + "\n".join(CODE_KINDS)
+
+# A partner's drawing (prive) paid through payroll (owner, 27 Nov 2026): one code per partner,
+# PRIVE_<NAME>, so the totals per code are per partner and Drea Finance books each on that
+# partner's prive account. An earning: it is paid out like salary. Drea Finance adds each code in
+# its Settings -> Salary (see hrms.payroll.drea_payroll_setup.add_leader).
+PRIVE_CODE = re.compile(r"^PRIVE_[A-Z0-9_]{1,34}$")
+
+
+def code_kind(code: str | None) -> str | None:
+	"""earning, deduction or employer; None for a code Drea Finance doesn't have."""
+	if not code:
+		return None
+	return CODE_KINDS.get(code) or ("earning" if PRIVE_CODE.match(code) else None)
+
 
 # which codes a Salary Component of each type may carry
 ALLOWED_KINDS = {
@@ -123,7 +138,7 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 					)
 				)
 				continue
-			kind = CODE_KINDS.get(code)
+			kind = code_kind(code)
 			if kind not in ALLOWED_KINDS.get(TABLE_TYPE.get(line["parentfield"]), set()):
 				problems.append(
 					_("Salary Component {0} sits in {1} but its code {2} is a {3} code.").format(
@@ -139,9 +154,9 @@ def summarise(slips, lines_by_slip, company_code, division_code, components, use
 	for row in rows.values():
 		row["amounts"] = {k: v for k, v in sorted(row["amounts"].items()) if v}
 		expected = sum(
-			v * (1 if CODE_KINDS[k] == "earning" else -1)
+			v * (1 if code_kind(k) == "earning" else -1)
 			for k, v in row["amounts"].items()
-			if CODE_KINDS[k] != "employer"
+			if code_kind(k) != "employer"
 		)
 		if expected != row["take_home"]:
 			problems.append(

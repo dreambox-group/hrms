@@ -34,7 +34,8 @@ from frappe import _
 from frappe.utils import cint, flt, getdate
 
 PPH21 = "PPh21"
-# the employee's own pension contributions, taken off the year's income in the last month
+# the employee's own pension contributions taken from pay, taken off the year's income in the last
+# month. None while the company pays the employee's BPJS shares too (owner, 27 Nov 2026).
 PENSION = ("BPJS JHT Karyawan", "BPJS JP Karyawan")
 
 PTKP = {

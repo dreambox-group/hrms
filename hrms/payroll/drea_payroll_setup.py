@@ -20,7 +20,8 @@ from frappe.utils import cint, flt
 
 # --- figures -----------------------------------------------------------------------------------
 # BPJS Kesehatan: 1% employee + 4% company of the wage, the wage capped at Rp12,000,000
-# (Perpres 64/2020).
+# (Perpres 64/2020). The company pays the employee's shares too (owner, 27 Nov 2026), so each
+# BPJS line below is the whole contribution: Kesehatan 5%, JHT 5.7%, JP 3%.
 BPJS_KES_CAP = 12_000_000
 # BPJS Ketenagakerjaan Jaminan Pensiun wage cap. It changes every March.
 # CONFIRM: Rp10,547,400 is the March 2025 figure; Finance to give the current one.
@@ -55,18 +56,7 @@ COMPONENTS = {
 	# Drea Finance books THR with incentives and bonus ("Incentives, bonus and THR", 510202).
 	# THR is an Additional Salary in that month's payroll (hrms.payroll.drea_thr).
 	"THR": ("THR", "Earning", None, "INCENTIVE", 0, 1),
-	# deductions taken from pay
-	"BPJS Kesehatan Karyawan": (
-		"BPJSKES_K",
-		"Deduction",
-		f"min(base, {BPJS_KES_CAP}) * 0.01",
-		"BPJS_KES_EMPLOYEE",
-		0,
-		0,
-	),
-	"BPJS JHT Karyawan": ("JHT_K", "Deduction", "base * 0.02", "BPJS_TK_EMPLOYEE", 0, 0),
-	"BPJS JP Karyawan": ("JP_K", "Deduction", f"min(base, {JP_WAGE_CAP}) * 0.01", "BPJS_TK_EMPLOYEE", 0, 0),
-	# a cut the company keeps reduces salary in Finance
+	# deductions taken from pay: only cuts the company keeps; they reduce salary in Finance
 	"Late Penalty": ("LATE", "Deduction", "late_entry_days * 50000", "SALARY", 0, 1),  # HR's rule
 	"Unpaid Leave": (
 		"UnLe",
@@ -76,18 +66,28 @@ COMPONENTS = {
 		0,
 		1,
 	),
-	# employer contributions (company pays on top). Taxable for PPh 21: Kesehatan, JKK and JKM
-	# paid by the company count as the employee's income; JHT and JP do not.
+	# employer contributions: the company pays on top, nothing is taken from pay (owner, 27 Nov
+	# 2026: the amount HR enters is what the person receives). Each BPJS line is the company's share
+	# plus the employee's share the company pays for them. For PPh 21: Kesehatan, JKK and JKM paid
+	# by the company count as the employee's income; JHT and JP do not. CONFIRM with the tax
+	# consultant how the employee's 1% Kesehatan, 2% JHT and 1% JP paid by the company are treated.
 	"BPJS Kesehatan": (
 		"BPJSKES",
 		"Employer Contribution",
-		f"min(base, {BPJS_KES_CAP}) * 0.04",
+		f"min(base, {BPJS_KES_CAP}) * 0.05",  # 4% company + 1% employee
 		"BPJS_KES_COMPANY",
 		0,
 		1,
 	),
-	"BPJS JHT": ("JHT", "Employer Contribution", "base * 0.037", "BPJS_TK_COMPANY", 0, 0),
-	"BPJS JP": ("JP", "Employer Contribution", f"min(base, {JP_WAGE_CAP}) * 0.02", "BPJS_TK_COMPANY", 0, 0),
+	"BPJS JHT": ("JHT", "Employer Contribution", "base * 0.057", "BPJS_TK_COMPANY", 0, 0),  # 3.7% + 2%
+	"BPJS JP": (
+		"JP",
+		"Employer Contribution",
+		f"min(base, {JP_WAGE_CAP}) * 0.03",  # 2% company + 1% employee
+		"BPJS_TK_COMPANY",
+		0,
+		0,
+	),
 	"BPJS JKM": ("JKM", "Employer Contribution", "base * 0.003", "BPJS_TK_COMPANY", 0, 1),
 	"BPJS JKK": ("JKK", "Employer Contribution", f"base * {JKK_RATE}", "BPJS_TK_COMPANY", 0, 1),
 	# The company pays PPh 21; it is not taken from pay (owner, 27 Nov 2026: the amount HR enters
@@ -100,8 +100,19 @@ COMPONENTS = {
 # disabled, never deleted: the single 4% "BPJS" deduction (wrong rate, no split), the duplicate
 # "Income Tax" (PPh21 covers it), PPh23 (a tax on payments to vendors, not on salaries), the
 # second basic pay "Gaji Pokok Denalo" (Basic does it for every company), and Arrear and Leave
-# Encashment (not used: no back pay runs, leave is not paid out; owner, 27 Nov 2026).
-RETIRED = ("BPJS", "Income Tax", "PPh23", "Gaji Pokok Denalo", "Arrear", "Leave Encashment")
+# Encashment (not used: no back pay runs, leave is not paid out), and the employee's BPJS
+# shares as deductions (the company pays them, on its own BPJS lines; owner, 27 Nov 2026).
+RETIRED = (
+	"BPJS",
+	"Income Tax",
+	"PPh23",
+	"Gaji Pokok Denalo",
+	"Arrear",
+	"Leave Encashment",
+	"BPJS Kesehatan Karyawan",
+	"BPJS JHT Karyawan",
+	"BPJS JP Karyawan",
+)
 
 # The draft structures every company with employees gets (owner, 27 Nov 2026); HR checks them,
 # then submits and assigns. Freelancers invoice and are not on payroll. PPh21 (paid by the
@@ -110,13 +121,7 @@ STRUCTURES = {
 	# full-time permanent and contract staff
 	"Drea Full-time - {abbr}": {
 		"earnings": ["Basic"],
-		"deductions": [
-			"Unpaid Leave",
-			"Late Penalty",
-			"BPJS Kesehatan Karyawan",
-			"BPJS JHT Karyawan",
-			"BPJS JP Karyawan",
-		],
+		"deductions": ["Unpaid Leave", "Late Penalty"],
 		"employer_contributions": ["BPJS Kesehatan", "BPJS JHT", "BPJS JP", "BPJS JKM", "BPJS JKK", "PPh21"],
 	},
 	# interns: their allowance on Basic, no BPJS
@@ -471,3 +476,127 @@ def ensure_pay_calendar(plan):
 			"HR Settings: " + "; ".join(f"{f} -> {v}" for f, v in changes.items()),
 			lambda: [frappe.db.set_single_value("HR Settings", f, v) for f, v in changes.items()],
 		)
+
+
+# --- leaders paid by drawing (prive) -----------------------------------------------------------
+# A leader who is a partner of their CV takes their pay as a drawing (prive), not salary (owner,
+# 27 Nov 2026). Each gets their own component and structure, mapped to their own Drea Finance code
+# PRIVE_<NAME>, so the totals HR sends per code are per partner and Finance books each on that
+# partner's prive account. Drea Finance must have the code first (Settings -> Salary, on the
+# partner's prive account). Locally the drawing is booked on the company's "Prive" equity account.
+LEADER_STRUCTURE = "Drea Leader - {name} - {abbr}"
+
+
+def add_leader(employee, prive_code, dry_run=True, commit=True, verbose=True):
+	"""Set up a leader paid by drawing. Dry run first:
+
+	    bench --site <site> execute hrms.payroll.drea_payroll_setup.add_leader \
+	        --kwargs "{'employee': 'HR-EMP-00001', 'prive_code': 'PRIVE_ALAND'}"
+
+	Makes a draft structure with one line, "Prive <name>" = base. HR submits it and assigns it with
+	the monthly drawing as base. No BPJS, PPh 21, unpaid days or late penalty: a drawing is not a
+	salary. Returns the change list."""
+	from hrms.payroll.drea_finance import PRIVE_CODE
+
+	dry_run = dry_run not in (False, 0, "0", "false", "False")
+	prive_code = (prive_code or "").strip().upper()
+	if not PRIVE_CODE.match(prive_code):
+		frappe.throw(f"{prive_code!r} is not a prive code: PRIVE_ and the partner's name, e.g. PRIVE_ALAND.")
+	emp = frappe.db.get_value("Employee", employee, ["employee_name", "company"], as_dict=True)
+	if not emp:
+		frappe.throw(f"No employee {employee}.")
+	plan = Plan(dry_run)
+	company, abbr = emp.company, frappe.get_cached_value("Company", emp.company, "abbr")
+	component = f"Prive {emp.employee_name}"
+	account = f"Prive - {abbr}"
+
+	if not frappe.db.exists("Account", account):
+		root = root_company(company)
+		parent = frappe.db.get_value(
+			"Account", {"company": root, "root_type": "Equity", "is_group": 1}, "name", order_by="lft asc"
+		)
+
+		def create_account():
+			frappe.get_doc(
+				{
+					"doctype": "Account",
+					"account_name": "Prive",
+					"company": root,
+					"parent_account": parent,
+					"root_type": "Equity",
+					"report_type": "Balance Sheet",
+					"account_type": "Equity",
+				}
+			).insert(ignore_permissions=True)
+
+		plan.do(f"Create account {account} under {parent}", create_account)
+
+	if not frappe.db.exists("Salary Component", component):
+
+		def create_component():
+			frappe.get_doc(
+				{
+					"doctype": "Salary Component",
+					"salary_component": component,
+					"salary_component_abbr": prive_code,
+					"type": "Earning",
+					"amount_based_on_formula": 1,
+					"formula": "base",
+					"depends_on_payment_days": 0,
+					"is_tax_applicable": 0,
+					"round_to_the_nearest_integer": 1,
+					"remove_if_zero_valued": 1,
+					"accounts": [{"company": company, "account": account}],
+				}
+			).insert(ignore_permissions=True)
+
+		plan.do(f"Create component {component} (Earning, base, booked on {account})", create_component)
+
+	if frappe.db.exists("DocType", "Drea Finance Settings"):
+		have = frappe.db.get_value(
+			"Drea Finance Pay Code",
+			{"parent": "Drea Finance Settings", "salary_component": component},
+			"pay_code",
+		)
+		if have != prive_code:
+
+			def map_code():
+				settings = frappe.get_single("Drea Finance Settings")
+				rows = [r for r in settings.pay_codes if r.salary_component == component]
+				if rows:
+					rows[0].pay_code = prive_code
+				else:
+					settings.append("pay_codes", {"salary_component": component, "pay_code": prive_code})
+				settings.flags.ignore_mandatory = True
+				settings.save(ignore_permissions=True)
+
+			plan.do(f"Drea Finance pay code: {component} -> {prive_code}", map_code)
+
+	structure = LEADER_STRUCTURE.format(name=emp.employee_name, abbr=abbr)
+
+	def create_structure():
+		doc = frappe.new_doc("Salary Structure")
+		doc.update(
+			{
+				"company": company,
+				"payroll_frequency": "Monthly",
+				"is_active": "Yes",
+				"currency": frappe.get_cached_value("Company", company, "default_currency"),
+			}
+		)
+		doc.append(
+			"earnings",
+			{"salary_component": component, "amount_based_on_formula": 1, "formula": "base"},
+		)
+		doc.insert(ignore_permissions=True, set_name=structure)
+
+	if not frappe.db.exists("Salary Structure", structure):
+		plan.do(f"Create draft salary structure {structure} ({component} = base)", create_structure)
+
+	if not dry_run and commit:
+		frappe.db.commit()  # nosemgrep: a bench execute command, run by hand
+	if verbose:
+		print(f"{'DRY RUN, nothing saved' if dry_run else 'APPLIED'}: {len(plan.lines)} change(s)")
+		for line in plan.lines:
+			print(" -", line)
+	return plan.lines

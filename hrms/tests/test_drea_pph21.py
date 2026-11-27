@@ -130,12 +130,12 @@ class TestPayrollOnSlips(IntegrationTestCase):
 		_employee, slip = self.slip("drea.pph21.ter@example.com", 15_000_000, "2026-11-25")
 		self.assertEqual((str(slip.start_date), str(slip.end_date)), ("2026-10-19", "2026-11-18"))
 		lines = self.lines(slip)
-		# gross for TER: 15,000,000 + BPJS Kesehatan 480,000 + JKK 36,000 + JKM 45,000 = 15,561,000: 7%
-		self.assertEqual(lines["PPh21"], 1_089_270)
+		# gross for TER: 15,000,000 + BPJS Kesehatan 600,000 + JKK 36,000 + JKM 45,000 = 15,681,000: 7%
+		self.assertEqual(lines["PPh21"], 1_097_670)
 		self.assertIn("PPh21", [r.salary_component for r in slip.employer_contributions])
 		self.assertNotIn("PPh21", [r.salary_component for r in slip.deductions])
-		# take-home is not touched by PPh 21
-		self.assertEqual(slip.net_pay, 15_000_000 - 120_000 - 300_000 - round(setup.JP_WAGE_CAP * 0.01))
+		# take-home is what HR entered: PPh 21 and BPJS are paid by the company
+		self.assertEqual(slip.net_pay, 15_000_000)
 		self.assertIn("TER A (TK/0)", slip.pph21_working)
 
 	def test_unpaid_day_is_its_own_line(self):
@@ -161,13 +161,13 @@ class TestPayrollOnSlips(IntegrationTestCase):
 		self.assertEqual(lines["Basic"], 15_000_000)  # the full base stays on the slip
 		self.assertEqual(lines["Unpaid Leave"], round(15_000_000 / slip.total_working_days))
 		# PPh 21 is worked out on what was earned, after the cut
-		gross = 15_000_000 - lines["Unpaid Leave"] + 480_000 + 36_000 + 45_000
+		gross = 15_000_000 - lines["Unpaid Leave"] + 600_000 + 36_000 + 45_000
 		self.assertEqual(lines["PPh21"], drea_pph21.ter_tax("A", gross))
 
 	def test_december_works_out_the_whole_year(self):
 		_employee, slip = self.slip("drea.pph21.dec@example.com", 15_000_000, "2026-12-27")
 		self.assertEqual(str(slip.end_date), "2026-12-18")
-		# one month on payroll this year: net 14,655,526 is under PTKP, so nothing is due
+		# one month on payroll this year: net 15,181,000 is under PTKP, so nothing is due
 		self.assertNotIn("PPh21", self.lines(slip))
 		self.assertIn("Year's last month (1 months)", slip.pph21_working)
 

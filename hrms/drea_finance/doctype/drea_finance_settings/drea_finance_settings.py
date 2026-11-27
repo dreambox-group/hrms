@@ -33,7 +33,9 @@ class DreaFinanceSettings(Document):
 		for row in self.get(table):
 			value = row.get(field)
 			if value in seen:
-				frappe.throw(_("Row {0}: {1} {2} is listed twice.").format(row.idx, label, frappe.bold(value)))
+				frappe.throw(
+					_("Row {0}: {1} {2} is listed twice.").format(row.idx, label, frappe.bold(value))
+				)
 			seen.add(value)
 
 	def check_entity_codes(self):
@@ -42,9 +44,9 @@ class DreaFinanceSettings(Document):
 			row.entity_code = (row.entity_code or "").strip().upper()
 			if not ENTITY_CODE.match(row.entity_code):
 				frappe.throw(
-					_("Row {0}: {1} is not a legal entity code. Use LE-00001 style codes from Drea Finance.").format(
-						row.idx, frappe.bold(row.entity_code)
-					)
+					_(
+						"Row {0}: {1} is not a legal entity code. Use LE-00001 style codes from Drea Finance."
+					).format(row.idx, frappe.bold(row.entity_code))
 				)
 			if row.entity_code in seen:
 				frappe.throw(
@@ -58,15 +60,26 @@ class DreaFinanceSettings(Document):
 		for row in self.departments:
 			if not frappe.db.get_value("Division", row.division, "is_active"):
 				frappe.throw(
-					_("Row {0}: Division {1} is not active in Drea Finance.").format(row.idx, frappe.bold(row.division))
+					_("Row {0}: Division {1} is not active in Drea Finance.").format(
+						row.idx, frappe.bold(row.division)
+					)
 				)
 
 	def check_pay_codes(self):
-		from hrms.payroll.drea_finance import ALLOWED_KINDS, CODE_KINDS
+		from hrms.payroll.drea_finance import ALLOWED_KINDS, PRIVE_CODE, code_kind
 
 		for row in self.pay_codes:
+			row.pay_code = (row.pay_code or "").strip().upper()
 			component_type = frappe.db.get_value("Salary Component", row.salary_component, "type")
-			kind = CODE_KINDS.get(row.pay_code)
+			kind = code_kind(row.pay_code)
+			if PRIVE_CODE.match(row.pay_code) and component_type != "Earning":
+				# a drawing is paid out, never a cut (hrms.payroll.drea_payroll_setup.add_leader)
+				frappe.throw(
+					_("Row {0}: {1} is a partner's drawing; only an Earning component can carry it.").format(
+						row.idx, frappe.bold(row.pay_code)
+					),
+					title=_("Pay code"),
+				)
 			if kind not in ALLOWED_KINDS.get(component_type, set()):
 				frappe.throw(
 					_("Row {0}: {1} is a {2} code in Drea Finance; {3} is a {4} component.").format(
