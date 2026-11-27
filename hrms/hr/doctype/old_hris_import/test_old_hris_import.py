@@ -402,7 +402,7 @@ class TestOldHRISImport(HRMSTestSuite):
 	def test_absent_is_left_out_for_automatic_check_in_and_days_with_a_second_row(self):
 		frappe.db.set_value("Employee", self.dewi, {"employee_number": "93002", "auto_checkin": 1})
 		budi = make_employee("budi.absent@example.com", COMPANY, first_name="Budi Absent")
-		frappe.db.set_value("Employee", budi, "employee_number", "93003")
+		frappe.db.set_value("Employee", budi, {"employee_number": "93003", "date_of_joining": "2025-03-10"})
 		content = workbook(
 			{
 				"B.01. Attendance": (ATTENDANCE_HEADERS, [
@@ -411,6 +411,8 @@ class TestOldHRISImport(HRMSTestSuite):
 					{"Attendance ID": "ATD-A2", "Employee ID": "93003", "Date": "3/10/2025", "Status": "Absent"},
 					{"Attendance ID": "ATD-A3", "Employee ID": "93003", "Date": "3/10/2025", "Status": "Present", "Check In Time": "08:50:00"},
 					{"Attendance ID": "ATD-A4", "Employee ID": "93003", "Date": "3/11/2025", "Status": "Absent"},
+					# before Budi joined (an old ID's days): payroll would count it as absent
+					{"Attendance ID": "ATD-A5", "Employee ID": "93003", "Date": "3/7/2025", "Status": "Absent"},
 				]),
 			}
 		)
@@ -430,6 +432,7 @@ class TestOldHRISImport(HRMSTestSuite):
 		)
 		self.assertEqual(report["counts"]["Absent days of people with Automatic Check-in (left out)"], 1)
 		self.assertEqual(report["counts"]["Absent rows on a day the same person came in (left out)"], 1)
+		self.assertEqual(report["counts"]["Attendance before the person joined or after they left (left out)"], 1)
 
 	def test_todays_employee_sheet_after_a_reset(self):
 		# the employee tab as HR keeps it now: other titles, Status Kawin, no Active/Inactive column

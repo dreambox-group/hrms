@@ -141,6 +141,7 @@ class OldHRISImporter:
 		self.employees = {}  # old Employee ID -> Employee name
 		self.departments = {}  # (old team, company) -> Department
 		self.by_number = None  # Employee Number -> Employee, for IDs not in the employee tab
+		self.employment = {}  # Employee -> (joining date, relieving date)
 
 	# ------------------------------------------------------------ matching table
 
@@ -655,6 +656,9 @@ class OldHRISImporter:
 			if leave_from and end < leave_from:
 				self.report.count("Leave before the start date (left out)")
 				continue
+			if self.not_employed(employee, start, end):
+				self.report.count("Leave before the person joined or after they left (left out)")
+				continue
 			if frappe.db.exists("Leave Application", {"old_hris_id": ("in", (old_id, f"{old_id}-unpaid"))}):
 				self.report.count("Leave already imported")
 				continue
@@ -664,6 +668,14 @@ class OldHRISImporter:
 				)
 				continue
 			self.each(LEAVE_LOG, [row], lambda r, e=employee, s=start, t=end, o=old_id: self.leave_row(r, e, s, t, o))
+
+	def not_employed(self, employee, start, end=None):
+		"""True when the days fall wholly before the joining date or after the relieving date."""
+		if employee not in self.employment:
+			self.employment[employee] = frappe.db.get_value("Employee", employee, ["date_of_joining", "relieving_date"])
+		joined, left = self.employment[employee]
+		end = end or start
+		return bool((joined and end < getdate(joined)) or (left and start > getdate(left)))
 
 	def leave_from(self):
 		"""The start date, moved back to the start of the leave year it falls in: a balance is imported
@@ -770,6 +782,10 @@ class OldHRISImporter:
 				return
 			if self.import_from and day < self.import_from:
 				self.report.count("Attendance before the start date (left out)")
+				return
+			if self.not_employed(employee, day):
+				# the check Frappe makes, skipped with the rest of validation: else payroll counts these days
+				self.report.count("Attendance before the person joined or after they left (left out)")
 				return
 			old_id = text(row.get("Attendance ID")) or f"{text(row.get('Employee ID'))}-{day}"
 			if frappe.db.exists("Attendance", {"old_hris_id": old_id}):
