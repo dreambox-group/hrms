@@ -41,9 +41,9 @@ USER_FIELDS = ("drea_finance_role", "drea_finance_active")
 
 
 def execute():
-	if frappe.db.get_value("Custom Field", {"dt": "Company", "fieldname": "drea_finance_code"}) is None and not (
-		frappe.db.has_column("Company", "drea_finance_code")
-	):
+	if frappe.db.get_value(
+		"Custom Field", {"dt": "Company", "fieldname": "drea_finance_code"}
+	) is None and not (frappe.db.has_column("Company", "drea_finance_code")):
 		finish()
 		return
 
@@ -68,7 +68,9 @@ def read_old_values() -> dict:
 		)
 	)
 	try:
-		api_key = get_decrypted_password("HR Settings", "HR Settings", "drea_finance_api_key", raise_exception=False)
+		api_key = get_decrypted_password(
+			"HR Settings", "HR Settings", "drea_finance_api_key", raise_exception=False
+		)
 	except Exception:
 		api_key = None
 	users = {
@@ -77,7 +79,9 @@ def read_old_values() -> dict:
 		if any(v not in (None, "", 0) for v in values.values())
 	}
 	if frappe.db.table_exists("User Division"):
-		for row in frappe.get_all("User Division", filters={"parenttype": "User"}, fields=["parent", "division"]):
+		for row in frappe.get_all(
+			"User Division", filters={"parenttype": "User"}, fields=["parent", "division"]
+		):
 			users.setdefault(row.parent, {}).setdefault("divisions", []).append(row.division)
 	return {
 		"hr_settings": singles,
@@ -120,7 +124,9 @@ def fill_settings(old):
 		settings.url = url
 		settings.enabled = 1
 		settings.send_payroll = cint(hr.get("drea_finance_send_payroll"))
-		settings.test_only = cint(hr.get("drea_finance_payroll_test_only"))
+		# the payroll message changed with the separation (components, rows and people): the first
+		# send after it is a test, whatever the old switch said; the owner turns Tests Only off
+		settings.test_only = 1
 		if old["api_key"]:
 			settings.api_key = old["api_key"]
 
@@ -138,6 +144,10 @@ def fill_settings(old):
 		if component not in have:
 			settings.append("pay_codes", {"salary_component": component, "pay_code": code})
 	settings.flags.ignore_mandatory = True
+	# the old mappings move as they are: the pay code accounts table they are checked against is
+	# filled later by hrms.payroll.drea_payroll_setup, which also drops the codes Drea Finance no
+	# longer has (production, 28 Nov 2026: 17 old mappings and no accounts table yet)
+	settings.flags.ignore_validate = True
 	settings.save(ignore_permissions=True)
 
 

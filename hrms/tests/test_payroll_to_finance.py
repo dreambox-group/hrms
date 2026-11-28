@@ -372,6 +372,35 @@ class TestSeparation(IntegrationTestCase):
 		self.assertTrue(df.settings()["enabled"])
 		set_mappings(enabled=0)
 
+	def test_old_values_move_before_the_accounts_table_exists(self):
+		# production on 28 Nov 2026: sending on, Tests Only off, old codes, no accounts table yet
+		from hrms.patches.v16_0.separate_drea_finance import fill_settings
+
+		set_mappings(companies={}, departments={}, pay_codes={}, codes={}, url="", enabled=0, send_payroll=0)
+		component = frappe.get_all("Salary Component", filters={"type": "Deduction"}, pluck="name", limit=1)[
+			0
+		]
+		fill_settings(
+			{
+				"hr_settings": {
+					"drea_finance_url": "https://f.invalid",
+					"drea_finance_send_payroll": "1",
+					"drea_finance_payroll_test_only": "0",
+				},
+				"api_key": None,
+				"companies": {},
+				"departments": {},
+				"pay_codes": {component: "BPJS_TK_EMPLOYEE"},  # a code the accounts table won't have
+			}
+		)
+		settings = frappe.get_single("Drea Finance Settings")
+		self.assertEqual((settings.url, settings.enabled, settings.send_payroll), ("https://f.invalid", 1, 1))
+		self.assertEqual(settings.test_only, 1)  # the first send after the separation is a test
+		self.assertEqual(
+			[(r.salary_component, r.pay_code) for r in settings.pay_codes], [(component, "BPJS_TK_EMPLOYEE")]
+		)
+		set_mappings(pay_codes={}, enabled=0, url="")
+
 	def test_each_settings_area_has_its_own_module(self):
 		# A sidebar claims every workspace of its module, and the desk opens a workspace in the first
 		# sidebar that claims it: filed under HR Setup, Drea Settings took over /desk/hr-setup. Filed
