@@ -452,11 +452,14 @@ class TestOldHRISImport(HRMSTestSuite):
 			 "Legal Entity": COMPANY, "Join Date": "1/2/2020", "End Date": "4/1/2020", "Email": "joko.old@example.com", "NIK": "3201-0000-2222", "Status Kawin": "K/1"},
 			{"Employee Number": 94002, "Name": "Kiki Tujuh", "Status": "Full-time Contract", "Designation": "Content", "Division": "Old Holding",
 			 "Legal Entity": COMPANY, "Join Date": "1/2/2025", "End Date": "12/31/2099", "Status Kawin": "Belum Kawin",
-			 "Basic Salary": 1, "Take Home Pay": 1, "Supervisor 1": 94001},
+			 "Basic Salary": 1, "Take Home Pay": 1, "Supervisor 1": "  joko   ENAM "},  # today's sheet names the supervisor
 			{"Employee Number": 94003, "Name": "Lala Delapan", "Status": "Intern", "Division": "Old Holding", "Legal Entity": COMPANY,
-			 "Join Date": "1/2/2024", "End Date": "6/30/2024", "Status Kawin": "TK/0"},
+			 "Join Date": "1/2/2024", "End Date": "6/30/2024", "Status Kawin": "TK/0", "Supervisor 1": "Joko"},  # first name only
 			{"Employee Number": 94004, "Name": "Mira Sembilan", "Status": "Full-time Contract", "Division": "Old Holding", "Legal Entity": COMPANY,
-			 "Join Date": "10/23/2025", "End Date": "4/30/2025"},  # a typo: ends before joining
+			 "Join Date": "10/23/2025", "End Date": "4/30/2025",  # a typo: ends before joining
+			 "Supervisor 1": "Nobody Known", "Supervisor 2": 94001},  # the first can't be found, the second (an ID) is used
+			{"Employee Number": 94005, "Name": "Nana Sepuluh", "Status": "Intern", "Division": "Old Holding", "Legal Entity": COMPANY,
+			 "Join Date": "1/2/2024", "Supervisor 1": "Nobody Known"},
 		]
 		# Holding is a group over Director, Finance, HR: the matching still guesses it
 		holding = frappe.get_doc(
@@ -494,5 +497,11 @@ class TestOldHRISImport(HRMSTestSuite):
 		# a permanent's End Date is when the first contract ended: they became permanent then
 		self.assertEqual((str(joko.final_confirmation_date), joko.contract_end_date, joko.status), ("2020-04-01", None, "Active"))
 		self.assertEqual((mira.status, mira.contract_end_date, mira.relieving_date), ("Active", None, None))
+		# supervisors by name: exact (any case and spacing), or a first name only; else a warning
+		self.assertEqual((lala.reports_to, mira.reports_to), (joko.name, joko.name))
+		self.assertFalse(frappe.db.get_value("Employee", self.employee("94005"), "reports_to"))
+		self.assertIn("94005: supervisor Nobody Known is not an employee ID", str(report))
+		self.assertNotIn("94004: supervisor", str(report))
+		self.assertEqual(frappe.db.count("Employee", {"reports_to": joko.name}), 3)
 		self.assertEqual(kiki.department, holding)
 		self.assertEqual(joko.user_id, "joko.old@example.com")

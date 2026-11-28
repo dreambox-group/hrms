@@ -141,6 +141,7 @@ class OldHRISImporter:
 		self.employees = {}  # old Employee ID -> Employee name
 		self.departments = {}  # (old team, company) -> Department
 		self.by_number = None  # Employee Number -> Employee, for IDs not in the employee tab
+		self.by_name = None  # person_name(employee name) -> employees, for supervisors given by name
 		self.employment = {}  # Employee -> (joining date, relieving date)
 
 	# ------------------------------------------------------------ matching table
@@ -461,14 +462,25 @@ class OldHRISImporter:
 		return sorted({d for (k, _company), d in self.departments.items() if k == key(team)})
 
 	def link_supervisors(self, rows):
-		"""Supervisor 1 (or 2) becomes Reports To, for employees who don't have one yet."""
+		"""Supervisor 1 (or 2) becomes Reports To, for employees who don't have one yet.
+		The old AppSheet export gives employee IDs; today's sheet gives names."""
 		changed = False
 		for row in rows:
 			employee = self.employees.get(text(row.get("Employee ID")))
 			if not employee or frappe.db.get_value("Employee", employee, "reports_to"):
 				continue
-			supervisor = self.employee_of(row.get("Supervisor 1 ID")) or self.employee_of(row.get("Supervisor 2 ID"))
-			if supervisor == employee or not supervisor:
+			given = [text(row.get(c)) for c in ("Supervisor 1 ID", "Supervisor 2 ID") if text(row.get(c))]
+			found = [s for s in (self.supervisor_of(v) for v in given) if s and s != employee]
+			supervisor = found[0] if found else None
+			if not supervisor:
+				if given:
+					self.report.add(
+						"warning",
+						EMPLOYEES,
+						row,
+						f"{text(row.get('Employee ID'))}: supervisor {' / '.join(given)} is not an employee ID, nor the name of "
+						"exactly one employee. Reports To left empty: set it on their employee page.",
+					)
 				continue
 			frappe.db.set_value("Employee", employee, "reports_to", supervisor)
 			self.report.count("Employees given their supervisor (Reports To)")
@@ -478,6 +490,29 @@ class OldHRISImporter:
 			from frappe.utils.nestedset import rebuild_tree
 
 			rebuild_tree("Employee")
+
+	def supervisor_of(self, value):
+		"""An employee ID, else a name: the one employee with that full name, else the one whose name starts
+		with it ("Aland" -> "Aland Sinduartha Tjandra"). Case, dots and extra spaces don't matter."""
+		found = self.employee_of(value)
+		if found:
+			return found
+		name = person_name(value)
+		if not name:
+			return None
+		if self.by_name is None:
+			self.by_name = defaultdict(list)
+			for e in frappe.get_all("Employee", fields=["name", "employee_name", "status"], order_by="status asc"):
+				self.by_name[person_name(e.employee_name)].append(e)
+
+		def one(matches):
+			active = [e for e in matches if e.status == "Active"]
+			matches = active if len(active) == 1 else matches
+			return matches[0].name if len(matches) == 1 else None
+
+		if self.by_name.get(name):
+			return one(self.by_name[name])
+		return one([e for n, es in self.by_name.items() if n.startswith(name + " ") for e in es])
 
 	def employee_of(self, value):
 		old_id = re.split(r"[,;\s]+", text(value))[0] if text(value) else ""
@@ -950,6 +985,11 @@ def overlapping_allocation(employee, leave_type, start, end):
 			"to_date": (">=", start),
 		},
 	)
+
+
+def person_name(value):
+	"""Comparable form of a person's name, words kept apart: ' Aland  S. Tjandra' -> 'aland s tjandra'."""
+	return " ".join(re.sub(r"[^a-z0-9]+", " ", text(value).lower()).split())
 
 
 def marital_status(value):
