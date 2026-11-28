@@ -14,13 +14,17 @@ export const formatCurrency = (value, currency) => {
 	// hack: if value contains a space, it is already formatted
 	if (value?.toString().trim().includes(" ")) return value
 
-	const locale = settings.doc?.country == "India" ? "en-IN" : settings.doc?.language
+	// Drea Design System: Indonesian number style for rupiah, "Rp 1.234.567", no decimals,
+	// a true minus before Rp ("−Rp 250.000")
+	const rupiah = currency === "IDR"
+	const locale = rupiah ? "id-ID" : settings.doc?.country == "India" ? "en-IN" : settings.doc?.language
 
 	const formatter = Intl.NumberFormat(locale, {
 		style: "currency",
 		currency: currency,
 		trailingZeroDisplay: "stripIfInteger",
 		currencyDisplay: "narrowSymbol",
+		...(rupiah ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
 	})
 	return (
 		formatter
@@ -29,6 +33,7 @@ export const formatCurrency = (value, currency) => {
 			.replace(/^(\D+)/, "$1 ")
 			// remove extra spaces if any (added by some browsers)
 			.replace(/\s+/, " ")
+			.replace(/^-/, "\u2212")
 	)
 }
 

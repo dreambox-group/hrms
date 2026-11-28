@@ -38,12 +38,12 @@
 						type="search"
 						:placeholder="__('Search by name')"
 						:aria-label="__('Search by name')"
-						class="min-h-[44px] flex-1 rounded-xl border border-[#D5DAD4] bg-white px-3.5 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
+						class="min-h-[44px] flex-1 rounded-xl border border-[#C3C6D4] bg-white px-3.5 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
 					/>
 					<select
 						v-model="department"
 						:aria-label="__('Department')"
-						class="min-h-[44px] rounded-xl border border-[#D5DAD4] bg-white px-3.5 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600 sm:w-[260px]"
+						class="min-h-[44px] rounded-xl border border-[#C3C6D4] bg-white px-3.5 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600 sm:w-[260px]"
 					>
 						<option value="">{{ __("All departments") }}</option>
 						<option v-for="name in departments" :key="name" :value="name">{{ name }}</option>
@@ -82,7 +82,7 @@
 									<span class="ml-2 text-[13px] font-medium text-gray-700">{{ peopleLabel(group.rows.length) }}</span>
 								</th>
 							</tr>
-							<tr v-for="row in group.rows" :key="row.employee" class="border-b border-[#EEF0EE] last:border-0">
+							<tr v-for="row in group.rows" :key="row.employee" class="border-b border-[#ECEDF5] last:border-0">
 								<th scope="row" class="sticky left-0 bg-white px-4 py-2.5 text-left font-normal">
 									<div class="flex flex-row items-center gap-2.5">
 										<span
@@ -122,7 +122,7 @@
 							role="tab"
 							:aria-selected="selectedDate === date"
 							:class="[
-								'flex min-h-[56px] flex-col items-center justify-center rounded-xl border text-xs',
+								'flex min-h-[56px] flex-col items-center justify-center rounded-full border text-xs',
 								selectedDate === date ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-line bg-white text-gray-700',
 							]"
 							@click="selectedDate = date"
@@ -147,7 +147,7 @@
 						<div
 							v-for="row in group.rows"
 							:key="row.employee"
-							class="flex flex-row items-center gap-3 border-t border-[#EEF0EE] py-2.5"
+							class="flex flex-row items-center gap-3 border-t border-[#ECEDF5] py-2.5"
 						>
 							<span
 								class="flex h-9 w-9 flex-none items-center justify-center rounded-full text-xs font-semibold text-ink"
@@ -169,7 +169,7 @@
 
 				<div
 					v-if="roster.fetched && !shownRows.length"
-					class="rounded-xl border border-dashed border-[#D5DAD4] p-6 text-center text-sm text-gray-700"
+					class="rounded-xl border border-dashed border-[#C3C6D4] p-6 text-center text-sm text-gray-700"
 				>
 					{{ __("Nobody matches.") }}
 				</div>
@@ -251,14 +251,14 @@ const shownRows = computed(() => {
 
 // Shift Type colours (as in the desk Roster), with a fallback for shifts without one
 const SHIFT_COLOURS = {
-	Blue: "bg-[#E4ECFB] text-[#1E55B8]",
+	Blue: "bg-[#F0F7FF] text-[#0060B9]",
 	Cyan: "bg-[#E0F4F7] text-[#0B6A78]",
 	Fuchsia: "bg-[#FBE7F7] text-[#8E1F7C]",
-	Green: "bg-[#E2F4EA] text-[#0F6B4C]",
+	Green: "bg-[#D6EBDF] text-[#00854D]",
 	Lime: "bg-[#EEF6DA] text-[#4D6B0F]",
-	Orange: "bg-[#FDEFD6] text-[#8A4B00]",
+	Orange: "bg-[#FFF8DB] text-[#7A5500]",
 	Pink: "bg-[#FCE8F1] text-[#A3245E]",
-	Red: "bg-[#FCE6E4] text-[#A8231A]",
+	Red: "bg-[#FDEFF1] text-[#B63546]",
 	Violet: "bg-[#EDE7FB] text-[#5B33B0]",
 	Yellow: "bg-[#FBF3D0] text-[#7A5C00]",
 }
@@ -278,9 +278,9 @@ const hours = (shift) => {
 }
 
 function cell(day) {
-	if (day.on_leave) return { label: __("Leave"), classes: "bg-[#E4ECFB] text-[#1E55B8]", title: __("On leave") }
-	if (day.holiday) return { label: __("Holiday"), sub: day.holiday, classes: "bg-[#EEF0EE] text-[#4B525A]", title: day.holiday }
-	if (day.day_off) return { label: __("Off"), classes: "bg-[#F6F7F5] text-[#8A9098]", title: __("Day off") }
+	if (day.on_leave) return { label: __("Leave"), classes: "bg-[#F0F7FF] text-[#0060B9]", title: __("On leave") }
+	if (day.holiday) return { label: __("Holiday"), sub: day.holiday, classes: "bg-[#ECEDF5] text-[#323338]", title: day.holiday }
+	if (day.day_off) return { label: __("Off"), classes: "bg-[#F6F7FB] text-[#9699A6]", title: __("Day off") }
 	if (day.shift)
 		return {
 			label: day.shift,

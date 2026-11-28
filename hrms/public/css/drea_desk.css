@@ -1,0 +1,219 @@
+/* Drea Design System v0.8 on the HR desk (owner, 25 Nov 2026).
+ * A light layer over Frappe's own desk theme: one blue for actions, Figtree and Poppins,
+ * round buttons (round = you can click it), square-cornered status badges in the six tones.
+ * Loaded as a plain file (hooks.app_include_css); raise its ?v= in hooks.py after a change. */
+
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap");
+
+:root {
+	--drea-primary: #0073ea;
+	--drea-primary-hover: #0060b9;
+	--drea-link: #0060b9;
+	--drea-highlight: #f0f7ff;
+	--drea-font-title: "Poppins", "Figtree", "Segoe UI", system-ui, sans-serif;
+
+	--font-stack: "Figtree", Roboto, "Segoe UI", system-ui, sans-serif;
+	--btn-primary: var(--drea-primary);
+	--primary: var(--drea-primary);
+	--primary-color: var(--drea-primary);
+	--checkbox-color: var(--drea-primary);
+	--progress-bar-bg: var(--drea-primary);
+
+	/* status badges: the six tones (background / words) */
+	--drea-neutral-bg: #ecedf5;
+	--drea-neutral-fg: #323338;
+	--drea-waiting-bg: #fff8db;
+	--drea-waiting-fg: #7a5500;
+	--drea-decided-bg: #f0f7ff;
+	--drea-decided-fg: #004c94;
+	--drea-done-bg: #d6ebdf;
+	--drea-done-fg: #005a2d;
+	--drea-over-bg: #d0d4e4;
+	--drea-over-fg: #535463;
+	--drea-problem-bg: #fdeff1;
+	--drea-problem-fg: #8f2a38;
+}
+
+[data-theme="dark"] {
+	--drea-primary-hover: #4096f0;
+	--drea-link: #5aa0f5;
+	--drea-highlight: #14243c;
+	--drea-neutral-bg: #232323;
+	--drea-neutral-fg: #ededed;
+	--drea-waiting-bg: #372d0f;
+	--drea-waiting-fg: #fcdc82;
+	--drea-decided-bg: #14243c;
+	--drea-decided-fg: #8cbefa;
+	--drea-done-bg: #193c2a;
+	--drea-done-fg: #8cdcaf;
+	--drea-over-bg: #262626;
+	--drea-over-fg: #b4b4b4;
+	--drea-problem-bg: #3a181e;
+	--drea-problem-fg: #f89ba8;
+}
+
+/* ---------- type ---------- */
+body,
+.frappe-control,
+.form-control,
+.btn {
+	font-family: var(--font-stack);
+}
+.page-title .title-text,
+.page-head .title-text,
+.modal-title,
+.ce-header,
+.widget.number-widget-box .widget-content .number,
+.hrd-greeting,
+.hrd-stat-value {
+	font-family: var(--drea-font-title);
+	letter-spacing: -0.01em;
+}
+
+/* ---------- action blue ---------- */
+.btn-primary,
+.btn.btn-primary {
+	background-color: var(--drea-primary) !important;
+	border-color: var(--drea-primary) !important;
+	color: #fff !important;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.btn.btn-primary:hover {
+	background-color: var(--drea-primary-hover) !important;
+	border-color: var(--drea-primary-hover) !important;
+}
+.btn-primary-light {
+	background-color: var(--drea-highlight);
+	color: var(--drea-link);
+}
+.frappe-control a:not(.btn),
+.form-link-title,
+.indicator-pill a,
+.ql-editor a {
+	color: var(--drea-link);
+}
+input[type="checkbox"]:checked {
+	background-color: var(--drea-primary);
+	border-color: var(--drea-primary);
+}
+.form-control:focus,
+.btn:focus-visible {
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--drea-primary) 45%, transparent);
+}
+
+/* ---------- shape: round = clickable ---------- */
+.btn:not(.btn-group > .btn):not(.btn-link):not(.dropdown-item) {
+	border-radius: 999px;
+}
+.btn-group {
+	border-radius: 999px;
+}
+.btn-group > .btn:first-child {
+	border-top-left-radius: 999px;
+	border-bottom-left-radius: 999px;
+}
+.btn-group > .btn:last-child {
+	border-top-right-radius: 999px;
+	border-bottom-right-radius: 999px;
+}
+.modal-content {
+	border-radius: 20px;
+}
+
+/* ---------- status badges: square corners, six tones ---------- */
+.indicator-pill,
+.indicator-pill-right {
+	border-radius: 4px;
+	font-weight: 500;
+}
+.indicator-pill.gray,
+.indicator-pill-right.gray {
+	background: var(--drea-neutral-bg);
+	color: var(--drea-neutral-fg);
+}
+.indicator-pill.orange,
+.indicator-pill.yellow,
+.indicator-pill-right.orange,
+.indicator-pill-right.yellow {
+	background: var(--drea-waiting-bg);
+	color: var(--drea-waiting-fg);
+}
+.indicator-pill.blue,
+.indicator-pill.light-blue,
+.indicator-pill.cyan,
+.indicator-pill-right.blue,
+.indicator-pill-right.light-blue {
+	background: var(--drea-decided-bg);
+	color: var(--drea-decided-fg);
+}
+.indicator-pill.green,
+.indicator-pill-right.green {
+	background: var(--drea-done-bg);
+	color: var(--drea-done-fg);
+}
+.indicator-pill.darkgrey,
+.indicator-pill-right.darkgrey {
+	background: var(--drea-over-bg);
+	color: var(--drea-over-fg);
+}
+.indicator-pill.red,
+.indicator-pill-right.red {
+	background: var(--drea-problem-bg);
+	color: var(--drea-problem-fg);
+}
+/* the pill's own dot repeats the colour; the word carries the meaning */
+.indicator-pill::before,
+.indicator-pill-right::before {
+	background: currentColor;
+}
+
+/* ---------- Espresso buttons (the v16 desk's own buttons) ---------- */
+.es-button:not([data-theme="red"]) {
+	--bt-solid-bg: var(--drea-primary);
+	--bt-solid-bg-hover: var(--drea-primary-hover);
+	--bt-solid-bg-active: var(--drea-primary-hover);
+	--bt-solid-fg: #fff;
+}
+.es-button,
+.es-button[data-size] {
+	border-radius: 999px;
+}
+
+/* ---------- HR Dashboard: the chosen filter is blue ---------- */
+.hr-dashboard .hrd-tab.active {
+	background: var(--drea-primary);
+	border-color: var(--drea-primary);
+	color: #fff;
+}
+
+/* ---------- Espresso badges (v16 list and form status) ---------- */
+.es-badge {
+	border-radius: 4px;
+	--c-fill: var(--drea-neutral-bg);
+	--c-fg: var(--drea-neutral-fg);
+}
+.es-badge[data-theme="green"] {
+	--c-fill: var(--drea-done-bg);
+	--c-fg: var(--drea-done-fg);
+}
+.es-badge[data-theme="amber"],
+.es-badge[data-theme="orange"],
+.es-badge[data-theme="yellow"] {
+	--c-fill: var(--drea-waiting-bg);
+	--c-fg: var(--drea-waiting-fg);
+}
+.es-badge[data-theme="blue"],
+.es-badge[data-theme="cyan"],
+.es-badge[data-theme="light-blue"] {
+	--c-fill: var(--drea-decided-bg);
+	--c-fg: var(--drea-decided-fg);
+}
+.es-badge[data-theme="red"] {
+	--c-fill: var(--drea-problem-bg);
+	--c-fg: var(--drea-problem-fg);
+}
+.es-badge[data-theme="darkgrey"] {
+	--c-fill: var(--drea-over-bg);
+	--c-fg: var(--drea-over-fg);
+}

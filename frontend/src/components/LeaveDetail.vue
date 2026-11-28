@@ -5,7 +5,7 @@
 				<h2 class="text-lg font-bold text-ink">{{ doc.leave_type }}</h2>
 				<div v-if="!isOwnLeave" class="mt-0.5 text-sm text-gray-700">{{ doc.employee_name }}</div>
 			</div>
-			<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[tone]]">
+			<span :class="['whitespace-nowrap rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[tone]]">
 				{{ __(LEAVE_STATUS_LABEL[status] || status) }}
 			</span>
 		</div>
@@ -44,7 +44,7 @@
 
 		<!-- the employee's own approved leave: ask HR to change or cancel it -->
 		<template v-if="isOwnLeave && doc.docstatus === 1 && doc.status === 'Approved'">
-			<div v-if="openChange" class="flex flex-col gap-2 rounded-xl bg-[#FDEFD6] px-3.5 py-3 text-sm text-[#8A4B00]">
+			<div v-if="openChange" class="flex flex-col gap-2 rounded-xl bg-[#FFF8DB] px-3.5 py-3 text-sm text-[#7A5500]">
 				<div>
 					<span class="font-semibold">{{ __("Waiting for HR") }}</span>
 					· {{ changeLabel(openChange) }}
@@ -172,19 +172,19 @@ const steps = computed(() => {
 	if (d.approvers?.length) {
 		for (const row of d.approvers) {
 			const who = row.approver_name || row.approver
-			if (row.decision === "Approved") list.push({ what: __("Approved by {0}", [who]), when: when(row.decided_on), dot: "bg-[#0F6B4C]" })
-			else if (row.decision === "Rejected") list.push({ what: __("Rejected by {0}", [who]), when: when(row.decided_on), dot: "bg-[#A8231A]" })
-			else if (d.status === "Open") list.push({ what: __("Waiting for {0}", [who]), when: "", dot: "bg-[#B86200]" })
+			if (row.decision === "Approved") list.push({ what: __("Approved by {0}", [who]), when: when(row.decided_on), dot: "bg-[#00854D]" })
+			else if (row.decision === "Rejected") list.push({ what: __("Rejected by {0}", [who]), when: when(row.decided_on), dot: "bg-[#B63546]" })
+			else if (d.status === "Open") list.push({ what: __("Waiting for {0}", [who]), when: "", dot: "bg-[#EAAA15]" })
 		}
 	} else if (d.status === "Approved" || d.status === "Rejected") {
 		const who = d.leave_approver_name || d.leave_approver || __("the approver")
 		list.push({
 			what: d.status === "Approved" ? __("Approved by {0}", [who]) : __("Rejected by {0}", [who]),
 			when: when(d.modified),
-			dot: d.status === "Approved" ? "bg-[#0F6B4C]" : "bg-[#A8231A]",
+			dot: d.status === "Approved" ? "bg-[#00854D]" : "bg-[#B63546]",
 		})
 	} else if (d.status === "Open") {
-		list.push({ what: __("Waiting for {0}", [d.leave_approver_name || __("the approver")]), when: "", dot: "bg-[#B86200]" })
+		list.push({ what: __("Waiting for {0}", [d.leave_approver_name || __("the approver")]), when: "", dot: "bg-[#EAAA15]" })
 	}
 	// HR's decisions on change requests: the one that gave this leave its dates, or any about it
 	for (const row of [...(changes.data || [])].reverse()) {
@@ -192,14 +192,14 @@ const steps = computed(() => {
 			list.push({
 				what: __("HR moved it here from {0}", [range(row.from_date, row.to_date)]),
 				when: when(row.decided_on),
-				dot: "bg-[#1E55B8]",
+				dot: "bg-[#0060B9]",
 			})
 		else if (row.leave_application === d.name && row.status !== "Open") {
 			const asked = row.change === "Cancel the leave" ? __("cancel it") : __("move it to {0}", [range(row.new_from_date, row.new_to_date)])
 			list.push({
 				what: row.status === "Approved" ? __("HR approved your request to {0}", [asked]) : __("HR rejected your request to {0}", [asked]),
 				when: [when(row.decided_on), row.hr_note].filter(Boolean).join(" · "),
-				dot: row.status === "Approved" ? "bg-[#0F6B4C]" : "bg-[#A8231A]",
+				dot: row.status === "Approved" ? "bg-[#00854D]" : "bg-[#B63546]",
 			})
 		}
 	}

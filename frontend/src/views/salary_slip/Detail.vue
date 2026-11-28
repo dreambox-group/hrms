@@ -4,7 +4,7 @@
 			<button
 				v-if="slip"
 				type="button"
-				class="min-h-[44px] rounded-xl bg-brand-600 px-5 text-[15px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+				class="min-h-[44px] rounded-full bg-brand-600 px-5 text-[15px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
 				:disabled="downloading"
 				@click="download"
 			>
@@ -41,7 +41,7 @@
 					<div class="flex flex-col items-start gap-5 lg:flex-row lg:gap-6">
 						<section class="flex w-full min-w-0 flex-1 flex-col gap-1 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<h2 class="pb-2 text-base font-bold text-ink lg:text-lg">{{ __("Earnings") }}</h2>
-							<div v-for="row in slip.earnings" :key="row.name" class="flex flex-row justify-between gap-3 border-t border-[#EEF0EE] py-2.5 text-sm">
+							<div v-for="row in slip.earnings" :key="row.name" class="flex flex-row justify-between gap-3 border-t border-[#ECEDF5] py-2.5 text-sm">
 								<span class="text-ink">{{ row.salary_component }}</span>
 								<span class="font-semibold text-ink">{{ money(row.amount) }}</span>
 							</div>
@@ -50,11 +50,11 @@
 							</div>
 
 							<h2 class="pb-2 pt-6 text-base font-bold text-ink lg:text-lg">{{ __("Deductions") }}</h2>
-							<div v-for="row in slip.deductions" :key="row.name" class="flex flex-row justify-between gap-3 border-t border-[#EEF0EE] py-2.5 text-sm">
+							<div v-for="row in slip.deductions" :key="row.name" class="flex flex-row justify-between gap-3 border-t border-[#ECEDF5] py-2.5 text-sm">
 								<span class="text-ink">{{ row.salary_component }}</span>
-								<span class="font-semibold text-[#A8231A]">− {{ money(row.amount) }}</span>
+								<span class="font-semibold text-[#B63546]">− {{ money(row.amount) }}</span>
 							</div>
-							<div v-if="!slip.deductions?.length" class="border-t border-[#EEF0EE] py-2.5 text-sm text-gray-700">{{ __("No deductions") }}</div>
+							<div v-if="!slip.deductions?.length" class="border-t border-[#ECEDF5] py-2.5 text-sm text-gray-700">{{ __("No deductions") }}</div>
 							<div class="flex flex-row justify-between gap-3 border-t-2 border-line pt-3 text-sm font-bold text-ink">
 								<span>{{ __("Take-home pay") }}</span><span>{{ money(slip.rounded_total || slip.net_pay) }}</span>
 							</div>

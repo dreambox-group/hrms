@@ -5,7 +5,7 @@
 			<p class="text-[13px] text-gray-700">{{ period }}</p>
 		</div>
 
-		<div v-for="row in rows" :key="row.key" class="border-t border-[#EEF0EE] py-2.5">
+		<div v-for="row in rows" :key="row.key" class="border-t border-[#ECEDF5] py-2.5">
 			<button
 				type="button"
 				class="flex w-full flex-row items-center justify-between gap-3 text-left disabled:cursor-default"
@@ -14,7 +14,7 @@
 				@click="open = open === row.key ? null : row.key"
 			>
 				<span class="flex flex-row items-center gap-2 text-sm text-ink">
-					<span :class="['h-2.5 w-2.5 rounded-full', row.count ? TONE_DOTS[row.tone] : 'bg-[#C9CEC8]']"></span>
+					<span :class="['h-2.5 w-2.5 rounded-full', row.count ? TONE_DOTS[row.tone] : 'bg-[#C3C6D4]']"></span>
 					{{ row.label }}
 				</span>
 				<span class="flex flex-row items-center gap-1.5">
@@ -47,7 +47,7 @@ import { TONE_DOTS } from "@/utils/status"
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
 
-const TONE_TEXT = { warn: "text-[#8A4B00]", bad: "text-[#A8231A]" }
+const TONE_TEXT = { warn: "text-[#7A5500]", bad: "text-[#B63546]" }
 const open = ref(null)
 
 const penalties = computed(() => homeData.data?.penalties || null)

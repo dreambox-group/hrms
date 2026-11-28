@@ -1,13 +1,13 @@
 <template>
 	<div>
-		<div class="flex h-2 overflow-hidden rounded-full bg-[#EEF0EE]">
+		<div class="flex h-2 overflow-hidden rounded-full bg-[#ECEDF5]">
 			<span class="bg-ink" :style="{ width: pct(row.used) }"></span>
-			<span class="bg-[#B86200]" :style="{ width: pct(row.pending) }"></span>
+			<span class="bg-[#EAAA15]" :style="{ width: pct(row.pending) }"></span>
 			<span class="bg-brand-600" :style="{ width: pct(row.left) }"></span>
 		</div>
 		<div class="mt-2 flex flex-row flex-wrap gap-x-4 gap-y-1 text-[13px] text-gray-700">
 			<span class="flex flex-row items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-ink"></span>{{ __("{0} used", [row.used]) }}</span>
-			<span class="flex flex-row items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-[#B86200]"></span>{{ __("{0} waiting", [row.pending]) }}</span>
+			<span class="flex flex-row items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-[#EAAA15]"></span>{{ __("{0} waiting", [row.pending]) }}</span>
 			<span class="flex flex-row items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-brand-600"></span>{{ __("{0} left", [row.left]) }}</span>
 		</div>
 	</div>

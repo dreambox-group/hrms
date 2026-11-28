@@ -22,7 +22,7 @@
 						<span
 							:class="[
 								'flex h-5 w-5 flex-none items-center justify-center rounded-full border-2',
-								form.leave_type === card.name ? 'border-brand-600' : 'border-[#B9C0BA]',
+								form.leave_type === card.name ? 'border-brand-600' : 'border-[#C3C6D4]',
 							]"
 						>
 							<span v-if="form.leave_type === card.name" class="h-2.5 w-2.5 rounded-full bg-brand-600"></span>
@@ -35,7 +35,7 @@
 					</button>
 					<div
 						v-if="needsDocument"
-						class="rounded-xl bg-[#FDEFD6] px-3.5 py-2.5 text-[13px] leading-snug text-[#8A4B00]"
+						class="rounded-xl bg-[#FFF8DB] px-3.5 py-2.5 text-[13px] leading-snug text-[#7A5500]"
 					>
 						{{ __("This leave needs a supporting document, e.g. a doctor's note. Add it below now or later; there is no deadline, and a reminder stays on your Home page until it's uploaded.") }}
 					</div>
@@ -86,20 +86,20 @@
 								{{ cell.day }}
 								<span
 									v-if="cell.holiday"
-									class="absolute bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#A8231A]"
+									class="absolute bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#B63546]"
 								></span>
 							</button>
 						</div>
 						<div v-if="monthHolidays.length" class="mt-2.5 flex flex-col gap-1 text-xs text-gray-700">
 							<div v-for="holiday in monthHolidays" :key="holiday.date" class="flex flex-row items-center gap-1.5">
-								<span class="h-1.5 w-1.5 rounded-full bg-[#A8231A]"></span>
+								<span class="h-1.5 w-1.5 rounded-full bg-[#B63546]"></span>
 								{{ dayjs(holiday.date).format("ddd D MMM") }} · {{ holiday.holiday }}
 							</div>
 						</div>
 					</div>
 					<div
 						v-if="fixedRule"
-						class="rounded-xl bg-[#E4ECFB] px-3.5 py-2.5 text-[13px] leading-snug text-[#1E55B8]"
+						class="rounded-xl bg-[#F0F7FF] px-3.5 py-2.5 text-[13px] leading-snug text-[#0060B9]"
 					>
 						{{ __("{0} is always exactly {1}.", [form.leave_type, fixedLabel(fixedRule)]) }}
 					</div>
@@ -129,7 +129,7 @@
 						v-model="form.description"
 						rows="3"
 						:placeholder="__('e.g. Family event in Bandung')"
-						class="rounded-xl border border-[#D5DAD4] px-3.5 py-3 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
+						class="rounded-xl border border-[#C3C6D4] px-3.5 py-3 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
 					></textarea>
 				</div>
 
@@ -140,7 +140,7 @@
 						<span class="font-normal text-gray-700">{{ __("(optional, can be added later)") }}</span>
 					</span>
 					<label
-						class="flex cursor-pointer flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-[#D5DAD4] px-3 py-3 text-sm font-medium text-ink hover:bg-gray-50"
+						class="flex cursor-pointer flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-[#C3C6D4] px-3 py-3 text-sm font-medium text-ink hover:bg-gray-50"
 					>
 						<FeatherIcon :name="file ? 'file-text' : 'upload'" class="h-4 w-4" />
 						{{ file ? file.name : __("Add a photo or PDF") }}
@@ -161,7 +161,7 @@
 						<select
 							v-if="approverChoices.length > 1"
 							v-model="form.leave_approver"
-							class="mt-1 rounded-lg border-[#D5DAD4] py-1.5 text-sm font-semibold text-ink"
+							class="mt-1 rounded-lg border-[#C3C6D4] py-1.5 text-sm font-semibold text-ink"
 						>
 							<option v-for="choice in approverChoices" :key="choice.name" :value="choice.name">
 								{{ choice.full_name || choice.name }}
@@ -176,7 +176,7 @@
 				</div>
 			</div>
 
-			<div class="flex flex-row gap-3 border-t border-[#EEF0EE] px-5 py-4 lg:px-6">
+			<div class="flex flex-row gap-3 border-t border-[#ECEDF5] px-5 py-4 lg:px-6">
 				<button
 					type="button"
 					class="min-h-[52px] rounded-xl border border-line px-5 text-[15px] font-semibold text-ink hover:bg-gray-50"
@@ -186,7 +186,7 @@
 				</button>
 				<button
 					type="button"
-					class="min-h-[52px] flex-1 rounded-xl bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-200 disabled:text-gray-600"
+					class="min-h-[52px] flex-1 rounded-full bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-200 disabled:text-gray-600"
 					:disabled="!canSend || sending"
 					@click="send"
 				>
@@ -197,7 +197,7 @@
 
 		<!-- sent -->
 		<div v-else class="flex flex-1 flex-col items-center gap-4 px-6 py-12 text-center">
-			<span class="flex h-16 w-16 items-center justify-center rounded-full bg-[#E2F4EA] text-[#0F6B4C]">
+			<span class="flex h-16 w-16 items-center justify-center rounded-full bg-[#D6EBDF] text-[#00854D]">
 				<FeatherIcon name="check" class="h-8 w-8" />
 			</span>
 			<h2 class="text-2xl font-bold text-ink">
@@ -211,7 +211,7 @@
 					<div class="text-[15px] font-semibold text-ink">{{ sent.leave_type }}</div>
 					<div class="mt-0.5 text-[13px] text-gray-700">{{ sent.dates }}</div>
 				</div>
-				<span :class="['rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES.warn]">{{ __("Waiting") }}</span>
+				<span :class="['rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES.warn]">{{ __("Waiting") }}</span>
 			</div>
 			<div class="mt-2 flex flex-row gap-3">
 				<button
@@ -223,7 +223,7 @@
 				</button>
 				<button
 					type="button"
-					class="min-h-[48px] rounded-xl bg-brand-600 px-6 text-[15px] font-semibold text-white hover:bg-brand-700"
+					class="min-h-[48px] rounded-full bg-brand-600 px-6 text-[15px] font-semibold text-white hover:bg-brand-700"
 					@click="emit('close')"
 				>
 					{{ __("Done") }}
@@ -470,12 +470,12 @@ const daysLabel = (n) => (n === 0.5 ? __("half a day") : n === 1 ? __("1 day") :
 const summary = computed(() => {
 	const line1 = `${rangeLabel.value} · ${daysLabel(days.value)}`
 	const grey = { box: "bg-page", text: "text-gray-700" }
-	const amber = { box: "bg-[#FDEFD6]", text: "text-[#8A4B00]" }
-	const green = { box: "bg-[#E2F4EA]", text: "text-[#0F6B4C]" }
+	const amber = { box: "bg-[#FFF8DB]", text: "text-[#7A5500]" }
+	const green = { box: "bg-[#D6EBDF]", text: "text-[#00854D]" }
 	if (!days.value) return { ...grey, line1, line2: __("Only weekend or holiday days, so nothing is counted.") }
 	if (!selectedType.value) return { ...grey, line1, line2: __("Choose a leave type to see your balance.") }
 	if (movesEndDate.value) {
-		const blue = { box: "bg-[#E4ECFB]", text: "text-[#1E55B8]" }
+		const blue = { box: "bg-[#F0F7FF]", text: "text-[#0060B9]" }
 		if (!endDate.data.contract_end_date) return { ...grey, line1, line2: __("No contract end date is set yet. Ask HR.") }
 		const after = endDatePreview.data?.end_date_after
 		return {

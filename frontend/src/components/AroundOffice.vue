@@ -42,7 +42,7 @@ const rows = computed(() => {
 				)
 				.join("; "),
 			icon: "sun",
-			chip: "bg-[#E4ECFB] text-[#1E55B8]",
+			chip: "bg-[#F0F7FF] text-[#0060B9]",
 		})
 	}
 	if (data.birthdays_today?.length) {
@@ -60,7 +60,7 @@ const rows = computed(() => {
 				dayjs(data.next_holiday.holiday_date).isSame(dayjs(), "year") ? "ddd D MMM" : "ddd D MMM YYYY"
 			)}`,
 			icon: "calendar",
-			chip: "bg-[#EEF0EE] text-gray-700",
+			chip: "bg-[#ECEDF5] text-gray-700",
 		})
 	}
 	return list

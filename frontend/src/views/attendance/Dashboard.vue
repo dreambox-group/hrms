@@ -15,7 +15,7 @@
 				<div
 					v-if="viewing"
 					role="status"
-					class="flex flex-row flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#E4ECFB] px-4 py-3 text-[#1E55B8]"
+					class="flex flex-row flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#F0F7FF] px-4 py-3 text-[#0060B9]"
 				>
 					<span class="text-[15px]">{{ __("Showing {0}'s attendance", [viewing.employee_name]) }}</span>
 					<button type="button" class="min-h-[36px] rounded-lg bg-white px-3 text-sm font-semibold text-ink" @click="viewing = null">
@@ -96,14 +96,14 @@
 						<section v-if="selectedDay" class="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<div class="flex flex-row items-center justify-between gap-2">
 								<h2 class="text-base font-bold text-ink lg:text-lg">{{ dayjs(selectedDay.date).format("ddd D MMMM") }}</h2>
-								<span :class="['rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[selectedDay.tone === 'future' ? 'neutral' : selectedDay.tone]]">
+								<span :class="['rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[selectedDay.tone === 'future' ? 'neutral' : selectedDay.tone]]">
 									{{ selectedDay.label }}
 								</span>
 							</div>
 							<div
 								v-for="row in selectedDay.rows"
 								:key="row.key"
-								class="flex flex-row justify-between gap-3 border-b border-[#EEF0EE] pb-2.5 text-sm last:border-0 last:pb-0"
+								class="flex flex-row justify-between gap-3 border-b border-[#ECEDF5] pb-2.5 text-sm last:border-0 last:pb-0"
 							>
 								<span class="text-gray-700">{{ row.key }}</span>
 								<span class="text-right font-semibold text-ink">{{ row.value }}</span>
@@ -167,11 +167,11 @@ const dayjs = inject("$dayjs")
 
 const WEEKDAYS = [__("Mon"), __("Tue"), __("Wed"), __("Thu"), __("Fri"), __("Sat"), __("Sun")]
 const TONE_CELL = {
-	ok: "bg-[#E2F4EA] text-[#0F6B4C]",
-	warn: "bg-[#FDEFD6] text-[#8A4B00]",
-	bad: "bg-[#FCE6E4] text-[#A8231A]",
-	info: "bg-[#E4ECFB] text-[#1E55B8]",
-	neutral: "bg-[#F1F3F0] text-gray-600",
+	ok: "bg-[#D6EBDF] text-[#00854D]",
+	warn: "bg-[#FFF8DB] text-[#7A5500]",
+	bad: "bg-[#FDEFF1] text-[#B63546]",
+	info: "bg-[#F0F7FF] text-[#0060B9]",
+	neutral: "bg-[#ECEDF5] text-gray-600",
 	future: "bg-white text-ink",
 }
 const LEGEND = [

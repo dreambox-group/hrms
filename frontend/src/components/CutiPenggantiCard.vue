@@ -18,7 +18,7 @@
 
 		<div
 			v-if="summary.data.next_expiry"
-			class="rounded-xl bg-[#FDEFD6] px-3.5 py-2.5 text-[13px] leading-snug text-[#8A4B00]"
+			class="rounded-xl bg-[#FFF8DB] px-3.5 py-2.5 text-[13px] leading-snug text-[#7A5500]"
 		>
 			{{
 				__("{0} expires on {1}. Use it with Request leave → {2}.", [
@@ -41,7 +41,7 @@
 		<div
 			v-for="row in shown"
 			:key="row.name"
-			class="flex flex-row items-center gap-3 border-t border-[#EEF0EE] pt-3"
+			class="flex flex-row items-center gap-3 border-t border-[#ECEDF5] pt-3"
 		>
 			<span class="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-xl bg-page">
 				<span class="text-[11px] font-semibold uppercase text-gray-700">{{ dayjs(row.work_from_date).format("MMM") }}</span>
@@ -52,13 +52,13 @@
 				<span class="text-[13px] text-gray-700">{{ rowNote(row) }}</span>
 			</span>
 			<span class="flex flex-col items-end gap-1">
-				<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[rowTone(row)]]">
+				<span :class="['whitespace-nowrap rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[rowTone(row)]]">
 					{{ rowLabel(row) }}
 				</span>
 				<button
 					v-if="row.status === 'Open' && row.docstatus === 0"
 					type="button"
-					class="text-xs font-semibold text-gray-700 hover:text-[#A8231A]"
+					class="text-xs font-semibold text-gray-700 hover:text-[#B63546]"
 					:disabled="withdraw.loading"
 					@click="withdrawRequest(row.name)"
 				>
@@ -84,7 +84,7 @@
 		@didDismiss="formOpen = false"
 	>
 		<div class="flex max-h-[90vh] w-full flex-col overflow-y-auto bg-white">
-			<div class="flex flex-row items-center justify-between border-b border-[#EEF0EE] px-5 py-4">
+			<div class="flex flex-row items-center justify-between border-b border-[#ECEDF5] px-5 py-4">
 				<h1 class="text-xl font-bold text-ink">{{ __("Overtime Submission") }}</h1>
 				<button
 					type="button"

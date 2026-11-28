@@ -10,17 +10,17 @@
 			v-for="row in rows"
 			:key="row.name"
 			:to="{ name: 'LeaveApplicationDetailView', params: { id: row.name } }"
-			class="flex flex-row items-center justify-between gap-3 border-t border-[#EEF0EE] py-3 hover:bg-gray-50"
+			class="flex flex-row items-center justify-between gap-3 border-t border-[#ECEDF5] py-3 hover:bg-gray-50"
 		>
 			<div>
 				<div class="text-[15px] font-medium text-ink">{{ row.leave_type }}</div>
 				<div class="mt-0.5 text-[13px] text-gray-700">{{ row.dates }}</div>
 			</div>
-			<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[row.tone]]">
+			<span :class="['whitespace-nowrap rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[row.tone]]">
 				{{ row.label }}
 			</span>
 		</router-link>
-		<div v-if="myLeaves.fetched && !rows.length" class="border-t border-[#EEF0EE] pt-3 text-sm text-gray-700">
+		<div v-if="myLeaves.fetched && !rows.length" class="border-t border-[#ECEDF5] pt-3 text-sm text-gray-700">
 			{{ __("No leave requests yet.") }}
 		</div>
 	</section>

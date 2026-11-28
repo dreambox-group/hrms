@@ -1,5 +1,24 @@
 @import "frappe-ui/src/style.css";
 
+/* Drea Design System v0.8: Figtree for everything you read, Poppins for page titles */
+:root {
+	--ion-font-family: "Figtree", Roboto, "Segoe UI", system-ui, sans-serif;
+	--drea-font-title: "Poppins", "Figtree", "Segoe UI", system-ui, sans-serif;
+}
+html,
+html body {
+	font-family: var(--ion-font-family) !important;
+}
+h1,
+h2.text-xl,
+h2.text-2xl,
+h2.text-\[21px\],
+.font-title {
+	font-family: var(--drea-font-title);
+	font-weight: 600 !important;
+	letter-spacing: -0.01em;
+}
+
 ion-modal {
 	--height: auto;
 }
@@ -31,7 +50,7 @@ body {
 
 /* Drea One: soft grey page behind white cards */
 ion-content.drea-page {
-	--background: #f4f5f3;
+	--background: #f6f7fb;
 }
 
 /* wide screens: forms and details slide in from the right; phones: full screen */

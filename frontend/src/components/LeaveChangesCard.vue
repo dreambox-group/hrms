@@ -8,11 +8,11 @@
 		<div
 			v-for="row in showAll ? changes.data : changes.data.slice(0, 5)"
 			:key="row.name"
-			class="flex flex-col gap-1 border-t border-[#EEF0EE] py-2.5"
+			class="flex flex-col gap-1 border-t border-[#ECEDF5] py-2.5"
 		>
 			<div class="flex flex-row items-start justify-between gap-3">
 				<span class="text-sm font-semibold text-ink">{{ row.leave_type }} · {{ range(row.from_date, row.to_date) }}</span>
-				<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[TONE[row.status]]]">
+				<span :class="['whitespace-nowrap rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[TONE[row.status]]]">
 					{{ row.status === "Open" ? __("Waiting for HR") : __(row.status) }}
 				</span>
 			</div>
@@ -42,7 +42,7 @@ import { TONE_CLASSES } from "@/utils/status"
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
 
-const TONE = { Open: "warn", Approved: "ok", Rejected: "bad" }
+const TONE = { Open: "warn", Approved: "info", Rejected: "bad" }
 const showAll = ref(false)
 
 const changes = createResource({ url: "hrms.api.employee_app.get_my_leave_changes", auto: true })

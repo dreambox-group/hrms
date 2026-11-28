@@ -18,7 +18,7 @@
 		</template>
 		<button
 			type="button"
-			class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-brand-600 text-[15px] font-semibold text-brand-600 hover:bg-brand-50"
+			class="flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-brand-600 text-[15px] font-semibold text-brand-600 hover:bg-brand-50"
 			@click="openLeaveRequest(router, isDesktop)"
 		>
 			<FeatherIcon name="plus" class="h-4 w-4" />

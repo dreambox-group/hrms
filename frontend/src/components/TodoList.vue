@@ -5,7 +5,7 @@
 				<h3 class="text-base font-bold text-ink lg:text-lg">{{ __("To do") }}</h3>
 				<span
 					v-if="items.length"
-					class="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#C4321F] px-1.5 text-xs font-bold text-white"
+					class="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#D83A52] px-1.5 text-xs font-bold text-white"
 				>
 					{{ items.length }}
 				</span>
@@ -35,7 +35,7 @@
 				<div class="flex min-w-0 flex-col gap-0.5">
 					<div class="flex flex-row flex-wrap items-center gap-2">
 						<span class="text-[15px] font-semibold text-ink">{{ item.who }}</span>
-						<span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', TONE_CLASSES[item.tone]]">
+						<span :class="['rounded px-2 py-0.5 text-xs font-medium', TONE_CLASSES[item.tone]]">
 							{{ item.kind }}
 						</span>
 					</div>
@@ -68,7 +68,7 @@
 
 		<div
 			v-if="!items.length"
-			class="rounded-xl border border-dashed border-[#D5DAD4] p-5 text-center text-sm text-gray-700"
+			class="rounded-xl border border-dashed border-[#C3C6D4] p-5 text-center text-sm text-gray-700"
 		>
 			{{ __("You are all caught up. New approvals and reminders will show up here.") }}
 		</div>
@@ -229,7 +229,7 @@ const items = computed(() => {
 			key: `other-${row.doctype}`,
 			who: row.label,
 			initials: String(row.count),
-			avatar: "#EEF0EE",
+			avatar: "#ECEDF5",
 			kind: __("Waiting for you"),
 			tone: "warn",
 			title: row.count == 1 ? __("1 request to review") : __("{0} requests to review", [row.count]),

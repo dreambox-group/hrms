@@ -47,7 +47,7 @@
 									? 'bg-brand-600 font-bold text-white'
 									: cell.disabled
 										? 'text-gray-400'
-										: 'bg-[#EEF0EE] font-semibold text-ink hover:bg-gray-200',
+										: 'bg-[#ECEDF5] font-semibold text-ink hover:bg-gray-200',
 							]"
 							@click="toggle(cell.date)"
 						>
@@ -58,7 +58,7 @@
 						{{ holidays.loading ? __("Loading your holidays…") : __("Only your holidays and days off can be picked.") }}
 					</p>
 				</div>
-				<div v-if="picked.length" class="rounded-xl bg-[#E4ECFB] px-3.5 py-2.5 text-[13px] leading-snug text-[#1E55B8]">
+				<div v-if="picked.length" class="rounded-xl bg-[#F0F7FF] px-3.5 py-2.5 text-[13px] leading-snug text-[#0060B9]">
 					<div class="font-semibold">
 						{{ picked.length == 1 ? __("If approved: 1 day off") : __("If approved: {0} days off", [picked.length]) }}
 					</div>
@@ -76,7 +76,7 @@
 					v-model="reason"
 					rows="3"
 					:placeholder="__('e.g. Event setup on Saturday and Sunday for client X')"
-					class="rounded-xl border border-[#D5DAD4] px-3.5 py-3 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
+					class="rounded-xl border border-[#C3C6D4] px-3.5 py-3 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
 				></textarea>
 			</div>
 
@@ -86,7 +86,7 @@
 
 			<button
 				type="button"
-				class="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
+				class="flex min-h-[52px] w-full items-center justify-center rounded-full bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
 				:disabled="!picked.length || !reason.trim() || submit.loading"
 				@click="send"
 			>
@@ -95,7 +95,7 @@
 		</template>
 
 		<div v-else class="flex flex-col items-center gap-3 py-6 text-center">
-			<span class="flex h-12 w-12 items-center justify-center rounded-full bg-[#E2F4EA] text-[#0F6B4C]">
+			<span class="flex h-12 w-12 items-center justify-center rounded-full bg-[#D6EBDF] text-[#00854D]">
 				<FeatherIcon name="check" class="h-6 w-6" />
 			</span>
 			<h2 class="text-xl font-bold text-ink">{{ __("Sent") }}</h2>

@@ -17,7 +17,7 @@ add_to_apps_screen = [
 	{
 		"name": "hrms",
 		"logo": "/assets/hrms/images/dreambox-logo.png",
-		"title": "Frappe HR",
+		"title": "Drea HR",
 		"route": app_home,
 		"setup_wizard_text": "Let's build a workplace your team will love.",
 		"has_permission": "hrms.hr.utils.check_app_permission",
@@ -34,6 +34,8 @@ app_include_js = [
 	"hrms.bundle.js",
 	# not bundled, so an image can change it without rebuilding the desk assets
 	"/assets/hrms/js/dreambox_brand.js",
+	# calm error message instead of Frappe's "Server Error" with the database error (design system)
+	"/assets/hrms/js/drea_errors.js?v=2026112502",
 	# tutorials (12 Nov 2026): driver.js 1.3.6, MIT, vendored as is, then the tours
 	"/assets/hrms/js/vendor/driver.js.iife.js",
 	# the HR desk tutorials (hr_tours.js = engine, tours/ = what each page says). ?v=: the browser
@@ -44,7 +46,13 @@ app_include_js = [
 	"/assets/hrms/js/tours/leaves.js?v=2026112404",
 	"/assets/hrms/js/tours/attendance.js?v=2026112404",
 ]
-app_include_css = ["hrms.bundle.css", "/assets/hrms/css/vendor/driver.css"]
+# drea_desk.css: the Drea Design System on the desk (blue actions, Figtree/Poppins, round buttons).
+# Not bundled, so ?v= must rise when it changes (browsers keep /assets files 12 hours).
+app_include_css = [
+	"hrms.bundle.css",
+	"/assets/hrms/css/vendor/driver.css",
+	"/assets/hrms/css/drea_desk.css?v=2026112503",
+]
 code_only_modules = {"HR": ["HR Setup"]}
 app_include_icons = ["/assets/hrms/icons/module-icons.svg"]
 

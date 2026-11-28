@@ -8,7 +8,7 @@
 			</span>
 			<span
 				v-if="details.days_moved"
-				class="rounded-xl bg-[#E4ECFB] px-3 py-2 text-[13px] leading-snug text-[#1E55B8]"
+				class="rounded-xl bg-[#F0F7FF] px-3 py-2 text-[13px] leading-snug text-[#0060B9]"
 			>
 				{{
 					details.days_moved == 1

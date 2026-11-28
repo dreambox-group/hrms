@@ -76,7 +76,7 @@
 					</button>
 				</div>
 			</div>
-			<div v-if="newFrom" class="rounded-xl bg-[#E4ECFB] px-3.5 py-2.5 text-[13px] leading-snug text-[#1E55B8]">
+			<div v-if="newFrom" class="rounded-xl bg-[#F0F7FF] px-3.5 py-2.5 text-[13px] leading-snug text-[#0060B9]">
 				{{ __("Now: {0}. New: {1}.", [range(doc.from_date, doc.to_date), range(newFrom, newTo || newFrom)]) }}
 			</div>
 		</div>
@@ -91,14 +91,14 @@
 				v-model="reason"
 				rows="3"
 				:placeholder="__('e.g. The family event moved to the next week')"
-				class="rounded-xl border border-[#D5DAD4] px-3.5 py-3 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
+				class="rounded-xl border border-[#C3C6D4] px-3.5 py-3 text-[15px] text-ink focus:border-brand-600 focus:ring-brand-600"
 			></textarea>
 		</div>
 
 		<!-- the checklist: talk to HR before sending -->
-		<fieldset class="flex flex-col gap-2 rounded-xl bg-[#FDEFD6] p-3.5">
+		<fieldset class="flex flex-col gap-2 rounded-xl bg-[#FFF8DB] p-3.5">
 			<legend class="sr-only">{{ __("Before you send") }}</legend>
-			<div class="text-sm font-semibold text-[#8A4B00]">{{ __("Before you send") }}</div>
+			<div class="text-sm font-semibold text-[#7A5500]">{{ __("Before you send") }}</div>
 			<label class="flex cursor-pointer flex-row items-start gap-3 text-sm text-ink">
 				<input v-model="informedHr" type="checkbox" class="mt-0.5 h-5 w-5 rounded text-brand-600 focus:ring-brand-600" />
 				<span>{{ __("I have already told HR about this change (chat or in person)") }}</span>
@@ -113,7 +113,7 @@
 
 		<button
 			type="button"
-			class="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-brand-600 text-[15px] font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
+			class="flex min-h-[48px] w-full items-center justify-center rounded-full bg-brand-600 text-[15px] font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
 			:disabled="!ready || submit.loading"
 			@click="send"
 		>

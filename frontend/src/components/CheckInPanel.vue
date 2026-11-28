@@ -9,7 +9,7 @@
 			<div class="flex flex-row items-center justify-between gap-2.5 lg:justify-start">
 				<div class="flex flex-row items-center gap-2.5">
 					<span class="text-xs font-bold uppercase tracking-[0.08em] text-gray-700">{{ __("Today") }}</span>
-					<span :class="['rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[today.tone]]">
+					<span :class="['rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[today.tone]]">
 						{{ today.badge }}
 					</span>
 				</div>
@@ -20,7 +20,7 @@
 			<div class="flex flex-row items-center gap-3">
 				<span
 					v-if="today.done"
-					class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#E2F4EA] text-[#0F6B4C]"
+					class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#D6EBDF] text-[#00854D]"
 				>
 					<FeatherIcon name="check" class="h-5 w-5" />
 				</span>
@@ -44,8 +44,8 @@
 				v-if="canCheckIn && today.showButton"
 				type="button"
 				:class="[
-					'flex min-h-[54px] items-center justify-center gap-2.5 rounded-xl px-7 text-base font-semibold text-white transition active:scale-[0.98] lg:min-h-[52px]',
-					today.tone === 'warn' ? 'bg-[#B86200] hover:bg-[#9A5200]' : 'bg-brand-600 hover:bg-brand-700',
+					'flex min-h-[54px] items-center justify-center gap-2.5 rounded-full px-7 text-base font-semibold text-white transition active:scale-[0.98] lg:min-h-[52px]',
+					'bg-brand-600 hover:bg-brand-700',
 				]"
 				:disabled="checkins.list.loading"
 				@click="openCheckin"
@@ -102,7 +102,7 @@
 				</div>
 				<div v-else class="flex flex-row items-center justify-between text-sm">
 					<span class="text-gray-700">{{ today.shift || __("Location") }}</span>
-					<span :class="['font-semibold', locationFound ? 'text-[#0F6B4C]' : 'text-gray-700']">
+					<span :class="['font-semibold', locationFound ? 'text-[#00854D]' : 'text-gray-700']">
 						{{ locationFound ? __("Location found") : locationStatus || __("Finding your location…") }}
 					</span>
 				</div>
@@ -111,7 +111,7 @@
 			<!-- an office shift checked in from too far away: allowed with a reason, shown to supervisors and HR -->
 			<div
 				v-if="outsideOffice"
-				class="flex flex-col gap-3 rounded-xl border border-[#F2C77C] bg-[#FDEFD6] p-3.5 text-[#8A4B00]"
+				class="flex flex-col gap-3 rounded-xl border border-[#F5C94A] bg-[#FFF8DB] p-3.5 text-[#7A5500]"
 				role="alert"
 			>
 				<div>
@@ -131,17 +131,17 @@
 						:aria-checked="outsideReason === option"
 						:class="[
 							'flex min-h-[48px] items-center gap-3 rounded-xl border-2 bg-white px-3.5 text-left text-[15px] font-semibold text-ink',
-							outsideReason === option ? 'border-[#B86200]' : 'border-transparent',
+							outsideReason === option ? 'border-[#EAAA15]' : 'border-transparent',
 						]"
 						@click="outsideReason = option"
 					>
 						<span
 							:class="[
 								'flex h-5 w-5 flex-none items-center justify-center rounded-full border-2',
-								outsideReason === option ? 'border-[#B86200]' : 'border-[#B9C0BA]',
+								outsideReason === option ? 'border-[#EAAA15]' : 'border-[#C3C6D4]',
 							]"
 						>
-							<span v-if="outsideReason === option" class="h-2.5 w-2.5 rounded-full bg-[#B86200]"></span>
+							<span v-if="outsideReason === option" class="h-2.5 w-2.5 rounded-full bg-[#EAAA15]"></span>
 						</span>
 						{{ option }}
 					</button>
@@ -152,14 +152,14 @@
 
 			<div
 				v-if="today.tone === 'warn'"
-				class="rounded-xl bg-[#FDEFD6] px-3 py-2.5 text-sm text-[#8A4B00]"
+				class="rounded-xl bg-[#FFF8DB] px-3 py-2.5 text-sm text-[#7A5500]"
 			>
 				{{ __("This check-in counts as late.") }}
 			</div>
 
 			<button
 				type="button"
-				class="flex min-h-[54px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
+				class="flex min-h-[54px] w-full items-center justify-center rounded-full bg-brand-600 text-base font-semibold text-white hover:bg-brand-700 disabled:bg-gray-300 disabled:text-gray-600"
 				:disabled="
 					(selfieRequired && !selfie) ||
 					(locationRequired && !locationFound) ||

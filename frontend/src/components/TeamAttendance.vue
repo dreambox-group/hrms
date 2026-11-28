@@ -23,7 +23,7 @@
 				<tr
 					v-for="row in team.data || []"
 					:key="row.employee"
-					:class="['cursor-pointer border-b border-[#EEF0EE] last:border-0 hover:bg-page', viewing === row.employee ? 'bg-brand-50' : '']"
+					:class="['cursor-pointer border-b border-[#ECEDF5] last:border-0 hover:bg-page', viewing === row.employee ? 'bg-brand-50' : '']"
 					@click="emit('select', row)"
 				>
 					<th scope="row" class="py-2.5 text-left font-normal">
@@ -43,7 +43,7 @@
 					<td
 						v-for="kind in KINDS"
 						:key="kind.key"
-						:class="['py-2.5 text-center text-[15px]', row.counts[kind.key] && kind.alert ? 'font-bold text-[#A8231A]' : 'font-semibold text-ink']"
+						:class="['py-2.5 text-center text-[15px]', row.counts[kind.key] && kind.alert ? 'font-bold text-[#B63546]' : 'font-semibold text-ink']"
 					>
 						{{ row.counts[kind.key] }}
 					</td>
@@ -58,7 +58,7 @@
 				:key="row.employee"
 				type="button"
 				:aria-pressed="viewing === row.employee"
-				:class="['flex flex-col gap-2 border-t border-[#EEF0EE] py-3 text-left', viewing === row.employee ? 'bg-brand-50' : '']"
+				:class="['flex flex-col gap-2 border-t border-[#ECEDF5] py-3 text-left', viewing === row.employee ? 'bg-brand-50' : '']"
 				@click="emit('select', row)"
 			>
 				<span class="flex flex-row items-center gap-2.5">
@@ -74,7 +74,7 @@
 					<span
 						v-for="kind in KINDS"
 						:key="kind.key"
-						:class="['rounded-full px-2 py-0.5 text-xs font-semibold', row.counts[kind.key] ? TONE_CLASSES[kind.tone] : 'bg-[#F6F7F5] text-gray-500']"
+						:class="['rounded px-2 py-0.5 text-xs font-medium', row.counts[kind.key] ? TONE_CLASSES[kind.tone] : 'bg-[#F6F7FB] text-gray-500']"
 					>
 						{{ kind.label }} {{ row.counts[kind.key] }}
 					</span>

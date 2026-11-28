@@ -1,7 +1,7 @@
 <template>
 	<ion-modal class="side-panel" :is-open="leaveRequestOpen" @didDismiss="leaveRequestOpen = false">
 		<div class="flex h-full flex-col bg-white">
-			<div class="flex flex-row items-center justify-between border-b border-[#EEF0EE] px-6 py-4">
+			<div class="flex flex-row items-center justify-between border-b border-[#ECEDF5] px-6 py-4">
 				<h1 class="text-xl font-bold text-ink">{{ __("Request leave") }}</h1>
 				<button
 					type="button"

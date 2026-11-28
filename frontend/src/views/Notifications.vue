@@ -25,7 +25,7 @@
 						:key="item.name"
 						type="button"
 						:class="[
-							'flex w-full flex-row items-start gap-3 border-b border-[#F1F3F0] px-4 py-3.5 text-left last:border-0 hover:bg-gray-50',
+							'flex w-full flex-row items-start gap-3 border-b border-[#ECEDF5] px-4 py-3.5 text-left last:border-0 hover:bg-gray-50',
 							item.read ? 'bg-white' : 'bg-brand-50',
 						]"
 						@click="openItem(item)"

@@ -8,7 +8,7 @@
 			<select
 				v-model="person"
 				:aria-label="__('Person')"
-				class="min-h-[40px] rounded-xl border border-[#D5DAD4] bg-white px-3 text-sm text-ink focus:border-brand-600 focus:ring-brand-600"
+				class="min-h-[40px] rounded-xl border border-[#C3C6D4] bg-white px-3 text-sm text-ink focus:border-brand-600 focus:ring-brand-600"
 			>
 				<option value="">{{ __("Everyone") }}</option>
 				<option v-for="row in history.data?.employees || []" :key="row.employee" :value="row.employee">
@@ -17,7 +17,7 @@
 			</select>
 		</div>
 
-		<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-1 overflow-x-auto rounded-xl bg-[#F1F3F0] p-1">
+		<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-2 overflow-x-auto p-0.5">
 			<button
 				v-for="tab in TABS"
 				:key="tab.value"
@@ -25,8 +25,8 @@
 				role="tab"
 				:aria-selected="status === tab.value"
 				:class="[
-					'min-h-[36px] whitespace-nowrap rounded-lg px-3.5 text-sm',
-					status === tab.value ? 'bg-white font-semibold text-ink shadow-sm' : 'font-medium text-gray-700',
+					'min-h-[36px] whitespace-nowrap rounded-full px-3.5 text-sm',
+					status === tab.value ? 'bg-brand-600 font-semibold text-white' : 'bg-white font-medium text-ink ring-1 ring-inset ring-[#C3C6D4] hover:bg-[#ECEDF5]',
 				]"
 				@click="status = tab.value"
 			>
@@ -34,7 +34,7 @@
 			</button>
 		</div>
 
-		<div v-for="row in shown" :key="row.name" class="border-t border-[#EEF0EE] pt-3">
+		<div v-for="row in shown" :key="row.name" class="border-t border-[#ECEDF5] pt-3">
 			<button
 				type="button"
 				class="flex w-full flex-row items-center gap-3 text-left"
@@ -51,7 +51,7 @@
 					<span class="truncate text-sm font-semibold text-ink">{{ row.employee_name }} · {{ row.label || row.leave_type }}</span>
 					<span class="text-[13px] text-gray-700">{{ dates(row) }}</span>
 				</span>
-				<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[LEAVE_STATUS_TONE[row.status] || 'neutral']]">
+				<span :class="['whitespace-nowrap rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[LEAVE_STATUS_TONE[row.status] || 'neutral']]">
 					{{ __(LEAVE_STATUS_LABEL[row.status] || row.status) }}
 				</span>
 			</button>
@@ -65,7 +65,7 @@
 			</div>
 		</div>
 
-		<div v-if="history.fetched && !rows.length" class="rounded-xl border border-dashed border-[#D5DAD4] p-5 text-center text-sm text-gray-700">
+		<div v-if="history.fetched && !rows.length" class="rounded-xl border border-dashed border-[#C3C6D4] p-5 text-center text-sm text-gray-700">
 			{{ __("No leave here.") }}
 		</div>
 		<button v-if="rows.length > shown.length || showAll" type="button" class="self-start pt-1 text-sm font-semibold text-brand-600" @click="showAll = !showAll">

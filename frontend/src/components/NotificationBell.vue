@@ -10,7 +10,7 @@
 			<FeatherIcon name="bell" class="h-5 w-5" />
 			<span
 				v-if="unread"
-				class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#C4321F] px-1 text-[11px] font-bold text-white"
+				class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#D83A52] px-1 text-[11px] font-bold text-white"
 			>
 				{{ unread > 99 ? "99+" : unread }}
 			</span>
@@ -39,7 +39,7 @@
 						:key="item.name"
 						type="button"
 						:class="[
-							'flex w-full gap-3 border-b border-[#F1F3F0] px-4 py-3 text-left hover:bg-gray-50',
+							'flex w-full gap-3 border-b border-[#ECEDF5] px-4 py-3 text-left hover:bg-gray-50',
 							item.read ? 'bg-white' : 'bg-brand-50',
 						]"
 						@click="openItem(item)"

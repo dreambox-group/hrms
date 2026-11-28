@@ -21,7 +21,7 @@
 							v-if="years.length > 1"
 							role="tablist"
 							:aria-label="__('Year')"
-							class="flex flex-row gap-1 rounded-xl bg-[#F1F3F0] p-1"
+							class="flex flex-row overflow-hidden rounded-full border border-[#C3C6D4] bg-white"
 						>
 							<button
 								v-for="year in years"
@@ -30,8 +30,8 @@
 								role="tab"
 								:aria-selected="activeYear === year"
 								:class="[
-									'min-h-[36px] rounded-lg px-3.5 text-sm',
-									activeYear === year ? 'bg-white font-semibold text-ink shadow-sm' : 'font-medium text-gray-700',
+									'min-h-[36px] px-3.5 text-sm',
+									activeYear === year ? 'bg-brand-600 font-semibold text-white' : 'font-medium text-gray-700 hover:bg-[#ECEDF5]',
 								]"
 								@click="activeYear = year"
 							>
@@ -64,7 +64,7 @@
 
 					<div
 						v-if="slips.fetched && !slips.data?.length"
-						class="rounded-xl border border-dashed border-[#D5DAD4] p-6 text-center text-sm leading-relaxed text-gray-700"
+						class="rounded-xl border border-dashed border-[#C3C6D4] p-6 text-center text-sm leading-relaxed text-gray-700"
 					>
 						{{ __("No salary slips yet. Your slip appears here once payroll for the period is approved.") }}
 					</div>

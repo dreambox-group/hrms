@@ -22,7 +22,7 @@
 		<div
 			v-for="group in groups"
 			:key="group.status"
-			class="flex flex-col gap-2 border-t border-[#EEF0EE] py-3 lg:flex-row lg:items-start lg:gap-3"
+			class="flex flex-col gap-2 border-t border-[#ECEDF5] py-3 lg:flex-row lg:items-start lg:gap-3"
 		>
 			<div class="flex flex-row items-center gap-2 lg:w-[180px] lg:flex-none lg:pt-2">
 				<span :class="['h-2 w-2 rounded-full', TONE_DOTS[group.tone]]"></span>
@@ -49,7 +49,7 @@
 			</div>
 		</div>
 
-		<div v-if="quiet.length" class="border-t border-[#EEF0EE] pt-3">
+		<div v-if="quiet.length" class="border-t border-[#ECEDF5] pt-3">
 			<button
 				type="button"
 				class="flex flex-row items-center gap-2 py-1.5 text-sm font-medium text-gray-700"
@@ -63,7 +63,7 @@
 				<span
 					v-for="row in quiet"
 					:key="row.employee"
-					class="rounded-full bg-[#EEF0EE] px-3 py-1.5 text-sm text-gray-700"
+					class="rounded-full bg-[#ECEDF5] px-3 py-1.5 text-sm text-gray-700"
 				>
 					{{ row.employee_name }}<template v-if="row.status === 'Holiday'"> · {{ __("holiday") }}</template>
 				</span>
@@ -86,9 +86,9 @@ const team = computed(() => homeData.data?.team)
 const showQuiet = ref(false)
 
 const TONE_TEXT = {
-	ok: "text-[#0F6B4C]",
-	warn: "text-[#8A4B00]",
-	info: "text-[#1E55B8]",
+	ok: "text-[#00854D]",
+	warn: "text-[#7A5500]",
+	info: "text-[#0060B9]",
 	neutral: "text-gray-700",
 }
 

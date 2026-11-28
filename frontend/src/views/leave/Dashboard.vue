@@ -3,7 +3,7 @@
 		<template #actions>
 			<button
 				type="button"
-				class="flex min-h-[44px] items-center gap-2 rounded-xl bg-brand-600 px-5 text-[15px] font-semibold text-white hover:bg-brand-700"
+				class="flex min-h-[44px] items-center gap-2 rounded-full bg-brand-600 px-5 text-[15px] font-semibold text-white hover:bg-brand-700"
 				data-tour="request-leave"
 				@click="openLeaveRequest(router, isDesktop)"
 			>
@@ -64,7 +64,7 @@
 						<section data-tour="my-requests" class="flex w-full flex-col gap-3 rounded-2xl border border-line bg-white p-4 lg:p-6">
 							<div class="flex flex-row flex-wrap items-center justify-between gap-3">
 								<h2 class="text-base font-bold text-ink lg:text-lg">{{ __("My requests") }}</h2>
-								<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-1 overflow-x-auto rounded-xl bg-[#F1F3F0] p-1">
+								<div role="tablist" :aria-label="__('Filter')" class="flex flex-row gap-2 overflow-x-auto p-0.5">
 									<button
 										v-for="tab in TABS"
 										:key="tab.value"
@@ -72,8 +72,8 @@
 										role="tab"
 										:aria-selected="activeTab === tab.value"
 										:class="[
-											'min-h-[36px] whitespace-nowrap rounded-lg px-3.5 text-sm',
-											activeTab === tab.value ? 'bg-white font-semibold text-ink shadow-sm' : 'font-medium text-gray-700',
+											'min-h-[36px] whitespace-nowrap rounded-full px-3.5 text-sm',
+											activeTab === tab.value ? 'bg-brand-600 font-semibold text-white' : 'bg-white font-medium text-ink ring-1 ring-inset ring-[#C3C6D4] hover:bg-[#ECEDF5]',
 										]"
 										@click="activeTab = tab.value"
 									>
@@ -101,13 +101,13 @@
 									<span class="text-[15px] font-semibold text-ink">{{ row.leave_type }}</span>
 									<span class="text-[13px] text-gray-700">{{ row.dates }}</span>
 								</span>
-								<span :class="['whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[row.tone]]">
+								<span :class="['whitespace-nowrap rounded px-2.5 py-0.5 text-xs font-medium', TONE_CLASSES[row.tone]]">
 									{{ row.label }}
 								</span>
 							</button>
 							<div
 								v-if="allLeaves.fetched && !rows.length"
-								class="rounded-xl border border-dashed border-[#D5DAD4] p-6 text-center text-sm text-gray-700"
+								class="rounded-xl border border-dashed border-[#C3C6D4] p-6 text-center text-sm text-gray-700"
 							>
 								{{ __("No requests here.") }}
 							</div>
@@ -141,12 +141,12 @@
 							<div
 								v-for="holiday in shownHolidays"
 								:key="holiday.holiday_date"
-								class="flex flex-row justify-between gap-3 border-t border-[#EEF0EE] py-2.5 text-sm"
+								class="flex flex-row justify-between gap-3 border-t border-[#ECEDF5] py-2.5 text-sm"
 							>
 								<span class="text-ink">{{ holiday.description }}</span>
 								<span class="whitespace-nowrap font-semibold text-ink">{{ holidayDate(holiday.holiday_date) }}</span>
 							</div>
-							<div v-if="holidays.fetched && !upcomingHolidays.length" class="border-t border-[#EEF0EE] pt-3 text-sm text-gray-700">
+							<div v-if="holidays.fetched && !upcomingHolidays.length" class="border-t border-[#ECEDF5] pt-3 text-sm text-gray-700">
 								{{ __("No upcoming holidays.") }}
 							</div>
 						</section>
